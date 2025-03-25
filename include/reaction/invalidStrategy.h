@@ -5,41 +5,35 @@
 
 namespace reaction
 {
-    template <typename Type, typename... Args>
+    template <typename TriggerPolicy, typename InvalidStrategy, typename Type, typename... Args>
     class DataSource;
-
-    enum class InvalidStrategyType
-    {
-        DirectFailure,
-        UseLastValidValue,
-        ContinueWithExpression
-    };
 
     struct DirectFailureStrategy
     {
-        template <typename... Args>
-        static void handleInvalid(std::shared_ptr<ObserverNode> node, Args &&...args)
+    protected:
+        template <typename NodeType>
+        void handleInvalid(std::shared_ptr<NodeType> node)
         {
             ObserverGraph::getInstance().closeNode(node);
         }
     };
 
-    class UseLastValidValueStrategy
+    struct KeepCalculateStrategy
     {
-    public:
-        template <typename... Args>
-        static void handleInvalid(std::shared_ptr<ObserverNode> node, Args &&...args)
-        {
-            auto ptr = std::make_shared<DataSource<std::decay_t<Args>...>>(std::forward<Args>(args)...);
-            ObserverGraph::getInstance().moveNode(ptr, node);
-        }
+    protected:
+        template <typename NodeType>
+        void handleInvalid(std::shared_ptr<NodeType> node) {}
     };
 
-    class ContinueWithExpressionStrategy
+    struct UseLastValidValueStrategy
     {
-    public:
-        template <typename... Args>
-        static void handleInvalid(std::shared_ptr<ObserverNode> node, Args &&...args) {}
+    protected:
+        template <typename DataSourcePtr>
+        void handleInvalid(DataSourcePtr ds)
+        {
+            auto val = ds->get();
+            ds->set([=](){ return val;});
+        }
     };
 } // namespace reaction
 

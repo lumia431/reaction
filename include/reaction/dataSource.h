@@ -4,50 +4,42 @@
 
 #include "reaction/invalidStrategy.h"
 #include "reaction/expression.h"
+#include <atomic>
 
 namespace reaction
 {
-    enum class TriggerMode
-    {
-        Always,
-        OnValueChange,
-        Periodic,
-        Threshold
-    };
-
+    template <typename TriggerPolicy, typename InvalidStrategy>
     class ActionSource;
 
-    template <typename T>
+    template <typename... Args>
     struct SourceTraits
     {
-        using ExprType = Expression<T>;
+        using ExprType = Expression<Args...>;
     };
 
-    template <>
-    struct SourceTraits<ActionSource>
+    template <typename TriggerPolicy, typename InvalidStrategy, typename Type>
+    struct SourceTraits<DataSource<TriggerPolicy, InvalidStrategy, Type>>
     {
-        using ExprType = Expression<void>;
+        using ExprType = Expression<TriggerPolicy, Type>;
     };
 
-    template <typename T>
-    struct SourceTraits<DataSource<T>>
+    template <typename TriggerPolicy, typename InvalidStrategy, typename Type, typename... Args>
+    struct SourceTraits<DataSource<TriggerPolicy, InvalidStrategy, Type, Args...>>
     {
-        using ExprType = Expression<T>;
+        using ExprType = Expression<TriggerPolicy, Type, Args...>;
     };
 
-    template <typename Fun, typename... Args>
-    struct SourceTraits<DataSource<Fun, Args...>>
+    template <typename TriggerPolicy, typename InvalidStrategy>
+    struct SourceTraits<ActionSource<TriggerPolicy, InvalidStrategy>>
     {
-        using ExprType = Expression<Fun, Args...>;
+        using ExprType = Expression<TriggerPolicy, void>;
     };
 
-    template <typename Derived>
-    class Source : public SourceTraits<Derived>::ExprType
+    template <typename Derived, typename InvalidStrategy>
+    class Source : public SourceTraits<Derived>::ExprType, public InvalidStrategy
     {
     public:
-        Source() = default;
-        template <typename T, typename... A>
-        explicit Source(T &&t, A &&...args) : SourceTraits<Derived>::ExprType(std::forward<T>(t), std::forward<A>(args)...) {}
+        using SourceTraits<Derived>::ExprType::Expression;
 
         template <typename T, typename... A>
         bool set(T &&t, A &&...args)
@@ -55,36 +47,47 @@ namespace reaction
             return this->setSource(std::forward<T>(t), std::forward<A>(args)...);
         }
 
-        void setTriggerMode(TriggerMode mode)
+        void close()
         {
-            m_mode = mode;
+            ObserverGraph::getInstance().closeNode(this->getShared());
         }
 
-        void addTimer(std::chrono::milliseconds interval)
+    private:
+        void addWeakRef()
         {
-            m_taskID = HierarchicalTimerWheel::getInstance().addTask(interval, [this]()
-                                                                     { this->evaluate(); });
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_weakRefCount++;
         }
 
-        void removeTimer()
+        void releaseWeakRef()
         {
-            HierarchicalTimerWheel::getInstance().removeTask(m_taskID);
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (--m_weakRefCount == 0)
+            {
+                if constexpr (std::is_same_v<InvalidStrategy, UseLastValidValueStrategy>)
+                {
+                    this->handleInvalid(static_cast<Derived *>(this));
+                }
+                else
+                {
+                    this->handleInvalid(this->getShared());
+                }
+            }
         }
 
-    protected:
-        uint64_t m_taskID = 0;
-        TriggerMode m_mode = TriggerMode::Always;
+        template <typename T>
+        friend class DataWeakRef;
+
+        std::atomic<int> m_weakRefCount{0};
+        std::mutex m_mutex;
     };
 
-    template <typename Type, typename... Args>
-    class DataSource : public Source<DataSource<Type, Args...>>
+    template <typename TriggerPolicy, typename InvalidStrategy, typename Type, typename... Args>
+    class DataSource : public Source<DataSource<TriggerPolicy, InvalidStrategy, Type, Args...>, InvalidStrategy>
     {
     public:
-        using Strategy = DirectFailureStrategy;
-
-        DataSource() = default;
-
-        using Source<DataSource<Type, Args...>>::Source;
+        using Source<DataSource<TriggerPolicy, InvalidStrategy, Type, Args...>, InvalidStrategy>::Source;
+        using InvStrategy = InvalidStrategy;
 
         template <typename T>
             requires(!std::is_const_v<Type>)
@@ -93,18 +96,6 @@ namespace reaction
             this->updateValue(std::forward<T>(t));
             this->notifyObservers(get() != t);
             return *this;
-        }
-
-        void setInvalidStrategy(InvalidStrategyType strategy)
-        {
-            if (strategy == InvalidStrategyType::UseLastValidValue)
-            {
-                using Strategy = UseLastValidValueStrategy;
-            }
-            else if (strategy == InvalidStrategyType::ContinueWithExpression)
-            {
-                using Strategy = ContinueWithExpressionStrategy;
-            }
         }
 
         auto get()
@@ -116,88 +107,87 @@ namespace reaction
         {
             return this->evaluate();
         }
-
-        void close()
-        {
-            Strategy::handleInvalid(this->getShared(), get());
-        }
-
-    protected:
-        void valueChanged(bool changed) override
-        {
-            if (this->m_mode == TriggerMode::Always || (this->m_mode == TriggerMode::OnValueChange && changed))
-            {
-                auto lastVal = get();
-                auto newVal = this->evaluate();
-                this->updateValue(newVal);
-                this->notifyObservers(lastVal != newVal);
-            }
-            else if (this->m_mode == TriggerMode::Threshold)
-            {
-                this->updateValue(this->evaluate(true));
-                this->notifyObservers();
-            }
-        }
     };
 
-    class ActionSource : public Source<ActionSource>
+    template <typename TriggerPolicy, typename InvalidStrategy>
+    class ActionSource : public Source<ActionSource<TriggerPolicy, InvalidStrategy>, InvalidStrategy>
     {
     public:
-        using Strategy = DirectFailureStrategy;
-        ActionSource() = default;
-        using Source<ActionSource>::Source;
+        using Source<ActionSource<TriggerPolicy, InvalidStrategy>, InvalidStrategy>::Source;
+        using InvStrategy = InvalidStrategy;
+    };
 
-        void setInvalidStrategy(InvalidStrategyType strategy)
-        {
-            if (strategy == InvalidStrategyType::ContinueWithExpression)
-            {
-                using Strategy = ContinueWithExpressionStrategy;
-            }
-        }
-
-        void close()
-        {
-            Strategy::handleInvalid(this->getShared());
-        }
-
-    protected:
-        void valueChanged(bool changed) override
-        {
-            if (this->m_mode == TriggerMode::Always || (this->m_mode == TriggerMode::OnValueChange && changed))
-            {
-                this->evaluate();
-            }
-            else if (this->m_mode == TriggerMode::Threshold)
-            {
-                this->evaluate(true);
-            }
-        }
+    template <typename TriggerPolicy, typename InvalidStrategy, typename Type>
+    class FieldSource : public DataSource<TriggerPolicy, InvalidStrategy, Type>
+    {
+    public:
     };
 
     template <typename DataType>
     class DataWeakRef
     {
     public:
-        DataWeakRef(std::shared_ptr<DataType> ptr) : m_weakPtr(ptr) {}
+        using InvStrategy = typename DataType::InvStrategy;
+
+        DataWeakRef(std::shared_ptr<DataType> ptr) : m_weakPtr(ptr)
+        {
+            if (auto p = m_weakPtr.lock())
+                p->addWeakRef();
+        }
+
+        ~DataWeakRef()
+        {
+            if (auto p = m_weakPtr.lock())
+                p->releaseWeakRef();
+        }
+
+        DataWeakRef(const DataWeakRef &other) : m_weakPtr(other.m_weakPtr)
+        {
+            if (auto p = m_weakPtr.lock())
+                p->addWeakRef();
+        }
+
+        DataWeakRef(DataWeakRef &&other) noexcept : m_weakPtr(std::move(other.m_weakPtr)) {}
+
+        DataWeakRef &operator=(const DataWeakRef &other) noexcept
+        {
+            if (this != &other)
+            {
+                if (auto p = m_weakPtr.lock())
+                    p->releaseWeakRef();
+                m_weakPtr = other.m_weakPtr;
+                if (auto p = m_weakPtr.lock())
+                    p->addWeakRef();
+            }
+            return *this;
+        }
+
+        DataWeakRef &operator=(DataWeakRef &&other) noexcept
+        {
+            if (this != &other)
+            {
+                if (auto p = m_weakPtr.lock())
+                    p->releaseWeakRef();
+                m_weakPtr = std::move(other.m_weakPtr);
+            }
+            return *this;
+        }
 
         std::shared_ptr<DataType> operator->()
         {
-            auto sharedPtr = m_weakPtr.lock();
-            if (sharedPtr)
-            {
-                return sharedPtr;
-            }
-            throw std::runtime_error("Attempted to use a null weak pointer");
+            if (m_weakPtr.expired())
+                throw std::runtime_error("Null weak pointer");
+            return m_weakPtr.lock();
         }
 
         DataType &operator*()
         {
-            auto sharedPtr = m_weakPtr.lock();
-            if (sharedPtr)
-            {
-                return *sharedPtr;
-            }
-            throw std::runtime_error("Attempted to use a null weak pointer.");
+            return *this->operator->();
+        }
+
+        explicit operator bool() const
+        {
+            return !m_weakPtr.expired();
         }
 
     private:
@@ -216,43 +206,52 @@ namespace reaction
         using Type = T;
     };
 
-    template <typename SourceType>
+    template <typename SourceType, typename TriggerPolicy = AlwaysTrigger, typename InvalidStrategy = DirectFailureStrategy>
+    using Field = DataWeakRef<FieldSource<TriggerPolicy, InvalidStrategy, SourceType>>;
+
+    template <typename TriggerPolicy = AlwaysTrigger, typename InvalidStrategy = DirectFailureStrategy, typename MetaTypePtr, typename SourceType>
+    auto makeFiledSource(MetaTypePtr ptr, SourceType &&value)
+    {
+        auto ds = std::make_shared<DataSource<TriggerPolicy, InvalidStrategy, std::decay_t<SourceType>>>(std::forward<SourceType>(value));
+
+        return DataWeakRef{ds};
+    }
+
+    template <typename TriggerPolicy = AlwaysTrigger, typename InvalidStrategy = DirectFailureStrategy, typename SourceType>
     auto makeConstantDataSource(SourceType &&value)
     {
-        auto ptr = std::make_shared<DataSource<const std::decay_t<SourceType>>>(std::forward<SourceType>(value));
+        auto ptr = std::make_shared<DataSource<TriggerPolicy, InvalidStrategy, const std::decay_t<SourceType>>>(std::forward<SourceType>(value));
         ObserverGraph::getInstance().addNode(ptr);
         return DataWeakRef{ptr};
     }
 
-    template <typename SourceType>
+    template <typename TriggerPolicy = AlwaysTrigger, typename InvalidStrategy = DirectFailureStrategy, typename SourceType>
+        requires requires(const SourceType &a, const SourceType &b) { { a == b } -> std::convertible_to<bool>; }
     auto makeMetaDataSource(SourceType &&value)
     {
-        auto ptr = std::make_shared<DataSource<std::decay_t<SourceType>>>(std::forward<SourceType>(value));
+        auto ptr = std::make_shared<DataSource<TriggerPolicy, InvalidStrategy, std::decay_t<SourceType>>>(std::forward<SourceType>(value));
+        // 这里可以通过ptr获取到Data对象的地址，应该是每个fieldSource可以拿到metaSource的节点，然后通过ObserverGraph获取到观察者列表触发
+        // 在fieldSource的构造函数
         ObserverGraph::getInstance().addNode(ptr);
         return DataWeakRef{ptr};
     }
 
-    template <typename Fun, typename... Args>
+    template <typename TriggerPolicy = AlwaysTrigger, typename InvalidStrategy = DirectFailureStrategy, typename Fun, typename... Args>
+        requires(sizeof...(Args) > 0)
     auto makeVariableDataSource(Fun &&fun, Args &&...args)
     {
-        auto ptr = std::make_shared<DataSource<Fun, typename ExtractDataWeakRef<std::decay_t<Args>>::Type...>>();
+        auto ptr = std::make_shared<DataSource<TriggerPolicy, InvalidStrategy, Fun, typename ExtractDataWeakRef<std::decay_t<Args>>::Type...>>();
         ObserverGraph::getInstance().addNode(ptr);
-        if (ptr->set(std::forward<Fun>(fun), std::forward<Args>(args)...))
-        {
-            ObserverGraph::getInstance().deleteNode(ptr);
-        }
+        ptr->set(std::forward<Fun>(fun), std::forward<Args>(args)...);
         return DataWeakRef{ptr};
     }
 
-    template <typename Fun, typename... Args>
+    template <typename TriggerPolicy = AlwaysTrigger, typename InvalidStrategy = DirectFailureStrategy, typename Fun, typename... Args>
     auto makeActionSource(Fun &&fun, Args &&...args)
     {
-        auto ptr = std::make_shared<ActionSource>();
+        auto ptr = std::make_shared<ActionSource<TriggerPolicy, InvalidStrategy>>();
         ObserverGraph::getInstance().addNode(ptr);
-        if (ptr->set(std::forward<Fun>(fun), std::forward<Args>(args)...))
-        {
-            ObserverGraph::getInstance().deleteNode(ptr);
-        }
+        ptr->set(std::forward<Fun>(fun), std::forward<Args>(args)...);
         return DataWeakRef{ptr};
     }
 

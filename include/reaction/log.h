@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <string>
-#include <format> // C++20的std::format
+#include <format>
 
 namespace reaction
 {

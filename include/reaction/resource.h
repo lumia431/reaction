@@ -3,6 +3,7 @@
 #define REACTION_RESOURCE_H
 
 #include <memory>
+#include <mutex>
 #include <exception>
 
 namespace reaction
@@ -11,10 +12,10 @@ namespace reaction
     class Resource
     {
     public:
-        Resource(std::shared_ptr<T> ptr = nullptr) : m_ptr(ptr) {}
+        Resource() : m_ptr(nullptr) {}
 
         template <typename Type>
-        Resource(Type &&t) : m_ptr(std::make_shared<T>(std::forward<Type>(t))) {}
+        Resource(Type &&t) : m_ptr(std::make_unique<T>(std::forward<Type>(t))) {}
 
     protected:
         T getValue()
@@ -31,7 +32,7 @@ namespace reaction
         {
             if (!m_ptr)
             {
-                m_ptr = std::make_shared<T>(std::forward<Type>(t));
+                m_ptr = std::make_unique<T>(std::forward<Type>(t));
             }
             else
             {
@@ -40,7 +41,7 @@ namespace reaction
         }
 
     private:
-        std::shared_ptr<T> m_ptr;
+        std::unique_ptr<T> m_ptr;
     };
 
 } // namespace reaction
