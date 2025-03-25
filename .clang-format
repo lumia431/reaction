@@ -1,0 +1,130 @@
+Language: Cpp
+
+AccessModifierOffset: -4
+
+AlignAfterOpenBracket: Align
+
+AlignConsecutiveAssignments: false
+
+AlignConsecutiveDeclarations: false
+
+AlignEscapedNewlines: Right
+
+AlignOperands: true
+
+AlignTrailingComments: true
+
+AllowAllParametersOfDeclarationOnNextLine: false
+
+AllowShortBlocksOnASingleLine: true
+
+AllowShortCaseLabelsOnASingleLine: true
+
+AllowShortFunctionsOnASingleLine: None
+
+AllowShortIfStatementsOnASingleLine: true
+
+AllowShortLoopsOnASingleLine: true
+
+AlwaysBreakAfterReturnType: None
+
+AlwaysBreakBeforeMultilineStrings: false
+
+AlwaysBreakTemplateDeclarations: true
+
+BinPackArguments: true
+
+BinPackParameters: true
+
+BraceWrapping:
+  AfterClass: false
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+BreakBeforeBinaryOperators: NonAssignment
+
+BreakBeforeBraces: Custom
+
+BreakBeforeTernaryOperators: false
+
+BreakConstructorInitializers: AfterColon
+
+
+BreakStringLiterals: false
+
+ColumnLimit: 0
+
+CompactNamespaces: true
+
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+
+ConstructorInitializerIndentWidth: 4
+
+ContinuationIndentWidth: 4
+
+Cpp11BracedListStyle: true
+
+DerivePointerAlignment: false
+
+FixNamespaceComments: true
+
+IndentCaseLabels: false
+
+IndentPPDirectives: None
+
+IndentWidth: 4
+
+IndentWrappedFunctionNames: false
+
+KeepEmptyLinesAtTheStartOfBlocks: false
+
+MaxEmptyLinesToKeep: 1
+
+NamespaceIndentation: None
+
+PointerAlignment: Right
+
+ReflowComments: true
+
+SortIncludes: false
+
+SortUsingDeclarations: false
+
+SpaceAfterCStyleCast: false
+
+SpaceAfterTemplateKeyword: true
+
+SpaceBeforeAssignmentOperators: true
+
+SpaceBeforeParens: ControlStatements
+
+SpaceInEmptyParentheses: false
+
+SpacesBeforeTrailingComments: 1
+
+SpacesInAngles: false
+
+SpacesInCStyleCastParentheses: false
+
+SpacesInContainerLiterals: true
+
+SpacesInParentheses: false
+
+SpacesInSquareBrackets: false
+
+Standard: Cpp11
+
+TabWidth: 4
+
+UseTab: Never

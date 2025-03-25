@@ -1,358 +1,406 @@
 #ifndef REACTION_OBSERVERNODE_H
 #define REACTION_OBSERVERNODE_H
 
+#include "reaction/concept.h"
+#include "reaction/log.h"
 #include <unordered_set>
 #include <unordered_map>
-#include <memory>
-#include "reaction/log.h"
+#include <functional>
 
-namespace reaction
-{
+namespace reaction {
 
-    // Forward declaration for ObserverNode
-    class ObserverNode;
+// Forward declarations for different node types
+struct DataNode {};
+struct ActionNode {};
+struct FieldNode {};
 
-    using ObserverNodePtr = std::shared_ptr<ObserverNode>;
+using DataNodePtr = std::shared_ptr<ObserverDataNode>;
+using ActionNodePtr = std::shared_ptr<ObserverActionNode>;
+using FieldNodePtr = std::shared_ptr<ObserverFieldNode>;
 
-    // ObserverGraph class for managing nodes and their dependencies
-    class ObserverGraph
-    {
-    public:
-        static ObserverGraph &getInstance()
-        {
-            static ObserverGraph instance;
-            return instance;
-        }
-
-        void addNode(ObserverNodePtr node);
-        bool addDataObserver(ObserverNodePtr source, ObserverNodePtr target);
-        bool addActionObserver(ObserverNodePtr source, ObserverNodePtr target);
-        void moveNode(ObserverNodePtr dst, ObserverNodePtr src);
-        void resetDataNode(ObserverNodePtr node);
-        void resetActionNode(ObserverNodePtr node);
-        void closeNode(ObserverNodePtr node);
-        void deleteNode(ObserverNodePtr node);
-        std::unordered_set<ObserverNodePtr> getDataObserverList(ObserverNodePtr node);
-        std::unordered_set<ObserverNodePtr> getActionObserverList(ObserverNodePtr node);
-
-    private:
-        ObserverGraph() {}
-
-        std::unordered_map<ObserverNodePtr, std::unordered_set<ObserverNodePtr>> m_dataDependents;
-        std::unordered_map<ObserverNodePtr, std::unordered_set<ObserverNodePtr>> m_dataObservers;
-        std::unordered_map<ObserverNodePtr, std::unordered_set<ObserverNodePtr>> m_actionObservers;
-        std::unordered_map<ObserverNodePtr, std::unordered_set<ObserverNodePtr>> m_actionDependents;
-
-        bool hasCycle(ObserverNodePtr source, ObserverNodePtr target);
-        bool dfs(ObserverNodePtr node, std::unordered_set<ObserverNodePtr> &visited, std::unordered_set<ObserverNodePtr> &recursionStack);
-        bool hasDependency(ObserverNodePtr source, ObserverNodePtr target);
-        bool dfsForIndirect(ObserverNodePtr node, std::unordered_set<ObserverNodePtr> &visited, ObserverNodePtr target);
-    };
-
-    // ObserverNode class for managing individual nodes
-    class ObserverNode : public std::enable_shared_from_this<ObserverNode>
-    {
-        friend class ObserverGraph;
-
-    public:
-        ObserverNode(bool isAction = false) : m_isAction(isAction) {}
-        virtual ~ObserverNode() {}
-
-        void setName(const std::string &name) { m_name = name; }
-        std::string getName() { return m_name; }
-
-    protected:
-        std::shared_ptr<ObserverNode> getShared() { return shared_from_this(); }
-        virtual void valueChanged(bool changed = true) {}
-        bool isAction() { return m_isAction; }
-
-        void notifyObservers(bool changed = true)
-        {
-            for (auto &observer : ObserverGraph::getInstance().getDataObserverList(shared_from_this()))
-            {
-                observer->valueChanged(changed);
-            }
-            for (auto &observer : ObserverGraph::getInstance().getActionObserverList(shared_from_this()))
-            {
-                observer->valueChanged(changed);
-            }
-        }
-
-        bool updateObservers(auto &&...args)
-        {
-            std::shared_ptr<ObserverNode> shared_this = shared_from_this();
-
-            if (m_isAction)
-            {
-                ObserverGraph::getInstance().resetActionNode(shared_this);
-                if (!(ObserverGraph::getInstance().addActionObserver(shared_this, args->getShared()) &&  ...))
-                {
-                    ObserverGraph::getInstance().resetActionNode(shared_this);
-                    return false;
-                }
-            }
-            else
-            {
-                ObserverGraph::getInstance().resetDataNode(shared_this);
-                if (!(ObserverGraph::getInstance().addDataObserver(shared_this, args->getShared()) &&  ...))
-                {
-                    ObserverGraph::getInstance().resetActionNode(shared_this);
-                    return false;
-                }
-            }
-            return true;
-        }
-
-    private:
-        std::string m_name;
-        bool m_isAction = false;
-    };
-
-    // Implementation of ObserverGraph methods
-
-    inline void ObserverGraph::addNode(ObserverNodePtr node)
-    {
-        m_dataDependents[node] = std::unordered_set<ObserverNodePtr>();
-        m_dataObservers[node] = std::unordered_set<ObserverNodePtr>();
-        m_actionObservers[node] = std::unordered_set<ObserverNodePtr>();
-        m_actionDependents[node] = std::unordered_set<ObserverNodePtr>();
+// ObserverGraph handles dependencies between nodes and manages observers
+class ObserverGraph {
+public:
+    // Singleton instance of ObserverGraph
+    static ObserverGraph &getInstance() {
+        static ObserverGraph instance;
+        return instance;
     }
 
-    inline bool ObserverGraph::addDataObserver(ObserverNodePtr source, ObserverNodePtr target)
-    {
-        if (source == target)
-        {
-            Log::error("cannot observe self, node = {}.", source->getName());
-            return false;
+    // Add a new node to the graph
+    template <NodeCC NodeType>
+    void addNode(std::shared_ptr<NodeType> node) {
+        if constexpr (std::is_same_v<typename NodeType::SourceType, DataNode>) {
+            m_dataDependents[node] = std::unordered_set<DataNodePtr>();
+            m_dataObservers[node] = std::unordered_map<DataNodePtr, std::function<void(bool)>>();
+            m_actionObservers[node] = std::unordered_map<ActionNodePtr, std::function<void(bool)>>();
+        } else {
+            m_actionDependents[node] = std::unordered_set<DataNodePtr>();
+        }
+    }
+
+    // Add an observer for a specific node
+    template <NodeCC NodeType, NodeCC TargetType>
+    bool addObserver(bool &repeat, std::function<void(bool)> &f, std::shared_ptr<NodeType> source, std::shared_ptr<TargetType> target) {
+        if constexpr (std::is_same_v<NodeType, TargetType>) {
+            if (source == target) {
+                Log::error("Cannot observe self, node = {}.", source->getName());
+                return false;
+            }
         }
 
-        // if (hasDependency(source, target))
-        // {
-        //     Log::info("etect repeat dependency, node = {}. cycle dependent = {}", source->getName(), target->getName());
-        //     return true;
-        // }
-
-        if (hasCycle(source, target))
-        {
-            Log::error("detect cycle dependency, node = {}. cycle dependent = {}", source->getName(), target->getName());
-            return false;
+        if constexpr (std::is_same_v<typename NodeType::SourceType, DataNode>) {
+            if (hasCycle(source, target)) {
+                Log::error("Cycle dependency detected, node = {}. Cycle dependent = {}", source->getName(), target->getName());
+                return false;
+            }
         }
 
-        m_dataDependents[source].insert(target);
-        m_dataObservers[target].insert(source);
+        if (!repeat && hasRepeatDependencies(source, target)) {
+            Log::info("Repeat dependency detected, node = {}. Repeat dependent = {}", source->getName(), target->getName());
+            repeat = true;
+        }
+
+        if constexpr (std::is_same_v<typename NodeType::SourceType, DataNode>) {
+            m_dataDependents[source].insert(target);
+            m_dataObservers[target].insert({source, f});
+        } else {
+            m_actionDependents[source].insert(target);
+            m_actionObservers[target].insert({source, f});
+        }
         return true;
     }
 
-    inline bool ObserverGraph::addActionObserver(ObserverNodePtr source, ObserverNodePtr target)
-    {
-        if (source == target)
-        {
-            Log::error("cannot observe self, node = {}.", source->getName());
-            return false;
-        }
-
-        // if (hasDependency(source, target))
-        // {
-        //     Log::info("etect repeat dependency, node = {}. cycle dependent = {}", source->getName(), target->getName());
-        //     return true;
-        // }
-
-        m_actionDependents[source].insert(target);
-        m_actionObservers[target].insert(source);
-        return true;
-    }
-
-    inline void ObserverGraph::moveNode(ObserverNodePtr dst, ObserverNodePtr src)
-    {
-        m_dataDependents[dst] = std::move(m_dataDependents[src]);
-        m_dataObservers[dst] = std::move(m_dataObservers[src]);
-        m_actionObservers[dst] = std::move(m_actionObservers[src]);
-        m_actionDependents[dst] = std::move(m_actionDependents[src]);
-
-        for (auto &[node, dependents] : m_dataDependents)
-        {
-            if (dependents.erase(src))
-            {
-                dependents.insert(dst);
-            }
-        }
-        for (auto &[node, dependents] : m_actionDependents)
-        {
-            if (dependents.erase(src))
-            {
-                dependents.insert(dst);
-            }
-        }
-
-        for (auto &[node, observers] : m_dataObservers)
-        {
-            if (observers.erase(src))
-            {
-                observers.insert(dst);
-            }
-        }
-        for (auto &[node, observers] : m_actionObservers)
-        {
-            if (observers.erase(src))
-            {
-                observers.insert(dst);
-            }
-        }
-
-        deleteNode(src);
-    }
-
-    inline void ObserverGraph::resetDataNode(ObserverNodePtr node)
-    {
-        for (auto dep : m_dataDependents[node])
-        {
-            m_dataObservers[dep].erase(node);
-        }
-        m_dataDependents[node].clear();
-    }
-
-    inline void ObserverGraph::resetActionNode(ObserverNodePtr node)
-    {
-        for (auto dep : m_actionDependents[node])
-        {
-            m_actionObservers[dep].erase(node);
-        }
-        m_actionDependents[node].clear();
-    }
-
-    inline void ObserverGraph::closeNode(ObserverNodePtr node)
-    {
-        if (node->isAction())
-        {
-            for (auto dep : m_actionDependents[node])
-            {
-                m_actionObservers[dep].erase(node);
-            }
-        }
-        else
-        {
-            for (auto dep : m_dataDependents[node])
-            {
+    // Reset the observers for a node
+    template <NodeCC NodeType>
+    void resetNode(std::shared_ptr<NodeType> node) {
+        if constexpr (std::is_same_v<typename NodeType::SourceType, DataNode>) {
+            for (auto dep : m_dataDependents[node]) {
                 m_dataObservers[dep].erase(node);
             }
+            m_dataDependents[node].clear();
+        } else {
+            for (auto dep : m_actionDependents[node]) {
+                m_actionObservers[dep].erase(node);
+            }
+            m_actionDependents[node].clear();
         }
-
-        for (auto ob : m_dataObservers[node])
-        {
-            m_dataObservers[node].erase(ob);
-            closeNode(ob);
-        }
-
-        for (auto ob : m_actionObservers[node])
-        {
-            m_actionObservers[node].erase(ob);
-            closeNode(ob);
-        }
-
-        deleteNode(node);
     }
 
-    inline void ObserverGraph::deleteNode(ObserverNodePtr node)
-    {
-        m_dataDependents.erase(node);
-        m_dataObservers.erase(node);
-        m_actionObservers.erase(node);
-        m_actionDependents.erase(node);
+    // Close a node and its dependencies
+    template <NodeCC NodeType>
+    void closeNode(std::shared_ptr<NodeType> node) {
+        if (!node) return;
+        if constexpr (std::is_same_v<typename NodeType::SourceType, DataNode> || std::is_same_v<typename NodeType::SourceType, ActionNode>) {
+            std::unordered_set<std::shared_ptr<void>> closedNodes;
+            cascadeCloseDependents(node, closedNodes);
+        }
     }
 
-    inline std::unordered_set<ObserverNodePtr> ObserverGraph::getDataObserverList(ObserverNodePtr node)
-    {
+    // Delete a node from the graph
+    template <NodeCC NodeType>
+    void deleteNode(std::shared_ptr<NodeType> node) {
+        if constexpr (std::is_same_v<typename NodeType::SourceType, DataNode>) {
+            m_dataDependents.erase(node);
+            m_dataObservers.erase(node);
+            m_actionObservers.erase(node);
+        } else {
+            m_actionDependents.erase(node);
+        }
+    }
+
+    // Get the list of observers for a DataNode
+    std::unordered_map<DataNodePtr, std::function<void(bool)>> getDataObserverList(DataNodePtr node) {
         return m_dataObservers[node];
     }
 
-    inline std::unordered_set<ObserverNodePtr> ObserverGraph::getActionObserverList(ObserverNodePtr node)
-    {
+    // Get the list of observers for an ActionNode
+    std::unordered_map<ActionNodePtr, std::function<void(bool)>> getActionObserverList(DataNodePtr node) {
         return m_actionObservers[node];
     }
 
-    inline bool ObserverGraph::hasCycle(ObserverNodePtr source, ObserverNodePtr target)
-    {
-        // 临时插入边
+private:
+    ObserverGraph() {
+    }
+
+    // Cascade close all dependent nodes
+    template <NodeCC NodeType>
+    void cascadeCloseDependents(std::shared_ptr<NodeType> node, std::unordered_set<std::shared_ptr<void>> &closedNodes) {
+        if (!node || closedNodes.count(node)) return;
+        closedNodes.insert(node);
+
+        if constexpr (std::is_same_v<typename NodeType::SourceType, DataNode>) {
+            auto dataNode = std::static_pointer_cast<ObserverDataNode>(node);
+            auto dataObservers = m_dataObservers[dataNode];
+            auto actionObservers = m_actionObservers[dataNode];
+
+            for (auto &[ob, fun] : dataObservers) {
+                cascadeCloseDependents(ob, closedNodes);
+            }
+            for (auto &[ob, fun] : actionObservers) {
+                cascadeCloseDependents(ob, closedNodes);
+            }
+        }
+
+        closeNodeInternal(node);
+    }
+
+    // Internal close node implementation (without cascading)
+    template <NodeCC NodeType>
+    void closeNodeInternal(std::shared_ptr<NodeType> node) {
+        if (!node) return;
+
+        if constexpr (std::is_same_v<typename NodeType::SourceType, DataNode>) {
+            for (auto &dep : m_dataDependents[node]) {
+                m_dataObservers[dep].erase(node);
+            }
+            m_dataDependents.erase(node);
+
+            for (auto &[ob, fun] : m_dataObservers[node]) {
+                m_dataDependents[ob].erase(node);
+            }
+            for (auto &[ob, fun] : m_actionObservers[node]) {
+                m_actionDependents[ob].erase(node);
+            }
+
+            m_dataObservers.erase(node);
+            m_actionObservers.erase(node);
+        } else {
+            for (auto &dep : m_actionDependents[node]) {
+                m_actionObservers[dep].erase(node);
+            }
+            m_actionDependents.erase(node);
+        }
+        node.reset();
+    }
+
+    // Check for cycle dependency between nodes
+    bool hasCycle(DataNodePtr source, DataNodePtr target) {
         m_dataDependents[source].insert(target);
-        m_dataObservers[target].insert(source);
+        m_dataObservers[target].insert({source, [](bool) {}});
 
-        // 检测循环依赖
-        std::unordered_set<ObserverNodePtr> visited;
-        std::unordered_set<ObserverNodePtr> recursionStack; // 用于检测循环
-
+        std::unordered_set<DataNodePtr> visited;
+        std::unordered_set<DataNodePtr> recursionStack;
         bool hasCycle = dfs(source, visited, recursionStack);
 
-        // 移除临时插入的边
         m_dataDependents[source].erase(target);
         m_dataObservers[target].erase(source);
 
         return hasCycle;
     }
 
-    inline bool ObserverGraph::dfs(ObserverNodePtr node, std::unordered_set<ObserverNodePtr> &visited, std::unordered_set<ObserverNodePtr> &recursionStack)
-    {
-        if (recursionStack.count(node))
-        {
-            // 如果当前节点已经在递归栈中，说明存在循环依赖
-            return true;
-        }
+    // Depth-first search to detect cycles
+    bool dfs(DataNodePtr node, std::unordered_set<DataNodePtr> &visited, std::unordered_set<DataNodePtr> &recursionStack) {
+        if (recursionStack.count(node)) return true;
+        if (visited.count(node)) return false;
 
-        if (visited.count(node))
-        {
-            // 如果当前节点已经访问过，但不在递归栈中，说明没有循环依赖
-            return false;
-        }
-
-        // 标记当前节点为已访问，并加入递归栈
         visited.insert(node);
         recursionStack.insert(node);
 
-        // 递归检查所有邻居节点
-        for (auto neighbor : m_dataDependents[node])
-        {
-            if (dfs(neighbor, visited, recursionStack))
-            {
+        for (auto neighbor : m_dataDependents[node]) {
+            if (dfs(neighbor, visited, recursionStack)) {
                 return true;
             }
         }
 
-        // 从递归栈中移除当前节点
         recursionStack.erase(node);
         return false;
     }
 
-    inline bool ObserverGraph::hasDependency(ObserverNodePtr source, ObserverNodePtr target)
-    {
-        std::unordered_set<ObserverNodePtr> visited;
-        return dfsForIndirect(source, visited, target);
-    }
+    // Check for repeat dependencies
+    template <NodeCC NodeType>
+    bool hasRepeatDependencies(std::shared_ptr<NodeType> node, DataNodePtr target) {
+        std::unordered_set<DataNodePtr> targetDependencies;
+        collectDependencies(target, targetDependencies);
 
-    inline bool ObserverGraph::dfsForIndirect(ObserverNodePtr node, std::unordered_set<ObserverNodePtr> &visited, ObserverNodePtr target)
-    {
-        if (visited.count(node))
-        {
-            return false;
+        std::unordered_set<DataNodePtr> visited;
+        std::unordered_set<DataNodePtr> dependents;
+        if constexpr (std::is_same_v<typename NodeType::SourceType, DataNode>) {
+            dependents = m_dataDependents[node];
+        } else {
+            dependents = m_actionDependents[node];
         }
 
-        visited.insert(node);
-
-        if (node == target)
-        {
-            return true;
-        }
-
-        auto dependents = node->isAction() ? m_actionDependents : m_dataDependents;
-
-        for (auto neighbor : dependents[node])
-        {
-            if (dfsForIndirect(neighbor, visited, target))
-            {
+        for (auto dependent : dependents) {
+            if (checkDependency(dependent, targetDependencies, visited)) {
                 return true;
             }
+        }
+        return false;
+    }
+
+    // Collect all dependencies for a given node
+    void collectDependencies(DataNodePtr node, std::unordered_set<DataNodePtr> &dependencies) {
+        if (!node || dependencies.count(node)) return;
+        dependencies.insert(node);
+
+        for (auto neighbor : m_dataDependents[node]) {
+            collectDependencies(neighbor, dependencies);
+        }
+    }
+
+    // Check if a node is part of a target's dependencies
+    bool checkDependency(DataNodePtr node, const std::unordered_set<DataNodePtr> &targetDependencies, std::unordered_set<DataNodePtr> &visited) {
+        if (visited.count(node)) return false;
+        visited.insert(node);
+
+        if (targetDependencies.count(node)) return true;
+
+        for (auto neighbor : m_dataDependents[node]) {
+            if (checkDependency(neighbor, targetDependencies, visited)) return true;
         }
 
         return false;
     }
+
+    // Maps to store dependencies and observers
+    std::unordered_map<DataNodePtr, std::unordered_set<DataNodePtr>> m_dataDependents;
+    std::unordered_map<DataNodePtr, std::unordered_map<DataNodePtr, std::function<void(bool)>>> m_dataObservers;
+    std::unordered_map<DataNodePtr, std::unordered_map<ActionNodePtr, std::function<void(bool)>>> m_actionObservers;
+    std::unordered_map<ActionNodePtr, std::unordered_set<DataNodePtr>> m_actionDependents;
+};
+
+// FieldGraph handles field-specific operations
+class FieldGraph {
+public:
+    static FieldGraph &getInstance() {
+        static FieldGraph instance;
+        return instance;
+    }
+
+    // Add a field node to the graph
+    void addNode(FieldNodePtr node) {
+        m_fieldList.insert(node);
+    }
+
+    // Close a field node in the graph
+    void closeNode(FieldNodePtr node) {
+        m_fieldList.erase(node);
+        m_fieldObservers.erase(node.get());
+    }
+
+    // Add a field to the graph
+    void addField(void *meta, ObserverFieldNode *node) {
+        m_fieldMap[meta].insert(node);
+    }
+
+    // Delete a field from the graph
+    void deleteField(void *meta) {
+        m_fieldMap.erase(meta);
+    }
+
+    // Set the field associated with a metadata pointer
+    void setField(void *meta, DataNodePtr metaPtr) {
+        for (auto node : m_fieldMap[meta]) {
+            m_fieldObservers[node] = metaPtr;
+        }
+    }
+
+    // Get the metadata for a field node
+    DataNodePtr getMeta(ObserverFieldNode *node) {
+        return m_fieldObservers[node];
+    }
+
+private:
+    FieldGraph() {
+    }
+    std::unordered_map<void *, std::unordered_set<ObserverFieldNode *>> m_fieldMap;
+    std::unordered_map<ObserverFieldNode *, DataNodePtr> m_fieldObservers;
+    std::unordered_set<FieldNodePtr> m_fieldList;
+};
+
+// Base class for all observer nodes
+template <typename Derived>
+class ObserverBase : public std::enable_shared_from_this<Derived> {
+public:
+    using SourceType = DataNode;
+
+    // Constructor with an optional name
+    ObserverBase(const std::string &name = "") :
+        m_name(name) {
+    }
+
+    // Set and get the name of the observer
+    void setName(const std::string &name) {
+        m_name = name;
+    }
+    std::string getName() const {
+        return m_name;
+    }
+
+    // Get a shared pointer to the derived class
+    std::shared_ptr<Derived> getShared() {
+        return this->shared_from_this();
+    }
+
+private:
+    std::string m_name;
+};
+
+// ObserverDataNode handles data node-specific observers
+class ObserverDataNode : public ObserverBase<ObserverDataNode> {
+public:
+    using SourceType = DataNode;
+
+protected:
+    // Notify observers about changes
+    void notifyObservers(bool changed = true) {
+        DataNodePtr shared_this = getShared();
+        for (auto &[observer, fun] : ObserverGraph::getInstance().getDataObserverList(shared_this)) {
+            std::invoke(fun, changed);
+        }
+        for (auto &[observer, fun] : ObserverGraph::getInstance().getActionObserverList(shared_this)) {
+            std::invoke(fun, changed);
+        }
+    }
+
+    // Update observers with the new state
+    bool updateObservers(bool &repeat, std::function<void(bool)> &&f, auto &&...args) {
+        DataNodePtr shared_this = getShared();
+        ObserverGraph::getInstance().resetNode(shared_this);
+        if (!(ObserverGraph::getInstance().addObserver(repeat, f, shared_this, args.getShared()) && ...)) {
+            ObserverGraph::getInstance().resetNode(shared_this);
+            return false;
+        }
+        return true;
+    }
+};
+
+// ObserverActionNode handles action node-specific observers
+class ObserverActionNode : public ObserverBase<ObserverActionNode> {
+public:
+    using SourceType = ActionNode;
+
+protected:
+    // Update observers for action nodes
+    bool updateObservers(bool &repeat, std::function<void(bool)> f, auto &&...args) {
+        ActionNodePtr shared_this = getShared();
+        ObserverGraph::getInstance().resetNode(shared_this);
+        if (!(ObserverGraph::getInstance().addObserver(repeat, f, shared_this, args.getShared()) && ...)) {
+            ObserverGraph::getInstance().resetNode(shared_this);
+            return false;
+        }
+        return true;
+    }
+};
+
+// ObserverFieldNode handles field node-specific observers
+class ObserverFieldNode : public ObserverBase<ObserverFieldNode> {
+public:
+    using SourceType = FieldNode;
+
+protected:
+    // Notify observers for field nodes
+    void notifyObservers(bool changed = true) {
+        auto metaPtr = FieldGraph::getInstance().getMeta(this);
+        for (auto &[observer, fun] : ObserverGraph::getInstance().getDataObserverList(metaPtr)) {
+            std::invoke(fun, changed);
+        }
+        for (auto &[observer, fun] : ObserverGraph::getInstance().getActionObserverList(metaPtr)) {
+            std::invoke(fun, changed);
+        }
+    }
+};
 
 } // namespace reaction
 
