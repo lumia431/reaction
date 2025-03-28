@@ -13,7 +13,7 @@ namespace reaction
     {
         return [f = std::forward<F>(f), &...args = std::forward<A>(args)]() mutable
         {
-            return std::invoke(f, args->getUpdate()...);
+            return std::invoke(f, args->get()...);
         };
     }
 
