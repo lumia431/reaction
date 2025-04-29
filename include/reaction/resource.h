@@ -1,9 +1,10 @@
+#include "reaction/observerNode.h"
 #include <memory>
 #include <exception>
 namespace reaction
 {
     template <typename Type>
-    class Resource
+    class Resource : public ObserverNode
     {
     public:
         Resource() : m_ptr(nullptr) {}
@@ -17,11 +18,11 @@ namespace reaction
         Resource(Resource &&) = default;
         Resource &operator=(Resource &&) = default;
 
-        Type &getValue() const { 
+        Type &getValue() const {
             if (!m_ptr) {
                 throw std::runtime_error("Resource is not initialized");
             }
-            return *m_ptr; 
+            return *m_ptr;
         }
 
         template <typename T>

@@ -3,6 +3,9 @@
 #include <utility>
 namespace reaction
 {
+    struct VarExpr{};
+    struct CalcExpr{};
+
     template <typename T, typename... Args>
     class DataSource;
 
@@ -31,13 +34,22 @@ namespace reaction
     class Expression : public Resource<ReturnType<Fun, Args...>>
     {
     public:
+        using ValueType = ReturnType<Fun, Args...>;
+        using ExprType = CalcExpr;
+
         template <typename F, typename... A>
         Expression(F &&fun, A &&...args)
             : Resource<ReturnType<Fun, Args...>>(), m_fun(std::forward<F>(fun)), m_args(std::forward<A>(args)...)
         {
+            this->updateObservers([this](){valueChanged();}, std::forward<A>(args)...);
             evaluate();
         }
+
     private:
+        void valueChanged() {
+            evaluate();
+        }
+
         void evaluate()
         {
             auto result = [&]<std::size_t...I>(std::index_sequence<I...>)
@@ -55,6 +67,8 @@ namespace reaction
     class Expression<Type> : public Resource<Type>
     {
     public:
+        using ValueType = ReturnType<Type>;
+        using ExprType = VarExpr;
         using Resource<Type>::Resource;
     };
 }
