@@ -1,35 +1,61 @@
+#include "reaction/concept.h"
+#include <memory>
 #include <vector>
-#include <functional>
+#include <unordered_set>
 
-class ObserverNode
+namespace reaction
 {
-public:
-    // virtual void valueChanged() {}
-
-    void addObserver(const std::function<void()> &f)
+    class ObserverNode : public std::enable_shared_from_this<ObserverNode>
     {
-        m_observers.emplace_back(f);
-    }
+    public:
+        virtual void valueChanged() {}
 
-    template <typename... Args>
-    void updateObservers(const std::function<void()> &f, Args &&...args)
-    {
-        (..., args.addObserver(f));
-    }
-
-    void notify()
-    {
-        // for (auto &observer : m_observers)
-        // {
-        //     observer->valueChanged();
-        // }
-        for (auto &observer : m_observers)
+        void addObserver(ObserverNode *observer)
         {
-            observer();
+            m_observers.emplace_back(observer);
         }
-    }
 
-private:
-    // std::vector<ObserverNode *> m_observers;
-    std::vector<std::function<void()>> m_observers;
-};
+        template <typename... Args>
+        void updateObservers(Args &&...args)
+        {
+            (..., args.getPtr()->addObserver(this));
+        }
+
+        void notify()
+        {
+            for (auto &observer : m_observers)
+            {
+                observer->valueChanged();
+            }
+        }
+
+    private:
+        std::vector<ObserverNode *> m_observers;
+    };
+
+    using NpdePtr = std::shared_ptr<ObserverNode>;
+    class ObserverGraph
+    {
+    public:
+        static ObserverGraph &getInstance()
+        {
+            static ObserverGraph instance;
+            return instance;
+        }
+        void addNode(NpdePtr node)
+        {
+            m_nodes.insert(node);
+        }
+
+        void removeNode(NpdePtr node)
+        {
+            m_nodes.erase(node);
+        }
+
+    private:
+        ObserverGraph()
+        {
+        }
+        std::unordered_set<NpdePtr> m_nodes;
+    };
+}

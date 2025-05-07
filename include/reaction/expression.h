@@ -6,30 +6,6 @@ namespace reaction
     struct VarExpr{};
     struct CalcExpr{};
 
-    template <typename T, typename... Args>
-    class DataSource;
-
-    template <typename T>
-    struct ExpressionTraits
-    {
-        using type = T;
-    };
-
-    template <typename T>
-    struct ExpressionTraits<DataSource<T>>
-    {
-        using type = T;
-    };
-
-    template <typename Fun, typename... Args>
-    struct ExpressionTraits<DataSource<Fun, Args...>>
-    {
-        using type = std::invoke_result_t<Fun, typename ExpressionTraits<Args>::type...>;
-    };
-
-    template <typename Fun, typename... Args>
-    using ReturnType = typename ExpressionTraits<DataSource<Fun, Args...>>::type;
-
     template <typename Fun, typename... Args>
     class Expression : public Resource<ReturnType<Fun, Args...>>
     {
@@ -41,12 +17,12 @@ namespace reaction
         Expression(F &&fun, A &&...args)
             : Resource<ReturnType<Fun, Args...>>(), m_fun(std::forward<F>(fun)), m_args(std::forward<A>(args)...)
         {
-            this->updateObservers([this](){valueChanged();}, std::forward<A>(args)...);
+            this->updateObservers(std::forward<A>(args)...);
             evaluate();
         }
 
     private:
-        void valueChanged() {
+        void valueChanged() override {
             evaluate();
         }
 
@@ -67,7 +43,7 @@ namespace reaction
     class Expression<Type> : public Resource<Type>
     {
     public:
-        using ValueType = ReturnType<Type>;
+        using ValueType = Type;
         using ExprType = VarExpr;
         using Resource<Type>::Resource;
     };
