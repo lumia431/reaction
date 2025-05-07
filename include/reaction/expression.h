@@ -3,8 +3,12 @@
 #include <utility>
 namespace reaction
 {
-    struct VarExpr{};
-    struct CalcExpr{};
+    struct VarExpr
+    {
+    };
+    struct CalcExpr
+    {
+    };
 
     template <typename Fun, typename... Args>
     class Expression : public Resource<ReturnType<Fun, Args...>>
@@ -22,18 +26,30 @@ namespace reaction
         }
 
     private:
-        void valueChanged() override {
+        void valueChanged() override
+        {
             evaluate();
         }
 
         void evaluate()
         {
-            auto result = [&]<std::size_t...I>(std::index_sequence<I...>)
+            if constexpr (VoidType<ValueType>)
             {
-                return std::invoke(m_fun, std::get<I>(m_args).get().get()...);
-            }(std::make_index_sequence<std::tuple_size_v<decltype(m_args)>>{});
+                [&]<std::size_t...I>(std::index_sequence<I...>)
+                {
+                    std::invoke(m_fun, std::get<I>(m_args).get().get()...);
+                }(std::make_index_sequence<std::tuple_size_v<decltype(m_args)>>{});
+            }
+            else
+            {
+                auto result = [&]<std::size_t...I>(std::index_sequence<I...>)
+                {
+                    return std::invoke(m_fun, std::get<I>(m_args).get().get()...);
+                }(std::make_index_sequence<std::tuple_size_v<decltype(m_args)>>{});
+    
+                this->updateValue(result);
+            }
 
-            this->updateValue(result);
         }
         Fun m_fun;
         std::tuple<std::reference_wrapper<Args>...> m_args;

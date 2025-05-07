@@ -1,5 +1,5 @@
 #include "reaction/concept.h"
-#include <memory>
+#include "reaction/utility.h"
 #include <vector>
 #include <unordered_set>
 
@@ -8,7 +8,10 @@ namespace reaction
     class ObserverNode : public std::enable_shared_from_this<ObserverNode>
     {
     public:
-        virtual void valueChanged() {}
+        virtual void valueChanged() 
+        {
+            this->notify();
+        }
 
         void addObserver(ObserverNode *observer)
         {
@@ -33,7 +36,6 @@ namespace reaction
         std::vector<ObserverNode *> m_observers;
     };
 
-    using NpdePtr = std::shared_ptr<ObserverNode>;
     class ObserverGraph
     {
     public:
@@ -42,12 +44,12 @@ namespace reaction
             static ObserverGraph instance;
             return instance;
         }
-        void addNode(NpdePtr node)
+        void addNode(NodePtr node)
         {
             m_nodes.insert(node);
         }
 
-        void removeNode(NpdePtr node)
+        void removeNode(NodePtr node)
         {
             m_nodes.erase(node);
         }
@@ -56,6 +58,43 @@ namespace reaction
         ObserverGraph()
         {
         }
-        std::unordered_set<NpdePtr> m_nodes;
+        std::unordered_set<NodePtr> m_nodes;
+    };
+
+    class FieldGraph
+    {
+    public:
+        static FieldGraph &getInstance()
+        {
+            static FieldGraph instance;
+            return instance;
+        }
+        void addObj(uint64_t id, NodePtr node)
+        {
+            m_fieldMap[id].insert(node);
+        }
+
+        void deleteObj(uint64_t id)
+        {
+            m_fieldMap.erase(id);
+        }
+
+        void bindField(uint64_t id, NodePtr objPtr)
+        {
+            if (!m_fieldMap.count(id))
+            {
+                return;
+            }
+            for (auto &node : m_fieldMap[id])
+            {
+                node->addObserver(objPtr.get());
+            }
+        }
+
+    private:
+        FieldGraph()
+        {
+        }
+        std::unordered_map<uint64_t, std::unordered_set<NodePtr>> m_fieldMap;
     };
 }
