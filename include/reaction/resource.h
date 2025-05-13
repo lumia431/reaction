@@ -33,29 +33,19 @@ namespace reaction
             *m_ptr = std::forward<T>(t);
         }
 
-        Type *getRawPtr() const
-        {
-            if (!this->m_ptr)
-            {
-                throw std::runtime_error("Attempt to get a null pointer");
-            }
-            return this->m_ptr.get();
-        }
-
-        Type &getReference() const
-        {
-            if (!m_ptr)
-            {
-                throw std::runtime_error("Attempt to get a null pointer");
-            }
-            return *m_ptr;
-        }
-
     protected:
         std::unique_ptr<Type> m_ptr;
     };
 
+    struct VoidWrapper {};
+
     template <>
     class Resource<void> : public ObserverNode
-    {};
+    {
+    public:
+        VoidWrapper getValue() const
+        {
+            return VoidWrapper{};
+        }
+    };
 }

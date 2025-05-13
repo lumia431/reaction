@@ -3,7 +3,7 @@
 #include <chrono>
 #include <numeric>
 
-TEST(CalcTest, ReactionTest)
+TEST(ReactionTest, TestCalac)
 {
     auto a = reaction::var(1);
     auto b = reaction::var(3.14);
@@ -19,7 +19,7 @@ TEST(CalcTest, ReactionTest)
     EXPECT_EQ(dds.get(), "14.140000");
 }
 
-TEST(TriggerTest, ReactionTest)
+TEST(ReactionTest, TestTrigger)
 {
     auto a = reaction::var(1);
     auto b = reaction::var(3.14);
@@ -39,7 +39,7 @@ TEST(TriggerTest, ReactionTest)
     EXPECT_EQ(dds.get(), "25.140000");
 }
 
-TEST(TestCopy, ReactionTest)
+TEST(ReactionTest, TestCopy)
 {
     auto a = reaction::var(1);
     auto b = reaction::var(3.14);
@@ -57,7 +57,7 @@ TEST(TestCopy, ReactionTest)
     EXPECT_EQ(dds.get(), "223.140000");
 }
 
-TEST(TestMove, ReactionTest)
+TEST(ReactionTest, TestMove)
 {
     auto a = reaction::var(1);
     auto b = reaction::var(3.14);
@@ -96,7 +96,14 @@ TEST(ReactionTest, TestAction)
     auto at = reaction::action([](int aa, double bb)
                                { std::cout << "a = " << aa << '\t' << "b = " << bb << '\t'; }, a, b);
 
+    bool trigger = false;
+    auto att = reaction::action([&]([[maybe_unused]] auto atat)
+                                { trigger = true; std::cout << "at trigger " << std::endl; }, at);
+
+    trigger = false;
+
     a.value(2);
+    EXPECT_TRUE(trigger);
 }
 
 class Person : public reaction::FieldBase
@@ -131,7 +138,7 @@ private:
     bool m_male;
 };
 
-TEST(BasicTest, FieldTest)
+TEST(ReactionTest, TestField)
 {
     Person person{"lummy", 18, true};
     auto p = reaction::var(person);
@@ -140,7 +147,7 @@ TEST(BasicTest, FieldTest)
                              { return std::to_string(aa) + pp.getName(); }, a, p);
 
     EXPECT_EQ(ds.get(), "1lummy");
-    p.get().setName("lummy-new");
+    p->setName("lummy-new");
     EXPECT_EQ(ds.get(), "1lummy-new");
 }
 
