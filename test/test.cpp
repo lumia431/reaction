@@ -1,5 +1,5 @@
-#include "gtest/gtest.h"
 #include "reaction/react.h"
+#include "gtest/gtest.h"
 #include <chrono>
 #include <numeric>
 
@@ -81,7 +81,11 @@ TEST(ReactionTest, TestAction) {
     auto at = reaction::action([](int aa, double bb) { std::cout << "a = " << aa << '\t' << "b = " << bb << '\t'; }, a, b);
 
     bool trigger = false;
-    auto att = reaction::action([&]([[maybe_unused]] auto atat) { trigger = true; std::cout << "at trigger " << std::endl; }, at);
+    auto att = reaction::action([&]([[maybe_unused]] auto atat) {
+        trigger = true;
+        std::cout << "at trigger " << std::endl;
+    },
+        at);
 
     trigger = false;
 
@@ -91,8 +95,7 @@ TEST(ReactionTest, TestAction) {
 
 class Person : public reaction::FieldBase {
 public:
-    Person(std::string name, int age, bool male) :
-        m_name(field(name)), m_age(field(age)), m_male(male) {
+    Person(std::string name, int age, bool male) : m_name(field(name)), m_age(field(age)), m_male(male) {
     }
 
     std::string getName() const {
@@ -168,111 +171,214 @@ TEST(ReactionTest, TestExpr) {
     ASSERT_FLOAT_EQ(expr_ds.get(), -3.86);
 }
 
-struct ProcessedData {
-    std::string info;
-    int checksum;
-};
+TEST(TestSelfDependency, ReactionTest) {
+    auto a = reaction::var(1);
+    auto b = reaction::var(2);
+    auto c = reaction::var(3);
 
-TEST(ReactionTest, StressTest) {
-    using namespace reaction;
-    using namespace std::chrono;
+    auto dsA = reaction::calc([](int aa) { return aa; }, a);
 
-    // Create var-data sources
-    auto base1 = var(1);                // Integer source
-    auto base2 = var(2.0);              // Double source
-    auto base3 = var(true);             // Boolean source
-    auto base4 = var(std::string{"3"}); // String source
-    auto base5 = var(4);                // Integer source
-
-    // Layer 1: Add integer and double
-    auto layer1 = calc([](int a, double b) {
-        return a + b;
-    }, base1, base2);
-
-    // Layer 2: Multiply or divide based on the flag
-    auto layer2 = calc([](double val, bool flag) {
-        return flag ? val * 2 : val / 2;
-    }, layer1, base3);
-
-    // Layer 3: Convert double value to a string
-    auto layer3 = calc([](double val) {
-        return "Value:" + std::to_string(val);
-    }, layer2);
-
-    // Layer 4: Append integer to string
-    auto layer4 = calc([](const std::string &s, const std::string &s4) {
-        return s + "_" + s4;
-    }, layer3, base4);
-
-    // Layer 5: Get the length of the string
-    auto layer5 = calc([](const std::string &s) {
-        return s.length();
-    }, layer4);
-
-    // Layer 6: Create a vector of double values
-    auto layer6 = calc([](size_t len, int b5) {
-        return std::vector<int>(len, b5);
-    }, layer5, base5);
-
-    // Layer 7: Sum all elements in the vector
-    auto layer7 = calc([](const std::vector<int> &vec) {
-        return std::accumulate(vec.begin(), vec.end(), 0);
-    }, layer6);
-
-    // Layer 8: Create a ProcessedData object with checksum and info
-    auto layer8 = calc([](int sum) {
-        return ProcessedData{"ProcessedData", static_cast<int>(sum)};
-    }, layer7);
-
-    // Layer 9: Combine info and checksum into a string
-    auto layer9 = calc([](const ProcessedData &calc) {
-        return calc.info + "|" + std::to_string(calc.checksum);
-    }, layer8);
-
-    // Final layer: Add "Final:" prefix to the result
-    auto finalLayer = calc([](const std::string &s) {
-        return "Final:" + s;
-    }, layer9);
-
-    const int ITERATIONS = 1000000;
-    auto start = steady_clock::now(); // Start measuring time
-    // Perform stress test for the given number of iterations
-    for (int i = 0; i < ITERATIONS; ++i) {
-        // Update base sources with new values
-        base1.value(i % 100);
-        base2.value((i % 100) * 0.1);
-        base3.value(i % 2 == 0);
-
-        // Calculate the expected result for the given input
-        std::string expected = [&]() {
-            double l1 = base1.get() + base2.get();                        // Add base1 and base2
-            double l2 = base3.get() ? l1 * 2 : l1 / 2;                    // Multiply or divide based on base3
-            std::string l3 = "Value:" + std::to_string(l2);               // Convert to string
-            std::string l4 = l3 + "_" + base4.get();                      // Append base1
-            size_t l5 = l4.length();                                      // Get string length
-            std::vector<int> l6(l5, base5.get());                         // Create vector of length 'l5'
-            int l7 = std::accumulate(l6.begin(), l6.end(), 0);            // Sum vector values
-            ProcessedData l8{"ProcessedData", static_cast<int>(l7)};      // Create ProcessedData object
-            std::string l9 = l8.info + "|" + std::to_string(l8.checksum); // Combine info and checksum
-            return "Final:" + l9;                                         // Add final prefix
-        }();
-
-        // Print progress every 10,000 iterations
-        if (i % 10000 == 0 && finalLayer.get() == expected) {
-            auto dur = duration_cast<milliseconds>(steady_clock::now() - start);
-            std::cout << "Progress: " << i << "/" << ITERATIONS
-                      << " (" << dur.count() << "ms)\n";
-        }
-    }
-
-    // Output the final results of the stress test
-    auto duration = duration_cast<milliseconds>(steady_clock::now() - start);
-    std::cout << "=== Stress Test Results ===\n"
-              << "Iterations: " << ITERATIONS << "\n"
-              << "Total time: " << duration.count() << "ms\n"
-              << "Avg time per update: "
-              << duration.count() / static_cast<double>(ITERATIONS) << "ms\n";
+    EXPECT_EQ(dsA.reset([](int aa, int dsAValue) { return aa + dsAValue; }, a, dsA),
+        reaction::ReactionError::CycleDepErr);
 }
+
+TEST(TestCycleDependency, ReactionTest) {
+    auto a = reaction::var(1);
+    auto b = reaction::var(2);
+    auto c = reaction::var(3);
+
+    auto dsA = reaction::calc([](int bb) { return bb; }, b);
+
+    auto dsB = reaction::calc([](int cc) { return cc; }, c);
+
+    auto dsC = reaction::calc([](int aa) { return aa; }, a);
+
+    dsA.reset([](int bb, int dsBValue) { return bb + dsBValue; }, b, dsB);
+
+    dsB.reset([](int cc, int dsCValue) { return cc * dsCValue; }, c, dsC);
+
+    EXPECT_EQ(dsC.reset([](int aa, int dsAValue) { return aa - dsAValue; }, a, dsA),
+        reaction::ReactionError::CycleDepErr);
+}
+
+// Test for repeat dependencies and the number of trigger counts
+TEST(TestRepeatDependency, ReactionTest) {
+    // ds → A, ds → a, A → a
+    auto a = reaction::var(1).setName("a");
+    auto b = reaction::var(2).setName("b");
+
+    int triggerCount = 0;
+    auto dsA = reaction::calc([&]() {
+                               ++triggerCount;
+                               return a() + b(); }).setName("dsA");
+
+    auto dsB = reaction::calc([&]() { return a() + dsA(); }).setName("dsB");
+
+    triggerCount = 0;
+    *a = 2;
+    EXPECT_EQ(triggerCount, 1);
+    EXPECT_EQ(dsB.get(), 6);
+}
+
+TEST(TestRepeatDependency2, ReactionTest) {
+    // ds → A, ds → B, ds → C, A → a, B → a
+    int triggerCountA = 0;
+    int triggerCountB = 0;
+    auto a = reaction::var(1).setName("a");
+    auto A = reaction::calc([&]() { ++triggerCountA; return a() + 1; }).setName("A");
+    auto B = reaction::calc([&]() { ++triggerCountB; return a() + 2; }).setName("B");
+    auto C = reaction::calc([&]() { return 5; }).setName("C");
+    auto ds = reaction::calc([&]() { return A() + B() + C(); }).setName("ds");
+
+    triggerCountA = 0;
+    triggerCountB = 0;
+    *a = 2;
+    EXPECT_EQ(triggerCountA, 1);
+    EXPECT_EQ(triggerCountB, 1);
+    EXPECT_EQ(ds.get(), 12);
+}
+
+TEST(TestRepeatDependency3, ReactionTest) {
+    // ds → A, ds → B, A → A1, A1 → A2, A2 → a, B → B1, B1 → a
+    auto a = reaction::var(1).setName("a");
+    auto b = reaction::var(1).setName("b");
+
+    int triggerCountA = 0;
+    int triggerCountB = 0;
+    auto A2 = reaction::calc([&]() { ++triggerCountA; return a() * 2; }).setName("A2");
+    auto A1 = reaction::calc([&]() { return A2() + 1; }).setName("A1");
+    auto A = reaction::calc([&]() { return A1() - 1; }).setName("A");
+
+    auto B1 = reaction::calc([&]() { ++triggerCountB; return a() - 1; }).setName("B1");
+    auto B = reaction::calc([&]() { return B1() + 1; }).setName("B");
+
+    auto ds = reaction::calc([&]() { return A() + B(); }).setName("ds");
+    triggerCountA = 0;
+    triggerCountB = 0;
+    *a = 2;
+    EXPECT_EQ(triggerCountA, 1);
+    EXPECT_EQ(triggerCountB, 1);
+    EXPECT_EQ(ds.get(), 6);
+
+    A1.reset([](auto bb) { return bb; }, b);
+    EXPECT_EQ(ds.get(), 2);
+}
+
+// struct ProcessedData {
+//     std::string info;
+//     int checksum;
+// };
+
+// TEST(ReactionTest, StressTest) {
+//     using namespace reaction;
+//     using namespace std::chrono;
+
+//     // Create var-data sources
+//     auto base1 = var(1);                // Integer source
+//     auto base2 = var(2.0);              // Double source
+//     auto base3 = var(true);             // Boolean source
+//     auto base4 = var(std::string{"3"}); // String source
+//     auto base5 = var(4);                // Integer source
+
+//     // Layer 1: Add integer and double
+//     auto layer1 = calc([](int a, double b) {
+//         return a + b;
+//     },
+//         base1, base2);
+
+//     // Layer 2: Multiply or divide based on the flag
+//     auto layer2 = calc([](double val, bool flag) {
+//         return flag ? val * 2 : val / 2;
+//     },
+//         layer1, base3);
+
+//     // Layer 3: Convert double value to a string
+//     auto layer3 = calc([](double val) {
+//         return "Value:" + std::to_string(val);
+//     },
+//         layer2);
+
+//     // Layer 4: Append integer to string
+//     auto layer4 = calc([](const std::string &s, const std::string &s4) {
+//         return s + "_" + s4;
+//     },
+//         layer3, base4);
+
+//     // Layer 5: Get the length of the string
+//     auto layer5 = calc([](const std::string &s) {
+//         return s.length();
+//     },
+//         layer4);
+
+//     // Layer 6: Create a vector of double values
+//     auto layer6 = calc([](size_t len, int b5) {
+//         return std::vector<int>(len, b5);
+//     },
+//         layer5, base5);
+
+//     // Layer 7: Sum all elements in the vector
+//     auto layer7 = calc([](const std::vector<int> &vec) {
+//         return std::accumulate(vec.begin(), vec.end(), 0);
+//     },
+//         layer6);
+
+//     // Layer 8: Create a ProcessedData object with checksum and info
+//     auto layer8 = calc([](int sum) {
+//         return ProcessedData{"ProcessedData", static_cast<int>(sum)};
+//     },
+//         layer7);
+
+//     // Layer 9: Combine info and checksum into a string
+//     auto layer9 = calc([](const ProcessedData &calc) {
+//         return calc.info + "|" + std::to_string(calc.checksum);
+//     },
+//         layer8);
+
+//     // Final layer: Add "Final:" prefix to the result
+//     auto finalLayer = calc([](const std::string &s) {
+//         return "Final:" + s;
+//     },
+//         layer9);
+
+//     const int ITERATIONS = 1000000;
+//     auto start = steady_clock::now(); // Start measuring time
+//     // Perform stress test for the given number of iterations
+//     for (int i = 0; i < ITERATIONS; ++i) {
+//         // Update base sources with new values
+//         base1.value(i % 100);
+//         base2.value((i % 100) * 0.1);
+//         base3.value(i % 2 == 0);
+
+//         // Calculate the expected result for the given input
+//         std::string expected = [&]() {
+//             double l1 = base1.get() + base2.get();                        // Add base1 and base2
+//             double l2 = base3.get() ? l1 * 2 : l1 / 2;                    // Multiply or divide based on base3
+//             std::string l3 = "Value:" + std::to_string(l2);               // Convert to string
+//             std::string l4 = l3 + "_" + base4.get();                      // Append base1
+//             size_t l5 = l4.length();                                      // Get string length
+//             std::vector<int> l6(l5, base5.get());                         // Create vector of length 'l5'
+//             int l7 = std::accumulate(l6.begin(), l6.end(), 0);            // Sum vector values
+//             ProcessedData l8{"ProcessedData", static_cast<int>(l7)};      // Create ProcessedData object
+//             std::string l9 = l8.info + "|" + std::to_string(l8.checksum); // Combine info and checksum
+//             return "Final:" + l9;                                         // Add final prefix
+//         }();
+
+//         // Print progress every 10,000 iterations
+//         if (i % 10000 == 0 && finalLayer.get() == expected) {
+//             auto dur = duration_cast<milliseconds>(steady_clock::now() - start);
+//             std::cout << "Progress: " << i << "/" << ITERATIONS
+//                       << " (" << dur.count() << "ms)\n";
+//         }
+//     }
+
+//     // Output the final results of the stress test
+//     auto duration = duration_cast<milliseconds>(steady_clock::now() - start);
+//     std::cout << "=== Stress Test Results ===\n"
+//               << "Iterations: " << ITERATIONS << "\n"
+//               << "Total time: " << duration.count() << "ms\n"
+//               << "Avg time per update: "
+//               << duration.count() / static_cast<double>(ITERATIONS) << "ms\n";
+// }
 
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);

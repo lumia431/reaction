@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include <string>
+#include <tuple>
 
 template <typename T>
 struct Field
@@ -66,7 +67,7 @@ inline constexpr std::string_view getFunName()
     {
         return {};
     }
-    size_t pos2 = func_name.find(";", pos1 + 6);
+    size_t pos2 = func_name.find(';', pos1 + 6);
     if (pos2 == std::string_view::npos)
     {
         return {};

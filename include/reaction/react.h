@@ -1,8 +1,16 @@
 #include "reaction/expression.h"
-#include <atomic>
 
 namespace reaction {
 inline thread_local std::function<void(NodePtr)> g_reg_fun = nullptr;
+
+struct RegGuard {
+    RegGuard(const std::function<void(NodePtr)> &f) {
+        g_reg_fun = f;
+    }
+    ~RegGuard() {
+        g_reg_fun = nullptr;
+    }
+};
 
 template <typename Type, typename... Args>
 class ReactImpl : public Expression<Type, Args...> {
@@ -25,30 +33,27 @@ public:
     }
 
     template <typename F, HasArguments... A>
-    void set(F &&f, A &&...args) {
-        this->setSource(std::forward<F>(f), std::forward<A>(args)...);
+    ReactionError set(F &&f, A &&...args) {
+        return this->setSource(std::forward<F>(f), std::forward<A>(args)...);
     }
 
     template <typename F>
-    void set(F &&f) {
-        g_reg_fun = [this](NodePtr node) {
+    ReactionError set(F &&f) {
+        RegGuard g{[this](NodePtr node) {
             this->addObCb(node);
-        };
-        this->setSource(std::forward<F>(f));
-        g_reg_fun = nullptr;
+        }};
+        return this->setSource(std::forward<F>(f));
     }
 
-    void set() {
-        g_reg_fun = [this](NodePtr node) {
+    ReactionError set() {
+        RegGuard g{[this](NodePtr node) {
             this->addObCb(node);
-        };
-        this->setOpExpr();
-        g_reg_fun = nullptr;
+        }};
+        return this->setOpExpr();
     }
 
     template <typename T>
-        requires(Convertable<T, ValueType> && IsVarExpr<ExprType> && !ConstType<ValueType>)
-    void value(T &&t) {
+    requires(Convertable<T, ValueType> &&IsVarExpr<ExprType> && !ConstType<ValueType>) void value(T &&t) {
         this->updateValue(std::forward<T>(t));
         this->notify();
     }
@@ -59,7 +64,7 @@ public:
 
     void releaseWeakRef() {
         if (--m_weakRefCount == 0) {
-            ObserverGraph::getInstance().removeNode(this->shared_from_this());
+            ObserverGraph::getInstance().closeNode(this->shared_from_this());
             if constexpr (HasField<ValueType>) {
                 FieldGraph::getInstance().deleteObj(this->getValue().getId());
             }
@@ -74,8 +79,7 @@ template <typename ReactType>
 class React {
 public:
     using ValueType = typename ReactType::ValueType;
-    explicit React(std::shared_ptr<ReactType> ptr = nullptr) :
-        m_weakPtr(ptr) {
+    explicit React(std::shared_ptr<ReactType> ptr = nullptr) : m_weakPtr(ptr) {
         if (auto p = m_weakPtr.lock())
             p->addWeakRef();
     }
@@ -85,14 +89,12 @@ public:
             p->releaseWeakRef();
     }
 
-    React(const React &other) :
-        m_weakPtr(other.m_weakPtr) {
+    React(const React &other) : m_weakPtr(other.m_weakPtr) {
         if (auto p = m_weakPtr.lock())
             p->addWeakRef();
     }
 
-    React(React &&other) noexcept :
-        m_weakPtr(std::move(other.m_weakPtr)) {
+    React(React &&other) noexcept : m_weakPtr(std::move(other.m_weakPtr)) {
         other.m_weakPtr.reset();
     }
 
@@ -141,13 +143,23 @@ public:
     }
 
     template <typename F, typename... A>
-    void reset(F &&f, A &&...args) {
+    ReactionError reset(F &&f, A &&...args) {
         return getPtr()->set(std::forward<F>(f), std::forward<A>(args)...);
     }
 
     template <typename T>
-    void value(T &&t) {
+    React &value(T &&t) {
         getPtr()->value(std::forward<T>(t));
+        return *this;
+    }
+
+    React &setName(const std::string &name) {
+        ObserverGraph::getInstance().setName(getPtr(), name);
+        return *this;
+    }
+
+    std::string getName() const {
+        return ObserverGraph::getInstance().getName(getPtr());
     }
 
     std::shared_ptr<ReactType> getPtr() const {
@@ -168,6 +180,7 @@ public:
     template <typename T>
     auto field(T &&t) {
         auto ptr = std::make_shared<ReactImpl<std::decay_t<T>>>(std::forward<T>(t));
+        ObserverGraph::getInstance().addNode(ptr->shared_from_this());
         FieldGraph::getInstance().addObj(m_id, ptr->shared_from_this());
         return React(ptr);
     }
@@ -190,11 +203,10 @@ auto constVar(SrcType &&t) {
 template <typename SrcType>
 auto var(SrcType &&t) {
     auto ptr = std::make_shared<ReactImpl<std::decay_t<SrcType>>>(std::forward<SrcType>(t));
+    ObserverGraph::getInstance().addNode(ptr);
     if constexpr (HasField<SrcType>) {
         FieldGraph::getInstance().bindField(t.getId(), ptr->shared_from_this());
     }
-
-    ObserverGraph::getInstance().addNode(ptr);
     return React(ptr);
 }
 

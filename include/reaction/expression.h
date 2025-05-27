@@ -1,6 +1,5 @@
 #include "reaction/resource.h"
 #include <tuple>
-#include <utility>
 namespace reaction {
 
 struct VarExpr {};
@@ -11,8 +10,7 @@ class BinaryOpExpr {
 public:
     using ValueType = typename std::common_type_t<typename L::ValueType, typename R::ValueType>;
     template <typename Left, typename Right>
-    BinaryOpExpr(Left &&l, Right &&r, Op o = Op{}) :
-        left(std::forward<Left>(l)), right(std::forward<Right>(r)), op(o) {
+    BinaryOpExpr(Left &&l, Right &&r, Op o = Op{}) : left(std::forward<Left>(l)), right(std::forward<Right>(r)), op(o) {
     }
 
     auto operator()() const {
@@ -62,8 +60,7 @@ struct ValueWrapper {
     T value;
 
     template <typename Type>
-    ValueWrapper(Type &&t) :
-        value(std::forward<Type>(t)) {
+    ValueWrapper(Type &&t) : value(std::forward<Type>(t)) {
     }
     const T &operator()() const {
         return value;
@@ -78,25 +75,25 @@ auto make_binary_expr(L &&l, R &&r) {
 }
 
 template <typename L, typename R>
-    requires HasCustomOp<L, R>
+requires HasCustomOp<L, R>
 auto operator+(L &&l, R &&r) {
     return make_binary_expr<AddOp>(std::forward<L>(l), std::forward<R>(r));
 }
 
 template <typename L, typename R>
-    requires HasCustomOp<L, R>
+requires HasCustomOp<L, R>
 auto operator*(L &&l, R &&r) {
     return make_binary_expr<MulOp>(std::forward<L>(l), std::forward<R>(r));
 }
 
 template <typename L, typename R>
-    requires HasCustomOp<L, R>
+requires HasCustomOp<L, R>
 auto operator-(L &&l, R &&r) {
     return make_binary_expr<SubOp>(std::forward<L>(l), std::forward<R>(r));
 }
 
 template <typename L, typename R>
-    requires HasCustomOp<L, R>
+requires HasCustomOp<L, R>
 auto operator/(L &&l, R &&r) {
     return make_binary_expr<DivOp>(std::forward<L>(l), std::forward<R>(r));
 }
@@ -108,18 +105,23 @@ public:
     using ExprType = CalcExpr;
 
     template <typename F, typename... A>
-    void setSource(F &&f, A &&...args) {
+    ReactionError setSource(F &&f, A &&...args) {
         if constexpr (std::convertible_to<ReturnType<std::decay_t<F>, std::decay_t<A>...>, ValueType>) {
-            this->updateObservers(args.getPtr()...);
+            if (!this->updateObservers(args.getPtr()...)) {
+                return ReactionError::CycleDepErr;
+            }
 
             setFunctor(createFun(std::forward<F>(f), std::forward<A>(args)...));
 
-            evaluate();
+            valueChanged();
+        } else {
+            return ReactionError::ReturnTypeErr;
         }
+        return ReactionError::NoErr;
     }
 
     void addObCb(NodePtr node) {
-        this->updateObservers(node);
+        this->addOneObserver(node);
     }
 
 protected:
@@ -171,13 +173,12 @@ public:
     using ValueType = typename std::common_type_t<typename L::ValueType, typename R::ValueType>;
     using ExprType = CalcExpr;
     template <typename T>
-    Expression(T &&expr) :
-        m_expr(std::forward<T>(expr)) {
+    Expression(T &&expr) : m_expr(std::forward<T>(expr)) {
     }
 
 protected:
-    void setOpExpr() {
-        this->setSource([this]() {
+    ReactionError setOpExpr() {
+        return this->setSource([this]() {
             return m_expr();
         });
     }

@@ -4,13 +4,11 @@ namespace reaction {
 template <typename Type>
 class Resource : public ObserverNode {
 public:
-    Resource() :
-        m_ptr(nullptr) {
+    Resource() : m_ptr(nullptr) {
     }
 
     template <typename T>
-    Resource(T &&t) :
-        m_ptr(std::make_unique<Type>(std::forward<T>(t))) {
+    Resource(T &&t) : m_ptr(std::make_unique<Type>(std::forward<T>(t))) {
     }
 
     Resource(const Resource &) = delete;

@@ -1,12 +1,14 @@
 #include <concepts>
+#include <functional>
 #include <memory>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace reaction {
 // ==================== Forward declarations ====================
 struct VarExpr;
 struct VoidWrapper;
 class FieldBase;
-class ObserverNode;
 
 template <typename T, typename... Args>
 class ReactImpl;
@@ -19,8 +21,6 @@ class BinaryOpExpr;
 
 template <typename T>
 struct ValueWrapper;
-
-using NodePtr = std::shared_ptr<ObserverNode>;
 
 // ==================== Basic type concepts ====================
 
@@ -51,28 +51,17 @@ concept NonInvocableType = !InvocableType<T>;
 template <typename... Args>
 concept HasArguments = sizeof...(Args) > 0;
 
-template <typename T>
-concept IsReactNode = requires(T t) {
-    { t.shared_from_this() } -> std::same_as<NodePtr>;
-};
-
-template <typename T>
-concept IsDataReact = requires(T t) {
-    typename T::ValueType;
-    requires IsReactNode<T> && !VoidType<typename T::ValueType>;
-};
-
 // ==================== Type Traits ====================
 
- template <typename T>
- struct IsReact : std::false_type {
-     using Type = T;
- };
+template <typename T>
+struct IsReact : std::false_type {
+    using Type = T;
+};
 
- template <typename T>
- struct IsReact<React<T>> : std::true_type {
-     using Type = T;
- };
+template <typename T>
+struct IsReact<React<T>> : std::true_type {
+    using Type = T;
+};
 
 template <typename T>
 struct ExpressionTraits {
@@ -108,10 +97,10 @@ using ExprWrapper = std::conditional_t<
     T,
     ValueWrapper<T>>;
 
- template <typename L, typename R>
- concept HasCustomOp = IsReact<std::decay_t<L>>::value ||
-                     IsReact<std::decay_t<R>>::value ||
-                     IsBinaryOpExpr<std::decay_t<L>> ||
-                     IsBinaryOpExpr<std::decay_t<R>>;
+template <typename L, typename R>
+concept HasCustomOp = IsReact<std::decay_t<L>>::value ||
+    IsReact<std::decay_t<R>>::value ||
+    IsBinaryOpExpr<std::decay_t<L>> ||
+    IsBinaryOpExpr<std::decay_t<R>>;
 
 } // namespace reaction

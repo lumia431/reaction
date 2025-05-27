@@ -5,6 +5,16 @@ project(reaction VERSION 1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(ENABLE_CLANG_TIDY "Enable clang-tidy analysis" OFF)
+
+if(ENABLE_CLANG_TIDY)
+  set(CMAKE_CXX_CLANG_TIDY
+    clang-tidy-19;
+    -quiet;
+    -checks=modernize-*,readability-*,performance-*,-readability-identifier-length,-readability-magic-numbers,-modernize-use-trailing-return-type,-readability-function-cognitive-complexity
+  )
+endif()
+
 if(MSVC)
     add_compile_options(/W4 /GR-)
 else()
@@ -27,7 +37,7 @@ foreach(example_source ${EXAMPLE_SOURCES})
     get_filename_component(example_name ${example_source} NAME_WE)
     add_executable(${example_name} ${example_source})
     target_link_libraries(${example_name} PRIVATE ${PROJECT_NAME})
-    
+
 endforeach()
 
 
