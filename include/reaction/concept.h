@@ -31,6 +31,12 @@ template <typename T>
 concept IsVarExpr = std::is_same_v<T, VarExpr>;
 
 template <typename T>
+concept HasField = requires(T t) {
+    { t.getId() } -> std::same_as<uint64_t>;
+    requires std::is_base_of_v<FieldBase, std::decay_t<T>>;
+};
+
+template <typename T>
 concept ConstType = std::is_const_v<std::remove_reference_t<T>>;
 
 template <typename T>
@@ -45,20 +51,7 @@ concept NonInvocableType = !InvocableType<T>;
 template <typename... Args>
 concept HasArguments = sizeof...(Args) > 0;
 
-// ==================== Logic Concepts ====================
-
-template <typename T>
-concept HasField = requires(T t) {
-    { t.getId() } -> std::same_as<uint64_t>;
-    requires std::is_base_of_v<FieldBase, std::decay_t<T>>;
-};
-
- template <typename T>
- concept IsTriggerMode = requires(T t) {
-     { t.checkTrigger() } -> std::same_as<bool>;
- };
-
-// ==================== Type Traits =======================
+// ==================== Type Traits ====================
 
 template <typename T>
 struct IsReact : std::false_type {

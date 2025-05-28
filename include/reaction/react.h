@@ -12,7 +12,7 @@ struct RegGuard {
     }
 };
 
-template <typename TriggerMode, typename Type, typename... Args>
+template <typename Type, typename... Args>
 class ReactImpl : public Expression<Type, Args...> {
 public:
     using ValueType = Expression<Type, Args...>::ValueType;
@@ -218,7 +218,7 @@ auto expr(OpExpr &&opExpr) {
     return React{ptr};
 }
 
-template <IsTriggerMode TriggerMode = ChangeTrig, typename Fun, typename... Args>
+template <typename Fun, typename... Args>
 auto calc(Fun &&fun, Args &&...args) {
     auto ptr = std::make_shared<ReactImpl<std::decay_t<Fun>, std::decay_t<Args>...>>();
     ObserverGraph::getInstance().addNode(ptr);
