@@ -2,6 +2,8 @@
 
 namespace reaction {
 
+inline thread_local NodeSet g_delay_list;
+
 class ObserverGraph {
 public:
     static ObserverGraph &getInstance() {
@@ -248,26 +250,24 @@ public:
     }
 
     void notify() {
-        NodeSet repeatList;
-        notify(repeatList);
-    }
-
-    void notify(NodeSet &repeatList) {
         Log::info("node {} trigger.", ObserverGraph::getInstance().getName(shared_from_this()));
 
         for (auto &[repeat, _] : m_repeats) {
-            repeatList.insert(repeat);
+            g_delay_list.insert(repeat);
         }
+
         for (auto &observer : m_observers) {
-            if (repeatList.find(observer) == repeatList.end()) {
-                observer.lock()->valueChanged();
+            if (g_delay_list.find(observer) == g_delay_list.end()) {
+                if (auto wp = observer.lock()) wp->valueChanged();
             }
         }
 
-        if (!repeatList.empty()) {
+        if (!g_delay_list.empty()) {
             for (auto &[repeat, _] : m_repeats) {
-                repeat.lock()->valueChanged();
-                repeatList.erase(repeat);
+                g_delay_list.erase(repeat);
+            }
+            for (auto &[repeat, _] : m_repeats) {
+                if (auto wp = repeat.lock()) wp->valueChanged();
             }
         }
     }
