@@ -171,7 +171,7 @@ TEST(ReactionTest, TestExpr) {
     ASSERT_FLOAT_EQ(expr_ds.get(), -3.86);
 }
 
-TEST(TestSelfDependency, ReactionTest) {
+TEST(ReactionTest, TestSelfDependency) {
     auto a = reaction::var(1);
     auto b = reaction::var(2);
     auto c = reaction::var(3);
@@ -182,7 +182,7 @@ TEST(TestSelfDependency, ReactionTest) {
         reaction::ReactionError::CycleDepErr);
 }
 
-TEST(TestCycleDependency, ReactionTest) {
+TEST(ReactionTest, TestCycleDependency) {
     auto a = reaction::var(1);
     auto b = reaction::var(2);
     auto c = reaction::var(3);
@@ -202,7 +202,7 @@ TEST(TestCycleDependency, ReactionTest) {
 }
 
 // Test for repeat dependencies and the number of trigger counts
-TEST(TestRepeatDependency, ReactionTest) {
+TEST(ReactionTest, TestRepeatDependency) {
     // ds → A, ds → a, A → a
     auto a = reaction::var(1).setName("a");
     auto b = reaction::var(2).setName("b");
@@ -220,7 +220,7 @@ TEST(TestRepeatDependency, ReactionTest) {
     EXPECT_EQ(dsB.get(), 6);
 }
 
-TEST(TestRepeatDependency2, ReactionTest) {
+TEST(ReactionTest, TestRepeatDependency2) {
     // ds → A, ds → B, ds → C, A → a, B → a
     int triggerCountA = 0;
     int triggerCountB = 0;
@@ -238,7 +238,7 @@ TEST(TestRepeatDependency2, ReactionTest) {
     EXPECT_EQ(ds.get(), 12);
 }
 
-TEST(TestRepeatDependency3, ReactionTest) {
+TEST(ReactionTest, TestRepeatDependency3) {
     // ds → A, ds → B, A → A1, A1 → A2, A2 → a, B → B1, B1 → a
     auto a = reaction::var(1).setName("a");
     auto b = reaction::var(1).setName("b");
@@ -262,6 +262,57 @@ TEST(TestRepeatDependency3, ReactionTest) {
 
     A1.reset([](auto bb) { return bb; }, b);
     EXPECT_EQ(ds.get(), 2);
+}
+
+TEST(ReactionTest, TestValueChangeTrigger) {
+    auto a = reaction::var(1);
+    auto b = reaction::var(3.14);
+    auto c = reaction::var("cc");
+    int triggerCountA = 0;
+    int triggerCountB = 0;
+    auto ds = reaction::calc([&triggerCountA](int aa, double bb) {
+                                                ++triggerCountA;
+                                                return std::to_string(aa) + std::to_string(bb); }, a, b);
+    auto dds = reaction::calc<reaction::ChangeTrig>([&triggerCountB](auto cc, auto dsds) {
+                                                                               ++triggerCountB;
+                                                                               return cc + dsds; }, c, ds);
+    EXPECT_EQ(triggerCountA, 1);
+    EXPECT_EQ(triggerCountB, 1);
+    *a = 1;
+    EXPECT_EQ(triggerCountA, 2);
+    EXPECT_EQ(triggerCountB, 1);
+
+    *a = 2;
+    EXPECT_EQ(triggerCountA, 3);
+    EXPECT_EQ(triggerCountB, 2);
+}
+
+// Test for threshold trigger
+TEST(ReactionTest, TestFilterTrig) {
+    auto a = reaction::var(1);
+    auto b = reaction::var(2);
+    auto c = reaction::var(3);
+    int triggerCountA = 0;
+    int triggerCountB = 0;
+    auto ds = reaction::calc([&triggerCountA](int aa, double bb) {
+                                                ++triggerCountA;
+                                                return aa + bb; }, a, b);
+    auto dds = reaction::calc<reaction::FilterTrig>([&triggerCountB](auto cc, auto dsds) {
+                                                                             ++triggerCountB;
+                                                                             return cc + dsds; }, c, ds);
+    EXPECT_EQ(triggerCountA, 1);
+    EXPECT_EQ(triggerCountB, 1);
+    *a = 2;
+    EXPECT_EQ(triggerCountA, 2);
+    EXPECT_EQ(triggerCountB, 2);
+    EXPECT_EQ(ds.get(), 4);
+    EXPECT_EQ(dds.get(), 7);
+
+    dds.setFilter([=]() { return c() + ds() < 10; });
+    *a = 5;
+    EXPECT_EQ(triggerCountA, 3);
+    EXPECT_EQ(triggerCountB, 2);
+    EXPECT_EQ(dds.get(), 7);
 }
 
 // struct ProcessedData {

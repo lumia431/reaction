@@ -1,5 +1,5 @@
 #include "reaction/resource.h"
-#include <tuple>
+#include "reaction/triggerMode.h"
 namespace reaction {
 
 struct VarExpr {};
@@ -112,7 +112,6 @@ public:
             }
 
             setFunctor(createFun(std::forward<F>(f), std::forward<A>(args)...));
-
             valueChanged();
         } else {
             return ReactionError::ReturnTypeErr;
