@@ -1,6 +1,10 @@
+#pragma once
+
 #include "reaction/concept.h"
 #include "reaction/log.h"
 #include <atomic>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace reaction {
 
@@ -32,8 +36,6 @@ private:
     }
     friend struct std::hash<UniqueID>;
 };
-
-class ObserverNode;
 
 using NodePtr = std::shared_ptr<ObserverNode>;
 using NodeWeak = std::weak_ptr<ObserverNode>;

@@ -1,12 +1,4 @@
-/*
- * Copyright (c) 2025 Lummy
- *
- * This software is released under the MIT License.
- * See the LICENSE file in the project root for full details.
- */
-
-#ifndef REACTION_LOG_H
-#define REACTION_LOG_H
+#pragma once
 
 #include <iostream>
 #include <sstream>
@@ -83,5 +75,3 @@ private:
 };
 
 } // namespace reaction
-
-#endif // REACTION_LOG_H

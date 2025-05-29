@@ -1,6 +1,10 @@
+#pragma once
+
 #include "reaction/observerNode.h"
 #include <exception>
+
 namespace reaction {
+
 template <typename Type>
 class Resource : public ObserverNode {
 public:

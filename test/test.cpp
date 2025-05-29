@@ -201,7 +201,6 @@ TEST(ReactionTest, TestCycleDependency) {
         reaction::ReactionError::CycleDepErr);
 }
 
-// Test for repeat dependencies and the number of trigger counts
 TEST(ReactionTest, TestRepeatDependency) {
     // ds → A, ds → a, A → a
     auto a = reaction::var(1).setName("a");
@@ -279,7 +278,6 @@ TEST(ReactionTest, TestChangeTrig) {
     EXPECT_EQ(triggerCountB, 2);
 }
 
-// Test for FilterTrig
 TEST(ReactionTest, TestFilterTrig) {
     auto a = reaction::var(1);
     auto b = reaction::var(2);
@@ -296,6 +294,122 @@ TEST(ReactionTest, TestFilterTrig) {
 
     *a = 5;
     EXPECT_EQ(dds.get(), 8);
+}
+
+TEST(ReactionTest, TestCloseStra) {
+    auto a = reaction::var(1);
+    a.setName("a");
+
+    auto b = reaction::var(2);
+    b.setName("b");
+
+    auto dsB = reaction::calc([](auto aa) { return aa; }, a);
+    auto dsC = reaction::calc([](auto aa) { return aa; }, a);
+    auto dsD = reaction::calc([](auto aa) { return aa; }, a);
+    auto dsE = reaction::calc([](auto aa) { return aa; }, a);
+    auto dsF = reaction::calc([](auto aa) { return aa; }, a);
+    auto dsG = reaction::calc([](auto aa) { return aa; }, a);
+    dsB.setName("dsB");
+    dsC.setName("dsC");
+    dsD.setName("dsD");
+    dsE.setName("dsE");
+    dsF.setName("dsF");
+    dsG.setName("dsG");
+
+    {
+        auto dsA = reaction::calc([](int aa) { return aa; }, a);
+        dsA.setName("dsA");
+
+        dsB.reset([](int aa, int dsAValue) { return aa + dsAValue; }, a, dsA);
+        dsC.reset([](int aa, int dsAValue, int dsBValue) { return aa + dsAValue + dsBValue; }, a, dsA, dsB);
+        dsD.reset([](int dsAValue, int dsBValue, int dsCValue) { return dsAValue + dsBValue + dsCValue; }, dsA, dsB, dsC);
+        dsE.reset([](int dsBValue, int dsCValue, int dsDValue) { return dsBValue * dsCValue + dsDValue; }, dsB, dsC, dsD);
+        dsF.reset([](int aa, int bb) { return aa + bb; }, a, b);
+        dsG.reset([](int dsAValue, int dsFValue) { return dsAValue + dsFValue; }, dsA, dsF);
+    }
+
+    EXPECT_FALSE(static_cast<bool>(dsB));
+    EXPECT_FALSE(static_cast<bool>(dsC));
+    EXPECT_FALSE(static_cast<bool>(dsD));
+    EXPECT_FALSE(static_cast<bool>(dsE));
+    EXPECT_TRUE(static_cast<bool>(dsF));
+    EXPECT_FALSE(static_cast<bool>(dsG));
+}
+
+TEST(ReactionTest, TestKeepStra) {
+    auto a = reaction::var(1);
+    a.setName("a");
+
+    auto b = reaction::var(2);
+    b.setName("b");
+
+    auto dsB = reaction::calc([](auto aa) { return aa; }, a);
+    auto dsC = reaction::calc([](auto aa) { return aa; }, a);
+    auto dsD = reaction::calc([](auto aa) { return aa; }, a);
+    auto dsE = reaction::calc([](auto aa) { return aa; }, a);
+    dsB.setName("dsB");
+    dsC.setName("dsC");
+    dsD.setName("dsD");
+    dsE.setName("dsE");
+
+    {
+        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::KeepStra>([](int aa) { return aa; }, a);
+        dsA.setName("dsA");
+
+        dsB.reset([](int aa, int dsAValue) { return aa + dsAValue; }, a, dsA);
+        dsC.reset([](int aa, int dsAValue, int dsBValue) { return aa + dsAValue + dsBValue; }, a, dsA, dsB);
+        dsD.reset([](int dsAValue, int dsBValue, int dsCValue) { return dsAValue + dsBValue + dsCValue; }, dsA, dsB, dsC);
+        dsE.reset([](int dsBValue, int dsCValue, int dsDValue) { return dsBValue * dsCValue + dsDValue; }, dsB, dsC, dsD);
+    }
+
+    EXPECT_EQ(dsB.get(), 2);
+    EXPECT_EQ(dsC.get(), 4);
+    EXPECT_EQ(dsD.get(), 7);
+    EXPECT_EQ(dsE.get(), 15);
+
+    *a = 10;
+    EXPECT_EQ(dsB.get(), 20);
+    EXPECT_EQ(dsC.get(), 40);
+    EXPECT_EQ(dsD.get(), 70);
+    EXPECT_EQ(dsE.get(), 870);
+}
+
+TEST(ReactionTest, TestLastStra) {
+    auto a = reaction::var(1);
+    a.setName("a");
+
+    auto b = reaction::var(2);
+    b.setName("b");
+
+    auto dsB = reaction::calc([](auto aa) { return aa; }, a);
+    auto dsC = reaction::calc([](auto aa) { return aa; }, a);
+    auto dsD = reaction::calc([](auto aa) { return aa; }, a);
+    auto dsE = reaction::calc([](auto aa) { return aa; }, a);
+    dsB.setName("dsB");
+    dsC.setName("dsC");
+    dsD.setName("dsD");
+    dsE.setName("dsE");
+
+    {
+        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::LastStra>([](int aa) { return aa; }, a);
+        dsA.setName("dsA");
+
+        dsB.reset([](int aa, int dsAValue) { return aa + dsAValue; }, a, dsA);
+        dsC.reset([](int aa, int dsAValue, int dsBValue) { return aa + dsAValue + dsBValue; }, a, dsA, dsB);
+        dsD.reset([](int dsAValue, int dsBValue, int dsCValue) { return dsAValue + dsBValue + dsCValue; }, dsA, dsB, dsC);
+        dsE.reset([](int dsBValue, int dsCValue, int dsDValue) { return dsBValue + dsCValue + dsDValue; }, dsB, dsC, dsD);
+    }
+
+    EXPECT_EQ(dsB.get(), 2);
+    EXPECT_EQ(dsC.get(), 4);
+    EXPECT_EQ(dsD.get(), 7);
+    EXPECT_EQ(dsE.get(), 13);
+
+    *a = 10;
+    EXPECT_EQ(dsB.get(), 11);
+    EXPECT_EQ(dsC.get(), 22);
+    EXPECT_EQ(dsD.get(), 34);
+    EXPECT_EQ(dsE.get(), 67);
 }
 
 // struct ProcessedData {

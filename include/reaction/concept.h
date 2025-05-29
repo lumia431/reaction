@@ -1,30 +1,17 @@
+#pragma once
+
 #include <concepts>
-#include <functional>
 #include <memory>
-#include <unordered_map>
-#include <unordered_set>
 
 namespace reaction {
 
-// ==================== Logic Concepts ====================
-class FieldBase;
-
-template <typename T>
-concept HasField = requires(T t) {
-    { t.getId() } -> std::same_as<uint64_t>;
-    requires std::is_base_of_v<FieldBase, std::decay_t<T>>;
-};
-
-template <typename T>
-concept IsTrigMode = requires(T t) {
-    { t.checkTrigger() } -> std::same_as<bool>;
-};
-
 // ==================== Forward declarations ====================
+class FieldBase;
 struct VarExpr;
 struct VoidWrapper;
+class ObserverNode;
 
-template <IsTrigMode TrigMode, typename Type, typename... Args>
+template <typename TM, typename IS, typename Type, typename... Args>
 class ReactImpl;
 
 template <typename T>
@@ -37,6 +24,11 @@ template <typename T>
 struct ValueWrapper;
 
 // ==================== Basic type concepts ====================
+
+struct AnyTp {
+    template <typename T>
+    operator T() { return T{}; }
+};
 
 template <typename T, typename U>
 concept Convertable = std::is_convertible_v<std::decay_t<T>, std::decay_t<U>>;
@@ -64,6 +56,33 @@ concept ComparableType = requires(T &a, T &b) {
     { a == b } -> std::convertible_to<bool>;
 };
 
+template <typename T>
+concept HasField = requires(T t) {
+    { t.getId() } -> std::same_as<uint64_t>;
+    requires std::is_base_of_v<FieldBase, std::decay_t<T>>;
+};
+
+template <typename T>
+concept IsTrigMode = requires(T t) {
+    { t.checkTrigger() } -> std::same_as<bool>;
+};
+
+template <typename T>
+concept IsInvaStra = requires(T t, AnyTp ds) {
+    { t.handleInvalid(ds) } -> std::same_as<void>;
+};
+
+template <typename T>
+concept IsReactSource = requires(T t) {
+    requires requires { { t.shared_from_this() } -> std::same_as<std::shared_ptr<ObserverNode>>; };
+};
+
+template <typename T>
+concept IsDataSource = requires {
+    typename T::ValueType;
+    requires IsReactSource<T> && !std::is_void_v<typename T::ValueType>;
+};
+
 // ==================== Type Traits =======================
 
 template <typename T>
@@ -81,19 +100,19 @@ struct ExpressionTraits {
     using type = T;
 };
 
-template <IsTrigMode TrigMode, NonInvocableType T>
-struct ExpressionTraits<React<ReactImpl<TrigMode, T>>> {
+template <typename TM, typename IS, NonInvocableType T>
+struct ExpressionTraits<React<ReactImpl<TM, IS, T>>> {
     using type = T;
 };
 
-template <IsTrigMode TrigMode, typename Fun, typename... Args>
-struct ExpressionTraits<React<ReactImpl<TrigMode, Fun, Args...>>> {
+template <typename TM, typename IS, typename Fun, typename... Args>
+struct ExpressionTraits<React<ReactImpl<TM, IS, Fun, Args...>>> {
     using RawType = std::invoke_result_t<Fun, typename ExpressionTraits<Args>::type...>;
     using type = std::conditional_t<VoidType<RawType>, VoidWrapper, RawType>;
 };
 
-template <IsTrigMode TrigMode, typename Fun, typename... Args>
-using ReturnType = typename ExpressionTraits<React<ReactImpl<TrigMode, Fun, Args...>>>::type;
+template <typename Fun, typename... Args>
+using ReturnType = typename ExpressionTraits<React<ReactImpl<void, void, Fun, Args...>>>::type;
 
 template <typename T>
 struct BinaryOpExprTraits : std::false_type {};

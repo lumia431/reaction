@@ -1,5 +1,8 @@
+#pragma once
+
 #include "reaction/resource.h"
 #include "reaction/triggerMode.h"
+
 namespace reaction {
 
 struct VarExpr {};
@@ -98,15 +101,15 @@ auto operator/(L &&l, R &&r) {
     return make_binary_expr<DivOp>(std::forward<L>(l), std::forward<R>(r));
 }
 
-template <IsTrigMode TrigMode, typename Fun, typename... Args>
-class Expression : public Resource<ReturnType<TrigMode, Fun, Args...>>, public TrigMode {
+template <typename TM, typename Fun, typename... Args>
+class Expression : public Resource<ReturnType<Fun, Args...>>, public TM {
 public:
-    using ValueType = ReturnType<TrigMode, Fun, Args...>;
+    using ValueType = ReturnType<Fun, Args...>;
     using ExprType = CalcExpr;
 
     template <typename F, typename... A>
     ReactionError setSource(F &&f, A &&...args) {
-        if constexpr (std::convertible_to<ReturnType<TrigMode, std::decay_t<F>, std::decay_t<A>...>, ValueType>) {
+        if constexpr (std::convertible_to<ReturnType<std::decay_t<F>, std::decay_t<A>...>, ValueType>) {
             if (!this->updateObservers(args.getPtr()...)) {
                 return ReactionError::CycleDepErr;
             }
@@ -143,11 +146,11 @@ private:
     }
 
     void valueChanged(bool changed = true) override {
-        if constexpr (std::is_same_v<TrigMode, ChangeTrig>) {
+        if constexpr (std::is_same_v<TM, ChangeTrig>) {
             this->setChanged(changed);
         }
 
-        if (TrigMode::checkTrigger()) {
+        if (TM::checkTrigger()) {
             if constexpr (!VoidType<ValueType>) {
                 auto oldVal = this->getValue();
                 auto newVal = evaluate();
@@ -179,17 +182,17 @@ private:
     std::function<ValueType()> m_fun;
 };
 
-template <IsTrigMode TrigMode, NonInvocableType Type>
-class Expression<TrigMode, Type> : public Resource<Type> {
+template <typename TM, NonInvocableType Type>
+class Expression<TM, Type> : public Resource<Type> {
 public:
     using ValueType = Type;
     using ExprType = VarExpr;
     using Resource<Type>::Resource;
 };
 
-template <IsTrigMode TrigMode, typename Op, typename L, typename R>
-class Expression<TrigMode, BinaryOpExpr<Op, L, R>>
-    : public Expression<TrigMode, std::function<typename std::common_type_t<typename L::ValueType, typename R::ValueType>()>> {
+template <typename TM, typename Op, typename L, typename R>
+class Expression<TM, BinaryOpExpr<Op, L, R>>
+    : public Expression<TM, std::function<typename std::common_type_t<typename L::ValueType, typename R::ValueType>()>> {
 public:
     using ValueType = typename std::common_type_t<typename L::ValueType, typename R::ValueType>;
     using ExprType = CalcExpr;

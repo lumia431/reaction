@@ -1,3 +1,5 @@
+#pragma once
+
 #include "reaction/utility.h"
 
 namespace reaction {
