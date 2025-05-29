@@ -12,12 +12,12 @@ struct RegGuard {
     }
 };
 
-template <typename Type, typename... Args>
-class ReactImpl : public Expression<Type, Args...> {
+template <IsTrigMode TrigMode, typename Type, typename... Args>
+class ReactImpl : public Expression<TrigMode, Type, Args...> {
 public:
-    using ValueType = Expression<Type, Args...>::ValueType;
-    using ExprType = Expression<Type, Args...>::ExprType;
-    using Expression<Type, Args...>::Expression;
+    using ValueType = Expression<TrigMode, Type, Args...>::ValueType;
+    using ExprType = Expression<TrigMode, Type, Args...>::ExprType;
+    using Expression<TrigMode, Type, Args...>::Expression;
 
     template <typename T>
     void operator=(T &&t) {
@@ -153,6 +153,12 @@ public:
         return *this;
     }
 
+    template <typename F, typename... A>
+    React &filter(F &&f, A &&...args) {
+        getPtr()->filter(std::forward<F>(f), std::forward<A>(args)...);
+        return *this;
+    }
+
     React &setName(const std::string &name) {
         ObserverGraph::getInstance().setName(getPtr(), name);
         return *this;
@@ -172,14 +178,14 @@ public:
     std::weak_ptr<ReactType> m_weakPtr;
 };
 
-template <typename SrcType>
-using Field = React<ReactImpl<std::decay_t<SrcType>>>;
+template <typename SrcType, IsTrigMode TrigMode = ChangeTrig>
+using Field = React<ReactImpl<TrigMode, std::decay_t<SrcType>>>;
 
 class FieldBase {
 public:
-    template <typename T>
+    template <IsTrigMode TrigMode = ChangeTrig, typename T>
     auto field(T &&t) {
-        auto ptr = std::make_shared<ReactImpl<std::decay_t<T>>>(std::forward<T>(t));
+        auto ptr = std::make_shared<ReactImpl<TrigMode, std::decay_t<T>>>(std::forward<T>(t));
         ObserverGraph::getInstance().addNode(ptr->shared_from_this());
         FieldGraph::getInstance().addObj(m_id, ptr->shared_from_this());
         return React(ptr);
@@ -193,16 +199,16 @@ private:
     UniqueID m_id;
 };
 
-template <typename SrcType>
+template <IsTrigMode TrigMode = ChangeTrig, typename SrcType>
 auto constVar(SrcType &&t) {
-    auto ptr = std::make_shared<ReactImpl<const std::decay_t<SrcType>>>(std::forward<SrcType>(t));
+    auto ptr = std::make_shared<ReactImpl<TrigMode, const std::decay_t<SrcType>>>(std::forward<SrcType>(t));
     ObserverGraph::getInstance().addNode(ptr);
     return React(ptr);
 }
 
-template <typename SrcType>
+template <IsTrigMode TrigMode = ChangeTrig, typename SrcType>
 auto var(SrcType &&t) {
-    auto ptr = std::make_shared<ReactImpl<std::decay_t<SrcType>>>(std::forward<SrcType>(t));
+    auto ptr = std::make_shared<ReactImpl<TrigMode, std::decay_t<SrcType>>>(std::forward<SrcType>(t));
     ObserverGraph::getInstance().addNode(ptr);
     if constexpr (HasField<SrcType>) {
         FieldGraph::getInstance().bindField(t.getId(), ptr->shared_from_this());
@@ -210,24 +216,24 @@ auto var(SrcType &&t) {
     return React(ptr);
 }
 
-template <typename OpExpr>
+template <IsTrigMode TrigMode = ChangeTrig, typename OpExpr>
 auto expr(OpExpr &&opExpr) {
-    auto ptr = std::make_shared<ReactImpl<std::decay_t<OpExpr>>>(std::forward<OpExpr>(opExpr));
+    auto ptr = std::make_shared<ReactImpl<TrigMode, std::decay_t<OpExpr>>>(std::forward<OpExpr>(opExpr));
     ObserverGraph::getInstance().addNode(ptr);
     ptr->set();
     return React{ptr};
 }
 
-template <typename Fun, typename... Args>
+template <IsTrigMode TrigMode = ChangeTrig, typename Fun, typename... Args>
 auto calc(Fun &&fun, Args &&...args) {
-    auto ptr = std::make_shared<ReactImpl<std::decay_t<Fun>, std::decay_t<Args>...>>();
+    auto ptr = std::make_shared<ReactImpl<TrigMode, std::decay_t<Fun>, std::decay_t<Args>...>>();
     ObserverGraph::getInstance().addNode(ptr);
     ptr->set(std::forward<Fun>(fun), std::forward<Args>(args)...);
     return React(ptr);
 }
 
-template <typename Fun, typename... Args>
+template <IsTrigMode TrigMode = ChangeTrig, typename Fun, typename... Args>
 auto action(Fun &&fun, Args &&...args) {
-    return calc(std::forward<Fun>(fun), std::forward<Args>(args)...);
+    return calc<TrigMode>(std::forward<Fun>(fun), std::forward<Args>(args)...);
 }
 } // namespace reaction

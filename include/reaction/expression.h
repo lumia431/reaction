@@ -1,5 +1,5 @@
 #include "reaction/resource.h"
-#include <tuple>
+#include "reaction/triggerMode.h"
 namespace reaction {
 
 struct VarExpr {};
@@ -75,45 +75,50 @@ auto make_binary_expr(L &&l, R &&r) {
 }
 
 template <typename L, typename R>
-requires HasCustomOp<L, R>
+    requires HasCustomOp<L, R>
 auto operator+(L &&l, R &&r) {
     return make_binary_expr<AddOp>(std::forward<L>(l), std::forward<R>(r));
 }
 
 template <typename L, typename R>
-requires HasCustomOp<L, R>
+    requires HasCustomOp<L, R>
 auto operator*(L &&l, R &&r) {
     return make_binary_expr<MulOp>(std::forward<L>(l), std::forward<R>(r));
 }
 
 template <typename L, typename R>
-requires HasCustomOp<L, R>
+    requires HasCustomOp<L, R>
 auto operator-(L &&l, R &&r) {
     return make_binary_expr<SubOp>(std::forward<L>(l), std::forward<R>(r));
 }
 
 template <typename L, typename R>
-requires HasCustomOp<L, R>
+    requires HasCustomOp<L, R>
 auto operator/(L &&l, R &&r) {
     return make_binary_expr<DivOp>(std::forward<L>(l), std::forward<R>(r));
 }
 
-template <typename Fun, typename... Args>
-class Expression : public Resource<ReturnType<Fun, Args...>> {
+template <IsTrigMode TrigMode, typename Fun, typename... Args>
+class Expression : public Resource<ReturnType<TrigMode, Fun, Args...>>, public TrigMode {
 public:
-    using ValueType = ReturnType<Fun, Args...>;
+    using ValueType = ReturnType<TrigMode, Fun, Args...>;
     using ExprType = CalcExpr;
 
     template <typename F, typename... A>
     ReactionError setSource(F &&f, A &&...args) {
-        if constexpr (std::convertible_to<ReturnType<std::decay_t<F>, std::decay_t<A>...>, ValueType>) {
+        if constexpr (std::convertible_to<ReturnType<TrigMode, std::decay_t<F>, std::decay_t<A>...>, ValueType>) {
             if (!this->updateObservers(args.getPtr()...)) {
                 return ReactionError::CycleDepErr;
             }
 
             setFunctor(createFun(std::forward<F>(f), std::forward<A>(args)...));
 
-            valueChanged();
+            if constexpr (!VoidType<ValueType>) {
+                this->updateValue(evaluate());
+            } else {
+                evaluate();
+            }
+            this->notify();
         } else {
             return ReactionError::ReturnTypeErr;
         }
@@ -122,12 +127,6 @@ public:
 
     void addObCb(NodePtr node) {
         this->addOneObserver(node);
-    }
-
-protected:
-    void valueChanged() override {
-        evaluate();
-        this->notify();
     }
 
 private:
@@ -143,11 +142,33 @@ private:
         };
     }
 
-    void evaluate() {
+    void valueChanged(bool changed = true) override {
+        if constexpr (std::is_same_v<TrigMode, ChangeTrig>) {
+            this->setChanged(changed);
+        }
+
+        if (TrigMode::checkTrigger()) {
+            if constexpr (!VoidType<ValueType>) {
+                auto oldVal = this->getValue();
+                auto newVal = evaluate();
+                this->updateValue(newVal);
+                if constexpr (ComparableType<ValueType>) {
+                    this->notify(oldVal != newVal);
+                } else {
+                    this->notify(true);
+                }
+            } else {
+                evaluate();
+                this->notify(true);
+            }
+        }
+    }
+
+    auto evaluate() const {
         if constexpr (VoidType<ValueType>) {
             std::invoke(m_fun);
         } else {
-            this->updateValue(std::invoke(m_fun));
+            return std::invoke(m_fun);
         }
     }
 
@@ -158,17 +179,17 @@ private:
     std::function<ValueType()> m_fun;
 };
 
-template <NonInvocableType Type>
-class Expression<Type> : public Resource<Type> {
+template <IsTrigMode TrigMode, NonInvocableType Type>
+class Expression<TrigMode, Type> : public Resource<Type> {
 public:
     using ValueType = Type;
     using ExprType = VarExpr;
     using Resource<Type>::Resource;
 };
 
-template <typename Op, typename L, typename R>
-class Expression<BinaryOpExpr<Op, L, R>>
-    : public Expression<std::function<typename std::common_type_t<typename L::ValueType, typename R::ValueType>()>> {
+template <IsTrigMode TrigMode, typename Op, typename L, typename R>
+class Expression<TrigMode, BinaryOpExpr<Op, L, R>>
+    : public Expression<TrigMode, std::function<typename std::common_type_t<typename L::ValueType, typename R::ValueType>()>> {
 public:
     using ValueType = typename std::common_type_t<typename L::ValueType, typename R::ValueType>;
     using ExprType = CalcExpr;

@@ -231,8 +231,8 @@ class ObserverNode : public std::enable_shared_from_this<ObserverNode> {
 public:
     virtual ~ObserverNode() = default;
 
-    virtual void valueChanged() {
-        this->notify();
+    virtual void valueChanged(bool changed = true) {
+        this->notify(changed);
     }
 
     bool updateObservers(auto &&...args) {
@@ -249,7 +249,7 @@ public:
         ObserverGraph::getInstance().addObserver(shared_from_this(), node);
     }
 
-    void notify() {
+    void notify(bool changed = true) {
         Log::info("node {} trigger.", ObserverGraph::getInstance().getName(shared_from_this()));
 
         for (auto &[repeat, _] : m_repeats) {
@@ -258,7 +258,7 @@ public:
 
         for (auto &observer : m_observers) {
             if (g_delay_list.find(observer) == g_delay_list.end()) {
-                if (auto wp = observer.lock()) wp->valueChanged();
+                if (auto wp = observer.lock()) wp->valueChanged(changed);
             }
         }
 
@@ -267,7 +267,7 @@ public:
                 g_delay_list.erase(repeat);
             }
             for (auto &[repeat, _] : m_repeats) {
-                if (auto wp = repeat.lock()) wp->valueChanged();
+                if (auto wp = repeat.lock()) wp->valueChanged(changed);
             }
         }
     }

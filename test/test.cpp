@@ -256,6 +256,48 @@ TEST(ReactionTest, TestRepeatDependency3) {
     EXPECT_EQ(ds.get(), 2);
 }
 
+TEST(ReactionTest, TestChangeTrig) {
+    auto a = reaction::var(1);
+    auto b = reaction::var(3.14);
+    auto c = reaction::var("cc");
+    int triggerCountA = 0;
+    int triggerCountB = 0;
+    auto ds = reaction::calc([&triggerCountA](int aa, double bb) {
+                                                ++triggerCountA;
+                                                return std::to_string(aa) + std::to_string(bb); }, a, b);
+    auto dds = reaction::calc<reaction::ChangeTrig>([&triggerCountB](auto cc, auto dsds) {
+                                                                               ++triggerCountB;
+                                                                               return cc + dsds; }, c, ds);
+    EXPECT_EQ(triggerCountA, 1);
+    EXPECT_EQ(triggerCountB, 1);
+    *a = 1;
+    EXPECT_EQ(triggerCountA, 2);
+    EXPECT_EQ(triggerCountB, 1);
+
+    *a = 2;
+    EXPECT_EQ(triggerCountA, 3);
+    EXPECT_EQ(triggerCountB, 2);
+}
+
+// Test for FilterTrig
+TEST(ReactionTest, TestFilterTrig) {
+    auto a = reaction::var(1);
+    auto b = reaction::var(2);
+    auto c = reaction::var(3);
+    auto ds = reaction::calc([](int aa, double bb) { return aa + bb; }, a, b);
+    auto dds = reaction::calc<reaction::FilterTrig>([](auto cc, auto dsds) { return cc + dsds; }, c, ds);
+    *a = 2;
+    EXPECT_EQ(ds.get(), 4);
+    EXPECT_EQ(dds.get(), 7);
+
+    dds.filter([&]() { return c() + ds() < 10; });
+    *a = 3;
+    EXPECT_EQ(dds.get(), 8);
+
+    *a = 5;
+    EXPECT_EQ(dds.get(), 8);
+}
+
 // struct ProcessedData {
 //     std::string info;
 //     int checksum;
