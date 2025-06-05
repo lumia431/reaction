@@ -12,6 +12,7 @@ public:
     }
 
     template <typename T>
+        requires(!std::is_same_v<std::decay_t<T>, Resource<Type>>)
     Resource(T &&t) : m_ptr(std::make_unique<Type>(std::forward<T>(t))) {
     }
 

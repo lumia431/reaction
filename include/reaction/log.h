@@ -22,7 +22,7 @@ public:
     };
 
     // Default to print all levels
-    static inline Level level_threshold = Level::Info;
+    static inline Level level_threshold = Level::Error;
 
     template <typename... Args>
     static void info(const std::string &format_str, Args &&...args) {

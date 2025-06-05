@@ -12,8 +12,10 @@ template <typename Op, typename L, typename R>
 class BinaryOpExpr {
 public:
     using ValueType = typename std::common_type_t<typename L::ValueType, typename R::ValueType>;
+
     template <typename Left, typename Right>
-    BinaryOpExpr(Left &&l, Right &&r, Op o = Op{}) : left(std::forward<Left>(l)), right(std::forward<Right>(r)), op(o) {
+    BinaryOpExpr(Left &&l, Right &&r, Op o = Op{}) : left(std::forward<Left>(l)),
+                                                     right(std::forward<Right>(r)), op(o) {
     }
 
     auto operator()() const {
@@ -108,12 +110,9 @@ public:
     using ExprType = CalcExpr;
 
     template <typename F, typename... A>
-    ReactionError setSource(F &&f, A &&...args) {
+    void setSource(F &&f, A &&...args) {
         if constexpr (std::convertible_to<ReturnType<std::decay_t<F>, std::decay_t<A>...>, ValueType>) {
-            if (!this->updateObservers(args.getPtr()...)) {
-                return ReactionError::CycleDepErr;
-            }
-
+            this->updateObservers(args.getPtr()...);
             setFunctor(createFun(std::forward<F>(f), std::forward<A>(args)...));
 
             if constexpr (!VoidType<ValueType>) {
@@ -121,11 +120,7 @@ public:
             } else {
                 evaluate();
             }
-            this->notify();
-        } else {
-            return ReactionError::ReturnTypeErr;
         }
-        return ReactionError::NoErr;
     }
 
     void addObCb(NodePtr node) {
@@ -192,17 +187,18 @@ public:
 
 template <typename TM, typename Op, typename L, typename R>
 class Expression<TM, BinaryOpExpr<Op, L, R>>
-    : public Expression<TM, std::function<typename std::common_type_t<typename L::ValueType, typename R::ValueType>()>> {
+    : public Expression<TM, std::function<std::common_type_t<typename L::ValueType, typename R::ValueType>()>> {
 public:
     using ValueType = typename std::common_type_t<typename L::ValueType, typename R::ValueType>;
     using ExprType = CalcExpr;
     template <typename T>
+        requires(!std::is_same_v<std::decay_t<T>, Expression>)
     Expression(T &&expr) : m_expr(std::forward<T>(expr)) {
     }
 
 protected:
-    ReactionError setOpExpr() {
-        return this->setSource([this]() {
+    void setOpExpr() {
+        this->setSource([this]() {
             return m_expr();
         });
     }

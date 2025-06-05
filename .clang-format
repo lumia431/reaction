@@ -5,3 +5,6 @@ BinPackArguments: true
 AccessModifierOffset: -4
 AlignAfterOpenBracket: DontAlign
 AllowShortIfStatementsOnASingleLine: true
+AlignOperands: Align
+BreakBeforeTernaryOperators: true
+ContinuationIndentWidth: 4

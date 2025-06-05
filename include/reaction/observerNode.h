@@ -15,21 +15,20 @@ public:
 
     void addNode(NodePtr node);
 
-    bool addObserver(NodePtr source, NodePtr target) {
+    void addObserver(NodePtr source, NodePtr target) {
         if (source == target) {
             Log::error("Cannot observe self, node = {}.", m_nameList[source]);
-            return false;
+            throw std::runtime_error("detect observe self");
         }
         if (hasCycle(source, target)) {
             Log::error("Cycle dependency detected, node = {}. Cycle dependent = {}", m_nameList[source], m_nameList[target]);
-            return false;
+            throw std::runtime_error("detect cycle dependency");
         }
 
         hasRepeatDependencies(source, target);
 
         m_dependentList.at(source).insert(target);
         m_observerList.at(target).get().insert({source});
-        return true;
     }
 
     void resetNode(NodePtr node) {
@@ -237,14 +236,10 @@ public:
         this->notify(changed);
     }
 
-    bool updateObservers(auto &&...args) {
+    void updateObservers(auto &&...args) {
         auto shared_this = shared_from_this();
         ObserverGraph::getInstance().resetNode(shared_this);
-        if (!(ObserverGraph::getInstance().addObserver(shared_this, args) && ...)) {
-            ObserverGraph::getInstance().resetNode(shared_this);
-            return false;
-        }
-        return true;
+        (ObserverGraph::getInstance().addObserver(shared_this, args), ...);
     }
 
     void addOneObserver(NodePtr node) {

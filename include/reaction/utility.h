@@ -3,16 +3,11 @@
 #include "reaction/concept.h"
 #include "reaction/log.h"
 #include <atomic>
+#include <exception>
 #include <unordered_map>
 #include <unordered_set>
 
 namespace reaction {
-
-enum class ReactionError {
-    CycleDepErr = -2,
-    ReturnTypeErr,
-    NoErr
-};
 
 class UniqueID {
 public:

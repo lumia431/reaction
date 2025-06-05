@@ -10,6 +10,7 @@ class FieldBase;
 struct VarExpr;
 struct VoidWrapper;
 class ObserverNode;
+struct ReactAsKey;
 
 template <typename TM, typename IS, typename Type, typename... Args>
 class ReactImpl;
@@ -37,6 +38,9 @@ template <typename T>
 concept IsVarExpr = std::is_same_v<T, VarExpr>;
 
 template <typename T>
+concept IsReactAsKey = std::is_same_v<T, ReactAsKey>;
+
+template <typename T>
 concept ConstType = std::is_const_v<std::remove_reference_t<T>>;
 
 template <typename T>
@@ -50,6 +54,11 @@ concept NonInvocableType = !InvocableType<T>;
 
 template <typename... Args>
 concept HasArguments = sizeof...(Args) > 0;
+
+template <typename T>
+concept HasPushBack = requires(T t, AnyTp any) {
+    t.push_back(any);
+};
 
 template <typename T>
 concept ComparableType = requires(T &a, T &b) {
