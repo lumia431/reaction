@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2025 Lummy
+ *
+ * This software is released under the MIT License.
+ * See the LICENSE file in the project root for full details.
+ */
+
 #pragma once
 
 #include "reaction/resource.h"
@@ -74,31 +81,31 @@ struct ValueWrapper {
 
 template <typename Op, typename L, typename R>
 auto make_binary_expr(L &&l, R &&r) {
-    return BinaryOpExpr<Op, ExprWrapper<std::decay_t<L>>, ExprWrapper<std::decay_t<R>>>(
+    return BinaryOpExpr<Op, ExprTraits<std::decay_t<L>>, ExprTraits<std::decay_t<R>>>(
         std::forward<L>(l),
         std::forward<R>(r));
 }
 
 template <typename L, typename R>
-    requires HasCustomOp<L, R>
+    requires HasReactOp<L, R>
 auto operator+(L &&l, R &&r) {
     return make_binary_expr<AddOp>(std::forward<L>(l), std::forward<R>(r));
 }
 
 template <typename L, typename R>
-    requires HasCustomOp<L, R>
+    requires HasReactOp<L, R>
 auto operator*(L &&l, R &&r) {
     return make_binary_expr<MulOp>(std::forward<L>(l), std::forward<R>(r));
 }
 
 template <typename L, typename R>
-    requires HasCustomOp<L, R>
+    requires HasReactOp<L, R>
 auto operator-(L &&l, R &&r) {
     return make_binary_expr<SubOp>(std::forward<L>(l), std::forward<R>(r));
 }
 
 template <typename L, typename R>
-    requires HasCustomOp<L, R>
+    requires HasReactOp<L, R>
 auto operator/(L &&l, R &&r) {
     return make_binary_expr<DivOp>(std::forward<L>(l), std::forward<R>(r));
 }
@@ -120,6 +127,8 @@ public:
             } else {
                 evaluate();
             }
+        } else {
+            throw std::runtime_error("return type can reset another!");
         }
     }
 
@@ -140,12 +149,12 @@ private:
         };
     }
 
-    void valueChanged(bool changed = true) override {
+    void valueChanged(bool changed) override {
         if constexpr (std::is_same_v<TM, ChangeTrig>) {
             this->setChanged(changed);
         }
 
-        if (TM::checkTrigger()) {
+        if (TM::checkTrig()) {
             if constexpr (!VoidType<ValueType>) {
                 auto oldVal = this->getValue();
                 auto newVal = evaluate();
@@ -178,7 +187,7 @@ private:
 };
 
 template <typename TM, NonInvocableType Type>
-class Expression<TM, Type> : public Resource<Type> {
+class Expression<TM, Type> : public Resource<Type>, public TM {
 public:
     using ValueType = Type;
     using ExprType = VarExpr;

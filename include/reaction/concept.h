@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2025 Lummy
+ *
+ * This software is released under the MIT License.
+ * See the LICENSE file in the project root for full details.
+ */
+
 #pragma once
 
 #include <concepts>
@@ -7,9 +14,9 @@ namespace reaction {
 
 // ==================== Forward declarations ====================
 class FieldBase;
+class ObserverNode;
 struct VarExpr;
 struct VoidWrapper;
-class ObserverNode;
 struct ReactAsKey;
 
 template <typename TM, typename IS, typename Type, typename... Args>
@@ -56,11 +63,6 @@ template <typename... Args>
 concept HasArguments = sizeof...(Args) > 0;
 
 template <typename T>
-concept HasPushBack = requires(T t, AnyTp any) {
-    t.push_back(any);
-};
-
-template <typename T>
 concept ComparableType = requires(T &a, T &b) {
     { a == b } -> std::convertible_to<bool>;
 };
@@ -73,7 +75,7 @@ concept HasField = requires(T t) {
 
 template <typename T>
 concept IsTrigMode = requires(T t) {
-    { t.checkTrigger() } -> std::same_as<bool>;
+    { t.checkTrig() } -> std::same_as<bool>;
 };
 
 template <typename T>
@@ -95,14 +97,17 @@ concept IsDataSource = requires {
 // ==================== Type Traits =======================
 
 template <typename T>
-struct IsReact : std::false_type {
+struct ReactTraits : std::false_type {
     using Type = T;
 };
 
 template <typename T>
-struct IsReact<React<T>> : std::true_type {
+struct ReactTraits<React<T>> : std::true_type {
     using Type = T;
 };
+
+template <typename T>
+concept IsReact = ReactTraits<T>::value;
 
 template <typename T>
 struct ExpressionTraits {
@@ -133,15 +138,15 @@ template <typename T>
 concept IsBinaryOpExpr = BinaryOpExprTraits<T>::value;
 
 template <typename T>
-using ExprWrapper = std::conditional_t<
-    IsReact<T>::value || IsBinaryOpExpr<T>,
+using ExprTraits = std::conditional_t<
+    IsReact<T> || IsBinaryOpExpr<T>,
     T,
     ValueWrapper<T>>;
 
 template <typename L, typename R>
-concept HasCustomOp = IsReact<std::decay_t<L>>::value ||
-                      IsReact<std::decay_t<R>>::value ||
-                      IsBinaryOpExpr<std::decay_t<L>> ||
-                      IsBinaryOpExpr<std::decay_t<R>>;
+concept HasReactOp = IsReact<std::decay_t<L>> ||
+                     IsReact<std::decay_t<R>> ||
+                     IsBinaryOpExpr<std::decay_t<L>> ||
+                     IsBinaryOpExpr<std::decay_t<R>>;
 
 } // namespace reaction
