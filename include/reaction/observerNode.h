@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2025 Lummy
+ *
+ * This software is released under the MIT License.
+ * See the LICENSE file in the project root for full details.
+ */
+
 #pragma once
 
 #include "reaction/utility.h"
@@ -254,7 +261,7 @@ public:
         }
 
         for (auto &observer : m_observers) {
-            if (g_delay_list.find(observer) == g_delay_list.end()) {
+            if (!g_delay_list.contains(observer)) {
                 if (auto wp = observer.lock()) wp->valueChanged(changed);
             }
         }
