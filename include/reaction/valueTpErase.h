@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2025 Lummy
+ *
+ * This software is released under the MIT License.
+ * See the LICENSE file in the project root for full details.
+ */
+
 #pragma once
 
 #include "reaction/observerNode.h"
@@ -70,7 +77,8 @@ struct ReactBase {
     }
 
     Type *operator->() const {
-        return arrow().template value<Type*>();;
+        return arrow().template value<Type *>();
+        ;
     }
 
     virtual operator bool() const = 0;

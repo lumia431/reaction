@@ -22,24 +22,31 @@ else()
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
 endif()
 
 add_library(${PROJECT_NAME} INTERFACE)
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME} INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    $<INSTALL_INTERFACE:include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-file(GLOB EXAMPLE_SOURCES ${PROJECT_SOURCE_DIR}/example/*.cpp)
-foreach(example_source ${EXAMPLE_SOURCES})
-    get_filename_component(example_name ${example_source} NAME_WE)
-    add_executable(${example_name} ${example_source})
-    target_link_libraries(${example_name} PRIVATE ${PROJECT_NAME})
-
+file(GLOB HEADERS_LIST "${CMAKE_CURRENT_SOURCE_DIR}/include/reaction/*.h")
+foreach(header_file ${HEADERS_LIST})
+    target_sources(${PROJECT_NAME} INTERFACE
+        $<BUILD_INTERFACE:${header_file}>
+    )
 endforeach()
+target_sources(${PROJECT_NAME} INTERFACE ${HEADERS})
 
+file(GLOB EXAMPLE_SOURCES ${PROJECT_SOURCE_DIR}/example/*.cpp)
+foreach(example_file ${EXAMPLE_SOURCES})
+    get_filename_component(example_name ${example_file} NAME_WE)
+    add_executable(${example_name} ${example_file})
+    target_link_libraries(${example_name} PRIVATE ${PROJECT_NAME})
+endforeach()
 
 find_package(GTest)
 if(GTest_FOUND)
@@ -51,3 +58,59 @@ if(GTest_FOUND)
 else()
     message(WARNING "GTest not found, skipping tests.")
 endif()
+
+include(GNUInstallDirs)
+
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    if(WIN32)
+        set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/install" CACHE PATH "Install path prefix" FORCE)
+        string(REPLACE "\\" "/" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
+    else()
+        set(CMAKE_INSTALL_PREFIX "/usr/local" CACHE PATH "Install path prefix" FORCE)
+    endif()
+endif()
+
+install(
+    DIRECTORY include/reaction
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(
+    TARGETS ${PROJECT_NAME}
+    EXPORT ${PROJECT_NAME}Targets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+install(
+    FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)
+
+install(
+    FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)
+
+install(
+    EXPORT ${PROJECT_NAME}Targets
+    NAMESPACE ${PROJECT_NAME}::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)

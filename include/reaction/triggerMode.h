@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2025 Lummy
+ *
+ * This software is released under the MIT License.
+ * See the LICENSE file in the project root for full details.
+ */
+
 #pragma once
 
 #include <functional>
@@ -5,13 +12,13 @@
 namespace reaction {
 
 struct AlwaysTrig {
-    bool checkTrigger() {
+    bool checkTrig() {
         return true;
     }
 };
 
 struct ChangeTrig {
-    bool checkTrigger() {
+    bool checkTrig() {
         return m_changed;
     }
 
@@ -29,7 +36,7 @@ struct FilterTrig {
         m_filterFun = createFun(std::forward<F>(f), std::forward<A>(args)...);
     }
 
-    bool checkTrigger() {
+    bool checkTrig() {
         return std::invoke(m_filterFun);
     }
 

@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2025 Lummy
+ *
+ * This software is released under the MIT License.
+ * See the LICENSE file in the project root for full details.
+ */
 
 #include <iostream>
 #include <string>

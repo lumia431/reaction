@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2025 Lummy
+ *
+ * This software is released under the MIT License.
+ * See the LICENSE file in the project root for full details.
+ */
+
 #pragma once
 
 #include "reaction/expression.h"
@@ -56,10 +63,14 @@ public:
 
     template <typename T>
     void value(T &&t) {
+        bool changed = true;
+        if constexpr (ComparableType<ValueType>) {
+            changed = this->getValue() != t;
+        }
         if constexpr (!VoidType<ValueType> && !ConstType<ValueType>) {
             this->updateValue(std::forward<T>(t));
         }
-        this->notify();
+        this->notify(changed);
     }
 
     void close() {
@@ -191,12 +202,12 @@ public:
         return *this;
     }
 
-    React &setName(const std::string &name) {
+    React &setName(const std::string &name) override{
         ObserverGraph::getInstance().setName(getPtr(), name);
         return *this;
     }
 
-    std::string getName() const {
+    std::string getName() const override{
         return ObserverGraph::getInstance().getName(getPtr());
     }
 
@@ -208,7 +219,7 @@ private:
         return m_weakPtr.lock();
     }
 
-    NodePtr getNodePtr() const {
+    NodePtr getNodePtr() const override{
         return getPtr()->shared_from_this();
     }
 
