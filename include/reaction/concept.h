@@ -17,13 +17,7 @@ class FieldBase;
 class ObserverNode;
 struct VarExpr;
 struct VoidWrapper;
-struct ReactAsKey;
-
-template <typename TM, typename IS, typename Type, typename... Args>
-class ReactImpl;
-
-template <typename T>
-class React;
+struct ChangeTrig;
 
 template <typename Op, typename L, typename R>
 class BinaryOpExpr;
@@ -45,7 +39,7 @@ template <typename T>
 concept IsVarExpr = std::is_same_v<T, VarExpr>;
 
 template <typename T>
-concept IsReactAsKey = std::is_same_v<T, ReactAsKey>;
+concept IsChangeTrig = std::is_same_v<T, ChangeTrig>;
 
 template <typename T>
 concept ConstType = std::is_const_v<std::remove_reference_t<T>>;
@@ -88,45 +82,35 @@ concept IsReactSource = requires(T t) {
     requires requires { { t.shared_from_this() } -> std::same_as<std::shared_ptr<ObserverNode>>; };
 };
 
-template <typename T>
-concept IsDataSource = requires {
-    typename T::ValueType;
-    requires IsReactSource<T> && !std::is_void_v<typename T::ValueType>;
-};
+template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
+class ReactImpl;
+
+template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
+class React;
 
 // ==================== Type Traits =======================
 
 template <typename T>
 struct ReactTraits : std::false_type {
-    using Type = T;
+    using type = T;
 };
 
-template <typename T>
-struct ReactTraits<React<T>> : std::true_type {
-    using Type = T;
+template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
+struct ReactTraits<React<Expr, Type, IS, TM>> : std::true_type {
+    using type = Type;
 };
 
 template <typename T>
 concept IsReact = ReactTraits<T>::value;
 
-template <typename T>
+template <typename Fun, typename... Args>
 struct ExpressionTraits {
-    using type = T;
-};
-
-template <typename TM, typename IS, NonInvocableType T>
-struct ExpressionTraits<React<ReactImpl<TM, IS, T>>> {
-    using type = T;
-};
-
-template <typename TM, typename IS, typename Fun, typename... Args>
-struct ExpressionTraits<React<ReactImpl<TM, IS, Fun, Args...>>> {
-    using RawType = std::invoke_result_t<Fun, typename ExpressionTraits<Args>::type...>;
-    using type = std::conditional_t<VoidType<RawType>, VoidWrapper, RawType>;
+    using RawType = std::invoke_result_t<Fun, typename ReactTraits<Args>::type...>;
+    using type = std::conditional_t<VoidType<RawType>, VoidWrapper, std::decay_t<RawType>>;
 };
 
 template <typename Fun, typename... Args>
-using ReturnType = typename ExpressionTraits<React<ReactImpl<void, void, Fun, Args...>>>::type;
+using ReturnType = typename ExpressionTraits<std::decay_t<Fun>, std::decay_t<Args>...>::type;
 
 template <typename T>
 struct BinaryOpExprTraits : std::false_type {};

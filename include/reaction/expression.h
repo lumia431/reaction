@@ -110,19 +110,16 @@ auto operator/(L &&l, R &&r) {
     return make_binary_expr<DivOp>(std::forward<L>(l), std::forward<R>(r));
 }
 
-template <typename TM, typename Fun, typename... Args>
-class Expression : public Resource<ReturnType<Fun, Args...>>, public TM {
+template <typename Type, IsTrigMode TM>
+class CalcExprBase : public Resource<Type>, public TM {
 public:
-    using ValueType = ReturnType<Fun, Args...>;
-    using ExprType = CalcExpr;
-
     template <typename F, typename... A>
     void setSource(F &&f, A &&...args) {
-        if constexpr (std::convertible_to<ReturnType<std::decay_t<F>, std::decay_t<A>...>, ValueType>) {
+        if constexpr (std::convertible_to<ReturnType<F, A...>, Type>) {
             this->updateObservers(args.getPtr()...);
             setFunctor(createFun(std::forward<F>(f), std::forward<A>(args)...));
 
-            if constexpr (!VoidType<ValueType>) {
+            if constexpr (!VoidType<Type>) {
                 this->updateValue(evaluate());
             } else {
                 evaluate();
@@ -139,27 +136,27 @@ public:
 private:
     template <typename F, typename... A>
     auto createFun(F &&f, A &&...args) {
-        return [f = std::forward<F>(f), ... args = args.getPtr()]() {
-            if constexpr (VoidType<ValueType>) {
-                std::invoke(f, args->get()...);
+        return [f = std::forward<F>(f), ... args = args.getWeak()]() {
+            if constexpr (VoidType<Type>) {
+                std::invoke(f, args.lock()->get()...);
                 return VoidWrapper{};
             } else {
-                return std::invoke(f, args->get()...);
+                return std::invoke(f, args.lock()->get()...);
             }
         };
     }
 
     void valueChanged(bool changed) override {
-        if constexpr (std::is_same_v<TM, ChangeTrig>) {
+        if constexpr (IsChangeTrig<TM>) {
             this->setChanged(changed);
         }
 
         if (TM::checkTrig()) {
-            if constexpr (!VoidType<ValueType>) {
+            if constexpr (!VoidType<Type>) {
                 auto oldVal = this->getValue();
                 auto newVal = evaluate();
                 this->updateValue(newVal);
-                if constexpr (ComparableType<ValueType>) {
+                if constexpr (ComparableType<Type>) {
                     this->notify(oldVal != newVal);
                 } else {
                     this->notify(true);
@@ -172,34 +169,43 @@ private:
     }
 
     auto evaluate() const {
-        if constexpr (VoidType<ValueType>) {
+        if constexpr (VoidType<Type>) {
             std::invoke(m_fun);
         } else {
             return std::invoke(m_fun);
         }
     }
 
-    void setFunctor(const std::function<ValueType()> &fun) {
+    void setFunctor(const std::function<Type()> &fun) {
         m_fun = fun;
     }
 
-    std::function<ValueType()> m_fun;
+    std::function<Type()> m_fun;
 };
 
-template <typename TM, NonInvocableType Type>
-class Expression<TM, Type> : public Resource<Type>, public TM {
+template <typename Expr, typename Type, IsTrigMode TM>
+class Expression : public CalcExprBase<Type, TM> {
+};
+
+template <typename Type, IsTrigMode TM>
+class Expression<VarExpr, Type, TM> : public Resource<Type> {
 public:
-    using ValueType = Type;
-    using ExprType = VarExpr;
     using Resource<Type>::Resource;
+    template <typename T>
+    void setValue(T &&t) {
+        bool changed = true;
+        if constexpr (ComparableType<Type>) {
+            changed = this->getValue() != t;
+        }
+        this->updateValue(std::forward<T>(t));
+        this->notify(changed);
+    }
 };
 
-template <typename TM, typename Op, typename L, typename R>
-class Expression<TM, BinaryOpExpr<Op, L, R>>
-    : public Expression<TM, std::function<std::common_type_t<typename L::ValueType, typename R::ValueType>()>> {
+template <typename Op, typename L, typename R, IsTrigMode TM>
+class Expression<CalcExpr, BinaryOpExpr<Op, L, R>, TM>
+    : public CalcExprBase<std::common_type_t<typename L::ValueType, typename R::ValueType>, TM> {
 public:
-    using ValueType = typename std::common_type_t<typename L::ValueType, typename R::ValueType>;
-    using ExprType = CalcExpr;
     template <typename T>
         requires(!std::is_same_v<std::decay_t<T>, Expression>)
     Expression(T &&expr) : m_expr(std::forward<T>(expr)) {

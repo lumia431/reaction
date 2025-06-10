@@ -6,16 +6,15 @@
  */
 
 #include <reaction/reaction.h>
-#include <iostream>
-#include <iomanip>
 #include <cmath>
+#include <iomanip>
 
 int main() {
     using namespace reaction;
 
     // 1. Reactive variables for stock prices
-    auto buyPrice = var(100.0).setName("buyPrice");      // Price at which stock was bought
-    auto currentPrice = var(105.0);                      // Current market price
+    auto buyPrice = var(100.0).setName("buyPrice"); // Price at which stock was bought
+    auto currentPrice = var(105.0);                 // Current market price
 
     // 2. Use 'calc' to compute profit or loss amount
     auto profit = calc([&]() {
@@ -34,8 +33,8 @@ int main() {
     });
 
     // Simulate price changes
-    currentPrice.value(110.0).value(95.0);  // Stock price increases
-    buyPrice.value(90.0);                   // Buy price adjusted
+    currentPrice.value(110.0).value(95.0); // Stock price increases
+    buyPrice.value(90.0);                  // Buy price adjusted
 
     return 0;
 }

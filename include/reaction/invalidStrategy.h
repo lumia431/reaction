@@ -29,7 +29,7 @@ struct KeepStra {
 struct LastStra {
     template <typename Source>
     void handleInvalid(Source &&source) {
-        if constexpr (IsDataSource<std::decay_t<Source>>) {
+        if constexpr (IsReactSource<std::decay_t<Source>>) {
             auto val = source.get();
             source.set([=]() { return val; });
         }

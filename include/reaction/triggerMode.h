@@ -43,8 +43,8 @@ struct FilterTrig {
 private:
     template <typename F, typename... A>
     auto createFun(F &&f, A &&...args) {
-        return [f = std::forward<F>(f), ... args = args.getPtr()]() {
-            return std::invoke(f, args->get()...);
+        return [f = std::forward<F>(f), ... args = args.getWeak()]() {
+            return std::invoke(f, args.lock()->get()...);
         };
     }
 

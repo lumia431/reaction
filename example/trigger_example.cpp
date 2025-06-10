@@ -6,14 +6,7 @@
  */
 
 #include "reaction/reaction.h"
-#include <iostream>
 
-/**
- * Trigger example demonstrating different triggering strategies
- * 1. Value change trigger
- * 2. Threshold trigger
- * 3. Always trigger
- */
 void triggerExample() {
     // Create primary data source
     auto stockPrice = reaction::var(100.0);
@@ -28,24 +21,23 @@ void triggerExample() {
         },
         stockPrice);
 
-    // Threshold trigger example
-    int thresholdCount = 0;
-    auto thresholdDS = reaction::calc<reaction::FilterTrig>(
-        [&thresholdCount](double price) {
-            thresholdCount++;
+    int filterCount = 0;
+    auto filterDS = reaction::calc<reaction::FilterTrig>(
+        [&filterCount](double price) {
+            filterCount++;
             return price > 105.0 ? "Sell" : "Hold";
         },
         stockPrice);
-    thresholdDS.filter([&]() { return stockPrice() > 105.0 || stockPrice() < 95.0; });
+    filterDS.filter([&]() { return stockPrice() > 105.0 || stockPrice() < 95.0; });
 
     // Test trigger logic
     stockPrice.value(101.0); // Only triggers value change
     stockPrice.value(101.0); // Same value doesn't trigger
-    stockPrice.value(106.0); // Triggers both value change and threshold
+    stockPrice.value(106.0); // Triggers both value change and filter
 
     std::cout << "Value change triggers: " << valueChangeCount << '\n';
-    std::cout << "Threshold triggers: " << thresholdCount << '\n';
-    std::cout << "Current recommendation: " << thresholdDS.get() << '\n';
+    std::cout << "Threshold triggers: " << filterCount << '\n';
+    std::cout << "Current recommendation: " << filterDS.get() << '\n';
 }
 
 int main() {

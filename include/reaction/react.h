@@ -9,17 +9,23 @@
 
 #include "reaction/expression.h"
 #include "reaction/invalidStrategy.h"
-#include "reaction/valueTpErase.h"
 
 namespace reaction {
 
-template <typename TM, typename IS, typename Type, typename... Args>
-class ReactImpl : public Expression<TM, Type, Args...>, public IS {
+inline thread_local std::function<void(NodePtr)> g_reg_fun = nullptr;
+struct RegGuard {
+    RegGuard(const std::function<void(NodePtr)> &f) {
+        g_reg_fun = f;
+    }
+    ~RegGuard() {
+        g_reg_fun = nullptr;
+    }
+};
+
+template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
+class ReactImpl : public Expression<Expr, Type, TM>, public IS {
 public:
-    using ValueType = Expression<TM, Type, Args...>::ValueType;
-    using ExprType = Expression<TM, Type, Args...>::ExprType;
-    using Expression<TM, Type, Args...>::Expression;
-    using TrigMode = TM;
+    using Expression<Expr, Type, TM>::Expression;
 
     template <typename T>
     void operator=(T &&t) {
@@ -31,19 +37,18 @@ public:
     }
 
     auto getRaw() const {
-        if constexpr (!VoidType<ValueType>) {
-            return this->getRawPtr();
-        }
+        return this->getRawPtr();
     }
 
     template <typename F, HasArguments... A>
     void set(F &&f, A &&...args) {
         this->setSource(std::forward<F>(f), std::forward<A>(args)...);
+        this->notify();
     }
 
     template <typename F>
     void set(F &&f) {
-        if constexpr (!IsVarExpr<ExprType>) {
+        {
             RegGuard g{[this](NodePtr node) {
                 this->addObCb(node);
             }};
@@ -53,29 +58,21 @@ public:
     }
 
     void set() {
-        if constexpr (!IsVarExpr<ExprType>) {
-            RegGuard g{[this](NodePtr node) {
-                this->addObCb(node);
-            }};
-            this->setOpExpr();
-        }
+        RegGuard g{[this](NodePtr node) {
+            this->addObCb(node);
+        }};
+        this->setOpExpr();
     }
 
     template <typename T>
+        requires(Convertable<T, Type> && IsVarExpr<Expr> && !ConstType<Type>)
     void value(T &&t) {
-        bool changed = true;
-        if constexpr (ComparableType<ValueType>) {
-            changed = this->getValue() != t;
-        }
-        if constexpr (!VoidType<ValueType> && !ConstType<ValueType>) {
-            this->updateValue(std::forward<T>(t));
-        }
-        this->notify(changed);
+        this->setValue(std::forward<T>(t));
     }
 
     void close() {
         ObserverGraph::getInstance().closeNode(this->shared_from_this());
-        if constexpr (HasField<ValueType>) {
+        if constexpr (HasField<Type>) {
             FieldGraph::getInstance().deleteObj(this->getValue().getId());
         }
     }
@@ -94,12 +91,11 @@ private:
     std::atomic<int> m_weakRefCount{0};
 };
 
-template <typename ReactType>
-class React : public ReactBase<typename ReactType::ExprType, typename ReactType::ValueType> {
+template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
+class React {
 public:
-    using ExprType = typename ReactType::ExprType;
-    using ValueType = typename ReactType::ValueType;
-
+    using ValueType = Type;
+    using ReactType = ReactImpl<Expr, Type, IS, TM>;
     explicit React(std::shared_ptr<ReactType> ptr = nullptr) : m_weakPtr(ptr) {
         if (auto p = m_weakPtr.lock())
             p->addWeakRef();
@@ -140,42 +136,36 @@ public:
         return *this;
     }
 
-    explicit operator bool() const override {
-        return !m_weakPtr.expired();
+    bool operator<(const React &other) const {
+        return getName() < other.getName();
+    }
+
+    bool operator==(const React &other) const {
+        return getPtr().get() == other.getPtr().get();
     }
 
     auto operator->() const {
-        if constexpr (!VoidType<ValueType>) {
-            return getPtr()->getRaw();
-        }
-        return static_cast<ValueType *>(nullptr);
+        return getPtr()->getRaw();
+    }
+
+    explicit operator bool() const {
+        return !m_weakPtr.expired();
     }
 
     decltype(auto) operator()() const {
         if (g_reg_fun) {
-            std::invoke(g_reg_fun, getNodePtr());
+            std::invoke(g_reg_fun, getPtr());
         }
         return get();
-    }
-
-    ValueTpErase getAny() const override {
-        return getPtr()->get();
-    }
-
-    ValueTpErase reg() const override {
-        return operator()();
-    }
-
-    ValueTpErase arrow() const override {
-        return operator->();
     }
 
     decltype(auto) get() const {
         return getPtr()->get();
     }
 
-    React &reset(const std::function<ValueTpErase()> &fun) override {
-        getPtr()->set(fun);
+    template <typename F, typename... A>
+    React &reset(F &&f, A &&...args) {
+        getPtr()->set(std::forward<F>(f), std::forward<A>(args)...);
         return *this;
     }
 
@@ -185,29 +175,23 @@ public:
         return *this;
     }
 
-    React &value(ValueTpErase val) override {
-        getPtr()->value(val.value<ValueType>());
+    template <typename F, typename... A>
+    React &filter(F &&f, A &&...args) {
+        getPtr()->filter(std::forward<F>(f), std::forward<A>(args)...);
         return *this;
     }
 
-    React &filter(const std::function<bool()> &fun) override {
-        if constexpr (std::is_same_v<typename ReactType::TrigMode, FilterTrig>) {
-            getPtr()->filter(fun);
-        }
+    React &close() {
+        getPtr()->close(); // Close the data source
         return *this;
     }
 
-    React &close() override {
-        getPtr()->close();
-        return *this;
-    }
-
-    React &setName(const std::string &name) override{
+    React &setName(const std::string &name) {
         ObserverGraph::getInstance().setName(getPtr(), name);
         return *this;
     }
 
-    std::string getName() const override{
+    std::string getName() const {
         return ObserverGraph::getInstance().getName(getPtr());
     }
 
@@ -219,14 +203,31 @@ private:
         return m_weakPtr.lock();
     }
 
-    NodePtr getNodePtr() const override{
-        return getPtr()->shared_from_this();
+    std::weak_ptr<ReactType> getWeak() const {
+        if (m_weakPtr.expired()) {
+            throw std::runtime_error("Null weak pointer access");
+        }
+        return m_weakPtr;
     }
 
     std::weak_ptr<ReactType> m_weakPtr;
-
-    template <typename TM, typename Fun, typename... Args>
-    friend class Expression;
+    template <typename T, IsTrigMode M>
+    friend class CalcExprBase;
     friend struct FilterTrig;
+
+    friend struct std::hash<React<Expr, Type, IS, TM>>;
 };
+
 } // namespace reaction
+
+namespace std {
+
+using namespace reaction;
+template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
+struct hash<React<Expr, Type, IS, TM>> {
+    std::size_t operator()(const React<Expr, Type, IS, TM> &react) const noexcept {
+        return std::hash<ObserverNode *>{}(react.getPtr().get());
+    }
+};
+
+} // namespace std

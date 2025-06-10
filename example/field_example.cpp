@@ -6,16 +6,13 @@
  */
 
 #include "reaction/reaction.h"
-#include <iostream>
-#include <string>
 
 // Person class with reactive fields for name and age
 class Person : public reaction::FieldBase {
 public:
     // Constructor initializing person data
-    Person(const std::string &name, int age) :
-        m_name(field(name)),
-        m_age(field(age)) {
+    Person(const std::string &name, int age) : m_name(field(name)),
+                                               m_age(field(age)) {
     }
 
     // Getter for name
@@ -44,8 +41,8 @@ public:
     }
 
 private:
-    reaction::Field<std::string> m_name;
-    reaction::Field<int> m_age;
+    reaction::Var<std::string> m_name;
+    reaction::Var<int> m_age;
 };
 
 /**

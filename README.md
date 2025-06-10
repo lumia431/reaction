@@ -27,12 +27,30 @@ Reaction is a blazing-fast, modern C++20 header-only reactive framework that bri
 - Safe **value semantics** throughout the framework
 - Framework manages object lifetime internally
 
-### 🧩 Extensible Design
+---
 
-| Feature          | Options                          |
-|------------------|----------------------------------|
-| Trigger Policy   | ValueChange, Filter, Timer, Custom |
-| Invalidation     | DirectClose, KeepCalc, LastValue |
+## 🔍 Comparison: `QProperty` vs `RxCpp` vs `Reaction`
+
+| Feature / Metric               | 🟩 **QProperty (Qt6)**                       | 🟨 **RxCpp**                                     | 🟥 **Reaction**                          |
+| ------------------------------ | -------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------ |
+| **Expression Support**         | ✅ `setBinding()`, but only **single-layer**  | ✅ Supports chained `map`, `combine_latest`, etc. | ✅✅ Fully supports **deep nested expressions**                |
+| **Expression Nesting Depth**   | ❌ Limited to one layer                       | ⚠️ Supports nesting, but verbose                 | ✅ Unlimited depth with automatic dependency tracking         |
+| **Update Propagation**         | Manual propagation per layer                 | Reactive push chain per layer                    | Automatic DAG-based propagation with pruning                 |
+| **Dependency Tracking**        | ❌ Manual                                     | ⚠️ Manual via operator chaining                  | ✅ Automatic via lazy evaluation capturing dependencies       |
+| **Performance (Update Delay)** | ✅ Fast (O(1) propagation)                    | ❌ Slow (heap allocations and nested chaining)    | ✅✅ Fast (pruned update, lazy eval, diffing)                  |
+| **Memory Usage**               | ✅ Very low (stack + signals)                 | ❌ High (many heap-allocated observables)         | ⚠️ Moderate (DAG storage, optimized with small object opt.)  |
+| **Syntax Simplicity**          | ✅ Simple (`setBinding`, `value()`)           | ❌ Verbose template syntax                        | ✅ Clean expression templates, close to natural syntax        |
+| **Type Support**               | ✅ Built-ins and registered custom types      | ✅ Template-based, supports any type              | ✅ Type-erased or templated support for any combination       |
+| **Container Support**          | ✅ Can be used in containers                  | ✅ Can compose multiple observables               | ✅ Supports container expressions (e.g. map/filter outputs)   |
+| **Threading Model**            | UI-thread default, manual safety for signals | ✅ Multi-threaded pipelines                       | ✅ Main thread default, pluggable lock strategies             |
+| **Error Handling**             | ❌ None                                       | ✅ Robust error flow (`on_error_resume_next`)     | ✅ Error node propagation, pluggable failure strategy         |
+| **Debuggability**              | ⚠️ Lambdas harder to trace                   | ❌ Difficult due to complex types                 | ✅ Trackable dependencies, observable IDs, chain tracing      |
+| **Template Instance Size**     | ✅ Small                                      | ❌ Huge (template explosion)                      | ✅ Optimized with type-erasure or instance deduplication      |
+| **Build Time**                 | ✅ Fast                                       | ❌ Very slow for large expressions                | ✅ Separated headers, controllable instantiation              |
+| **Learning Curve**             | ✅ Low (Qt-style usage)                       | ❌ Steep (functional style)                       | ⚠️ Medium (understanding type deduction + expression design) |
+| **Use Case Fit**               | UI property binding, light state syncing     | Asynchronous pipelines, stream logic             | UI + state modeling + expression trees with complex logic    |
+
+---
 
 ### 📦 Requirements
 
@@ -173,7 +191,7 @@ auto dds = reaction::action([&val](auto aa) {
 }, a);
 ```
 
-#### 5. Reactive Struct Fields: `Field`
+#### 5. Reactive Struct Fields
 
 For complex types with reactive fields allow you to define struct-like variables whose members are individually reactive.
 
@@ -192,8 +210,8 @@ public:
     void setAge(int age) { m_age.value(age); }
 
 private:
-    reaction::Field<std::string> m_name;
-    reaction::Field<int> m_age;
+    reaction::Var<std::string> m_name;
+    reaction::Var<int> m_age;
 };
 
 auto p = reaction::var(PersonField{"Jack", 18});
@@ -317,7 +335,7 @@ Below is a concise example that illustrates all three strategies:
     auto b = calc([]() { return a(); });
     {
         auto temp = calc<AlwaysTrig, CloseStra>([]() { return a(); });
-        b.set([]() { return temp(); });
+        b.set([](auto t) { return t; }, temp);
     }
     // temp lifecycle ends, b will end too.
     EXPECT_FALSE(static_cast<bool>(b));
@@ -327,7 +345,7 @@ Below is a concise example that illustrates all three strategies:
     auto b = calc([]() { return a(); });
     {
         auto temp = calc<AlwaysTrig, KeepStra>([]() { return a(); }); // default is KeepStra
-        b.set([]() { return temp(); });
+        b.set([](auto t) { return t; }, temp);
     }
     // temp lifecycle ends, b not be influenced.
     EXPECT_TRUE(static_cast<bool>(b));
@@ -340,7 +358,7 @@ Below is a concise example that illustrates all three strategies:
     auto b = calc([]() { return a(); });
     {
         auto temp = calc<AlwaysTrig, LastStra>([]() { return a(); });
-        b.set([]() { return temp(); });
+        b.set([](auto t) { return t; }, temp);
     }
     // temp lifecycle ends, b use its last val to calculate.
     EXPECT_TRUE(static_cast<bool>(b));
@@ -364,46 +382,48 @@ auto b = expr<AlwaysTrig, MyStra>(a + 1);
 
 #### 10. Reactive Containers
 
-**ReactContain** provides reactive versions of standard sequence containers (`vector, list, set, map`, etc.) that automatically manage reactivity.
+**Reaction** supports reactive versions of standard stl containers (`vector, list, set, map`, etc.).
 
 ```cpp
 
 using namespace reaction;
 constexpr int STUDENT_COUNT = 5;
 // 1. Student grades container - using vector to store VarExpr
-ReactContain<VarExpr, double> grades;
+std::vector<Var<double>> grades;
 for (int i = 0; i < STUDENT_COUNT; ++i) {
-    grades.push_back(unique(70.0 + i * 5));
+    grades.push_back(make(70.0 + i * 5));
 }
-// 2. Grade statistics container - using set to store CalcExpr
-ReactContain<CalcExpr, double, std::set> stats;
-stats.insert(unique([&] {
+// 2. Grade statistics container - using list to store CalcExpr
+std::list<Calc<double>> stats;
+stats.push_back(make([&] {
     double sum = 0;
-    for (auto &grade : grades) sum += (*grade)();
+    for (auto &grade : grades)
+        sum += grade();
     return sum / grades.size();
 }));
-stats.insert(unique([&] {
-    double max = grades[0]->get();
-    for (auto &grade : grades) max = std::max(max, (*grade)());
+stats.push_back(make([&] {
+    double max = grades[0].get();
+    for (auto &grade : grades)
+        max = std::max(max, grade());
     return max;
 }));
-// 3. Grade change monitors - using list to store Action
-ReactContain<CalcExpr, VoidWrapper, std::list> monitors;
+// 3. Grade change monitors - using set to store Action
+std::set<Calc<VoidWrapper>> monitors;
 for (int i = 0; i < STUDENT_COUNT; ++i) {
-    monitors.push_back(unique([i, &grades] {
-        std::cout << "[Monitor] Student " << i << " grade updated: " << (*grades[i])() << "\n";
+    monitors.insert(make([i, &grades] {
+        std::cout << "[Monitor] Student " << i << " grade updated: " << grades[i]() << "\n";
     }));
 }
 // 4. Grade level mapping - using map to store CalcExpr
-ReactMap<CalcExpr, int, const char *> gradeLevels;
+std::map<int, Calc<const char *>> gradeLevels;
 for (int i = 0; i < STUDENT_COUNT; ++i) {
-    gradeLevels.insert({i, unique([i, &grades] {
-                            double g = (*grades[i])();
+    gradeLevels.insert({i, make([i, &grades] {
+                            double g = grades[i]();
                             if (g >= 90) return "A";
                             if (g >= 80) return "B";
                             if (g >= 70) return "C";
                             return "D";
-    })});
+                        })});
 }
 
 ```

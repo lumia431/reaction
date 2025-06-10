@@ -8,7 +8,6 @@
 #pragma once
 
 #include "reaction/observerNode.h"
-#include <exception>
 
 namespace reaction {
 

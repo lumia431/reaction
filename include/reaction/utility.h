@@ -72,4 +72,5 @@ using NodeMap = std::unordered_map<NodeWeak, uint8_t, std::WeakPtrHash, std::Wea
 
 using NodeSetRef = std::reference_wrapper<NodeSet>;
 using NodeMapRef = std::reference_wrapper<NodeMap>;
+
 } // namespace reaction

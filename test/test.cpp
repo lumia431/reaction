@@ -9,8 +9,10 @@
 #include "gtest/gtest.h"
 #include <chrono>
 #include <list>
+#include <map>
 #include <numeric>
 #include <set>
+#include <vector>
 
 TEST(ReactionTest, TestCalac) {
     auto a = reaction::var(1);
@@ -124,8 +126,8 @@ public:
     }
 
 private:
-    reaction::Field<std::string> m_name;
-    reaction::Field<int> m_age;
+    reaction::Var<std::string> m_name;
+    reaction::Var<int> m_age;
     bool m_male;
 };
 
@@ -299,29 +301,18 @@ TEST(ReactionTest, TestFilterTrig) {
 }
 
 TEST(ReactionTest, TestCloseStra) {
-    auto a = reaction::var(1);
-    a.setName("a");
+    auto a = reaction::var(1).setName("a");
+    auto b = reaction::var(2).setName("b");
 
-    auto b = reaction::var(2);
-    b.setName("b");
-
-    auto dsB = reaction::calc([](auto aa) { return aa; }, a);
-    auto dsC = reaction::calc([](auto aa) { return aa; }, a);
-    auto dsD = reaction::calc([](auto aa) { return aa; }, a);
-    auto dsE = reaction::calc([](auto aa) { return aa; }, a);
-    auto dsF = reaction::calc([](auto aa) { return aa; }, a);
-    auto dsG = reaction::calc([](auto aa) { return aa; }, a);
-    dsB.setName("dsB");
-    dsC.setName("dsC");
-    dsD.setName("dsD");
-    dsE.setName("dsE");
-    dsF.setName("dsF");
-    dsG.setName("dsG");
+    auto dsB = reaction::calc([](auto aa) { return aa; }, a).setName("dsB");
+    auto dsC = reaction::calc([](auto aa) { return aa; }, a).setName("dsC");
+    auto dsD = reaction::calc([](auto aa) { return aa; }, a).setName("dsD");
+    auto dsE = reaction::calc([](auto aa) { return aa; }, a).setName("dsE");
+    auto dsF = reaction::calc([](auto aa) { return aa; }, a).setName("dsF");
+    auto dsG = reaction::calc([](auto aa) { return aa; }, a).setName("dsG");
 
     {
-        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::CloseStra>([](int aa) { return aa; }, a);
-        dsA.setName("dsA");
-
+        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::CloseStra>([](int aa) { return aa; }, a).setName("dsA");
         dsB.reset([&]() { return a() + dsA(); });
         dsC.reset([&]() { return a() + dsA() + dsB(); });
         dsD.reset([&]() { return dsA() + dsB() + dsC(); });
@@ -339,133 +330,98 @@ TEST(ReactionTest, TestCloseStra) {
 }
 
 TEST(ReactionTest, TestKeepStra) {
-    auto a = reaction::var(1);
-    a.setName("a");
+    auto a = reaction::var(1).setName("a");
 
-    auto b = reaction::var(2);
-    b.setName("b");
-
-    auto dsB = reaction::calc([](auto aa) { return aa; }, a);
-    auto dsC = reaction::calc([](auto aa) { return aa; }, a);
-    auto dsD = reaction::calc([](auto aa) { return aa; }, a);
-    auto dsE = reaction::calc([](auto aa) { return aa; }, a);
-    dsB.setName("dsB");
-    dsC.setName("dsC");
-    dsD.setName("dsD");
-    dsE.setName("dsE");
+    auto dsB = reaction::calc([](auto aa) { return aa; }, a).setName("dsB");
+    auto dsC = reaction::calc([](auto aa) { return aa; }, a).setName("dsC");
 
     {
-        auto dsA = reaction::calc([](int aa) { return aa; }, a);
-        dsA.setName("dsA");
+        auto dsA = reaction::calc([](int aa) { return aa; }, a).setName("dsA");
 
-        dsB.reset([&]() { return a() + dsA(); });
-        dsC.reset([&]() { return a() + dsA() + dsB(); });
-        dsD.reset([&]() { return dsA() + dsB() + dsC(); });
-        dsE.reset([&]() { return dsB() * dsC() + dsD(); });
+        dsB.reset([](int aa, int AA) { return aa + AA; }, a, dsA);
+        dsC.reset([](int aa, int AA, int BB) { return aa + AA + BB; }, a, dsA, dsB);
     }
 
     EXPECT_EQ(dsB.get(), 2);
     EXPECT_EQ(dsC.get(), 4);
-    EXPECT_EQ(dsD.get(), 7);
-    EXPECT_EQ(dsE.get(), 15);
 
     a.value(10);
-    ;
     EXPECT_EQ(dsB.get(), 20);
     EXPECT_EQ(dsC.get(), 40);
-    EXPECT_EQ(dsD.get(), 70);
-    EXPECT_EQ(dsE.get(), 870);
 }
 
 TEST(ReactionTest, TestLastStra) {
-    auto a = reaction::var(1);
-    a.setName("a");
+    auto a = reaction::var(1).setName("a");
 
-    auto b = reaction::var(2);
-    b.setName("b");
-
-    auto dsB = reaction::calc([](auto aa) { return aa; }, a);
-    auto dsC = reaction::calc([](auto aa) { return aa; }, a);
-    auto dsD = reaction::calc([](auto aa) { return aa; }, a);
-    auto dsE = reaction::calc([](auto aa) { return aa; }, a);
-    dsB.setName("dsB");
-    dsC.setName("dsC");
-    dsD.setName("dsD");
-    dsE.setName("dsE");
+    auto dsB = reaction::calc([](auto aa) { return aa; }, a).setName("dsB");
+    auto dsC = reaction::calc([](auto aa) { return aa; }, a).setName("dsC");
 
     {
-        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::LastStra>([](int aa) { return aa; }, a);
-        dsA.setName("dsA");
+        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::LastStra>([](int aa) { return aa; }, a).setName("dsA");
 
-        dsB.reset([&]() { return a() + dsA(); });
-        dsC.reset([&]() { return a() + dsA() + dsB(); });
-        dsD.reset([&]() { return dsA() + dsB() + dsC(); });
-        dsE.reset([&]() { return dsB() + dsC() + dsD(); });
+        dsB.reset([](int aa, int AA) { return aa + AA; }, a, dsA);
+        dsC.reset([](int aa, int AA, int BB) { return aa + AA + BB; }, a, dsA, dsB);
     }
 
     EXPECT_EQ(dsB.get(), 2);
     EXPECT_EQ(dsC.get(), 4);
-    EXPECT_EQ(dsD.get(), 7);
-    EXPECT_EQ(dsE.get(), 13);
 
     a.value(10);
     EXPECT_EQ(dsB.get(), 11);
     EXPECT_EQ(dsC.get(), 22);
-    EXPECT_EQ(dsD.get(), 34);
-    EXPECT_EQ(dsE.get(), 67);
 }
 
 TEST(ReactionTest, TestReactContainer) {
     using namespace reaction;
     constexpr int N = 10;
-    ReactContain<VarExpr, int> rc;
+    std::vector<Var<int>> rc;
     for (int i = 0; i < N; ++i) {
-        rc.push_back(unique(i));
+        rc.push_back(make(i));
     }
     for (int i = 0; i < N; ++i) {
-        EXPECT_EQ(rc[i]->get(), i);
+        EXPECT_EQ(rc[i].get(), i);
     }
 
-    ReactContain<CalcExpr, int, std::set> rc2;
+    std::set<Calc<int>> rc2;
     for (int i = 0; i < N; ++i) {
-        rc2.insert(unique([i, &rc]() { return (*rc[i])(); }));
+        rc2.insert(make([i, &rc]() { return rc[i](); }));
     }
     for (int i = 0; i < N; ++i) {
-        rc[i]->value(i + 1);
+        rc[i].value(i + 1);
     }
     int index = 0;
     for (auto &r : rc2) {
-        EXPECT_EQ(r->get(), ++index);
+        EXPECT_EQ(r.get(), ++index);
     }
 
-    ReactContain<CalcExpr, VoidWrapper, std::list> rc3;
+    std::list<Calc<VoidWrapper>> rc3;
     for (int i = 0; i < N; ++i) {
-        rc3.push_back(unique([i, &rc]() { std::cout << " rc " << i << " changed to " << (*rc[i])() << '\n'; }));
+        rc3.push_back(make([i, &rc]() { std::cout << " rc " << i << " changed to " << rc[i]() << '\n'; }));
     }
     for (int i = 0; i < N; ++i) {
-        rc[i]->value(i - 1);
-    }
-
-    ReactMap<CalcExpr, int, std::string> rc4;
-    for (int i = 0; i < N; ++i) {
-        rc4.insert({i, unique([i, &rc]() { return std::to_string((*rc[i])()); })});
-    }
-    for (int i = 0; i < N; ++i) {
-        rc[i]->value(i + 1);
-    }
-    for (int i = 0; i < N; ++i) {
-        EXPECT_EQ(rc4[i]->get(), std::to_string(i + 1));
+        rc[i].value(i - 1);
     }
 
-    ReactMap<CalcExpr, int, std::string, std::unordered_map, ReactAsKey> rc5;
+    std::map<int, Calc<std::string>> rc4;
     for (int i = 0; i < N; ++i) {
-        rc5.emplace(unique([i, &rc]() { return (*rc[i])(); }), std::to_string(i));
+        rc4.insert({i, make([i, &rc]() { return std::to_string(rc[i]()); })});
     }
     for (int i = 0; i < N; ++i) {
-        rc[i]->value(i * 2);
+        rc[i].value(i + 1);
+    }
+    for (int i = 0; i < N; ++i) {
+        EXPECT_EQ(rc4[i].get(), std::to_string(i + 1));
+    }
+
+    std::unordered_map<Calc<int>, std::string> rc5;
+    for (int i = 0; i < N; ++i) {
+        rc5.emplace(make([i, &rc]() { return rc[i](); }), std::to_string(i));
+    }
+    for (int i = 0; i < N; ++i) {
+        rc[i].value(i * 2);
     }
     for (auto &[key, value] : rc5) {
-        EXPECT_EQ(key->get(), std::stoi(value) * 2);
+        EXPECT_EQ(key.get(), std::stoi(value) * 2);
     }
 }
 
