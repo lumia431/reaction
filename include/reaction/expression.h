@@ -13,12 +13,12 @@
 namespace reaction {
 
 /**
- * @brief Marker type for variable (mutable) expressions.
+ * @brief Marker type for variable expressions.
  */
 struct VarExpr {};
 
 /**
- * @brief Marker type for calculated (derived) expressions.
+ * @brief Marker type for calculated expressions.
  */
 struct CalcExpr {};
 
@@ -34,7 +34,7 @@ struct CalcExpr {};
 template <typename Op, typename L, typename R>
 class BinaryOpExpr {
 public:
-    using ValueType = typename std::common_type_t<typename L::ValueType, typename R::ValueType>;
+    using ValueType = typename std::decay_t<std::common_type_t<typename L::ValueType, typename R::ValueType>>;
 
     template <typename Left, typename Right>
     BinaryOpExpr(Left &&l, Right &&r, Op o = Op{})
@@ -93,7 +93,7 @@ struct DivOp {
  */
 template <typename T>
 struct ValueWrapper {
-    using ValueType = T;
+    using ValueType = std::decay_t<T>;
     T value;
 
     template <typename Type>
@@ -183,7 +183,7 @@ private:
         return [f = std::forward<F>(f), ... args = args.getWeak()]() {
             if constexpr (VoidType<Type>) {
                 std::invoke(f, args.lock()->get()...);
-                return VoidWrapper{};
+                return Void{};
             } else {
                 return std::invoke(f, args.lock()->get()...);
             }

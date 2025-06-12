@@ -9,23 +9,23 @@
 
 Reaction is a blazing-fast, modern C++20 header-only reactive framework that brings React/Vue-style dataflow to native C++ – perfect for **UI Dataflow**, **Game logic**, **Financial Services**, **Real-time calculation** and more.
 
-### 🚀 Performance Optimized
+## 🚀 Performance Optimized
 
-- **Zero-cost abstractions** through template metaprogramming
+- **Zero-cost abstractions** through compile-time calculation
 - Minimal runtime overhead with **smart change propagation**
 - Propagation efficiency **at the level of millions per second**
 
-### 🔗 Intelligent Dependency Management
+## 🔗 Intelligent Dependency Management
 
 - Automatic **DAG detection** and cycle prevention
 - Fine-grained **change propagation control**
-- Configurable **caching strategies**
+- Optimize **multiple calls due to duplicate dependencies**
 
-### 🛡️ Safety Guarantees
+## 🛡️ Safety Guarantees
 
 - Compile-time **type checking** with C++20 concepts
 - Safe **value semantics** throughout the framework
-- Framework manages object lifetime internally
+- Framework manages node lifetime internally
 
 ---
 
@@ -52,7 +52,34 @@ Reaction is a blazing-fast, modern C++20 header-only reactive framework that bri
 
 ---
 
-### 📦 Requirements
+## 📊 Performance Benchmarks
+
+Comparative performance results against rxcpp (tested on 2025-06-14):
+
+### Deep Dependency Test (Tree Structure, Depth=10)
+
+| Framework          | Avg. Time (ns) | Iterations   | Relative Speed |
+|--------------------|---------------:|-------------:|---------------:|
+| reaction       |          68.3  |    9,803,835 | **1,663x** faster |
+| rxcpp              |     113,571    |        6,290 | (baseline)     |
+
+### Wide Dependency Test (10,000 Nodes)
+
+| Framework          | Avg. Time (ns) | Iterations   | Relative Speed |
+|--------------------|---------------:|-------------:|---------------:|
+| reaction       |     261,448    |        2,626 | **2.76x** faster |
+| rxcpp              |     721,404    |          960 | (baseline)     |
+
+### Key Findings:
+1. **Deep dependency scenarios**: ~1,663x faster than rxcpp
+2. **Wide dependency scenarios**: ~2.76x faster than rxcpp
+3. **Test Environment**:
+   - 8-core CPU @ 2.8GHz
+   - 32KB L1 Data Cache
+   - 4MB L2 Unified Cache
+   - Linux 5.15.0-78-generic
+
+## 📦 Requirements
 
 - **Compiler**: C++20 compatible (GCC 10+, Clang 12+, MSVC 19.30+)
 - **Build System**: CMake 3.15+
@@ -72,10 +99,9 @@ After installation, you can include and link against reaction in your own CMake-
 
 ```cmake
 find_package(reaction REQUIRED)
-target_link_libraries(your_target PRIVATE reaction)
 ```
 
-### 🚀 Quick Start
+## 🚀 Quick Start
 
 ```cpp
 #include <reaction/reaction.h>
@@ -114,9 +140,9 @@ int main() {
 }
 ```
 
-### 📖 Basic Usage
+## 📖 Basic Usage
 
-#### 1. Reactive Variables: `var`
+### 1. Reactive Variables: `var`
 
 Define reactive state variables with `var<T>`.
 
@@ -137,7 +163,7 @@ auto val = a.get();
 a.value(2);
 ```
 
-#### 2. Derived Computation: calc
+### 2. Derived Computation: calc
 
 Use **calc** to create reactive computations based on one or more var instances.
 
@@ -159,7 +185,7 @@ auto ds = reaction::calc([](auto aa, auto bb) {
 }, a, b);  // Dependencies: a and b
 ```
 
-#### 3. Declarative Expression: expr
+### 3. Declarative Expression: expr
 
 expr provides a clean and concise syntax to declare reactive expressions. The result automatically updates when any dependent variable changes.
 
@@ -169,7 +195,7 @@ auto b = reaction::var(2);
 auto result = reaction::expr(a + b * 3);  // result updates automatically when 'a' or 'b' change
 ```
 
-#### 4. Reactive Side Effects: action
+### 4. Reactive Side Effects: action
 
 Register actions to perform side effects whenever the observed variables change.
 
@@ -191,7 +217,7 @@ auto dds = reaction::action([&val](auto aa) {
 }, a);
 ```
 
-#### 5. Reactive Struct Fields
+### 5. Reactive Struct Fields
 
 For complex types with reactive fields allow you to define struct-like variables whose members are individually reactive.
 
@@ -224,7 +250,7 @@ p->setName("Jackson"); // Action Trigger
 p->setAge(28);         // Action Trigger
 ```
 
-#### 6. Copy and move semantics support
+### 6. Copy and move semantics support
 
 ```cpp
 auto a = reaction::var(1);
@@ -235,7 +261,7 @@ auto ds_move = std::move(ds);
 EXPECT_FALSE(static_cast<bool>(ds));
 ```
 
-#### 7. Resetting Nodes and Dependencies
+### 7. Resetting Nodes and Dependencies
 
 The reaction framework allows you to **reset a computation node** by replacing its computation function.
 This mechanism is useful when the result needs to be recalculated using a different logic or different dependencies after the node has been initially created.
@@ -259,7 +285,7 @@ TEST(TestReset, ReactionTest) {
 }
 ```
 
-#### 8. Trigger Mode
+### 8. Trigger Mode
 
 The `reaction` framework supports various triggering mode to control when reactive computations are re-evaluated. This example demonstrates three mode:
 
@@ -301,7 +327,7 @@ auto a = var(1);
 auto b = expr<MyTrig>(a + 1);
 ```
 
-#### 9. Invalid Strategies
+### 9. Invalid Strategies
 
 In the `reaction` framework, all data sources **obtained by users are actually in the form of weak references**, and their actual memory is managed **in the observer map**.
 Users can manually call the **close** method, so that all dependent data sources will also be closed.
@@ -380,7 +406,7 @@ auto a = var(1);
 auto b = expr<AlwaysTrig, MyStra>(a + 1);
 ```
 
-#### 10. Reactive Containers
+### 10. Reactive Containers
 
 **Reaction** supports reactive versions of standard stl containers (`vector, list, set, map`, etc.).
 
@@ -408,7 +434,7 @@ stats.push_back(make([&] {
     return max;
 }));
 // 3. Grade change monitors - using set to store Action
-std::set<Calc<VoidWrapper>> monitors;
+std::set<Calc<Void>> monitors;
 for (int i = 0; i < STUDENT_COUNT; ++i) {
     monitors.insert(make([i, &grades] {
         std::cout << "[Monitor] Student " << i << " grade updated: " << grades[i]() << "\n";

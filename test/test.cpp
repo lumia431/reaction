@@ -115,7 +115,7 @@ TEST(ReactionTest, TestAction) {
 // Person class demonstrating field-based reactivity
 class Person : public reaction::FieldBase {
 public:
-    Person(std::string name, int age, bool male) : m_name(field(name)), m_age(field(age)), m_male(male) {
+    Person(std::string name, int age) : m_name(field(name)), m_age(field(age)) {
     }
 
     std::string getName() const {
@@ -135,12 +135,11 @@ public:
 private:
     reaction::Var<std::string> m_name;
     reaction::Var<int> m_age;
-    bool m_male;
 };
 
 // Test field-based reactivity with objects
 TEST(ReactionTest, TestField) {
-    Person person{"lummy", 18, true};
+    Person person{"lummy", 18};
     auto p = reaction::var(person);
     auto a = reaction::var(1);
     auto ds = reaction::calc([](int aa, auto pp) { return std::to_string(aa) + pp.getName(); }, a, p);
@@ -416,7 +415,7 @@ TEST(ReactionTest, TestReactContainer) {
         EXPECT_EQ(r.get(), ++index);
     }
 
-    std::list<Calc<VoidWrapper>> rc3;
+    std::list<Calc<Void>> rc3;
     for (int i = 0; i < N; ++i) {
         rc3.push_back(make([i, &rc]() { std::cout << " rc " << i << " changed to " << rc[i]() << '\n'; }));
     }

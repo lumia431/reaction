@@ -1,7 +1,8 @@
 find_package(benchmark)
+# find_package(rxcpp)
 
 if(benchmark_FOUND)
-    file(GLOB BENCH_SOURCES ${PROJECT_SOURCE_DIR}/test/benchmark/*.cpp)
+    file(GLOB BENCH_SOURCES ${PROJECT_SOURCE_DIR}/benchmark/*.cpp)
 
     foreach(bench_file ${BENCH_SOURCES})
         get_filename_component(bench_name ${bench_file} NAME_WE)
