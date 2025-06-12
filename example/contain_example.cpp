@@ -39,7 +39,7 @@ int main() {
     }));
 
     // 3. Grade change monitors - using set to store Action
-    std::set<Calc<VoidWrapper>> monitors;
+    std::set<Calc<Void>> monitors;
     for (int i = 0; i < STUDENT_COUNT; ++i) {
         monitors.insert(make([i, &grades] {
             std::cout << "[Monitor] Student " << i << " grade updated: " << grades[i]() << "\n";

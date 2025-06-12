@@ -52,6 +52,33 @@ Reaction is a blazing-fast, modern C++20 header-only reactive framework that bri
 
 ---
 
+## 📊 Performance Benchmarks
+
+Comparative performance results against rxcpp (tested on 2025-06-14):
+
+### Deep Dependency Test (Tree Structure, Depth=10)
+
+| Framework          | Avg. Time (ns) | Iterations   | Relative Speed |
+|--------------------|---------------:|-------------:|---------------:|
+| reaction       |          68.3  |    9,803,835 | **1,663x** faster |
+| rxcpp              |     113,571    |        6,290 | (baseline)     |
+
+### Wide Dependency Test (10,000 Nodes)
+
+| Framework          | Avg. Time (ns) | Iterations   | Relative Speed |
+|--------------------|---------------:|-------------:|---------------:|
+| reaction       |     261,448    |        2,626 | **2.76x** faster |
+| rxcpp              |     721,404    |          960 | (baseline)     |
+
+### Key Findings:
+1. **Deep dependency scenarios**: ~1,663x faster than rxcpp
+2. **Wide dependency scenarios**: ~2.76x faster than rxcpp
+3. **Test Environment**:
+   - 8-core CPU @ 2.8GHz
+   - 32KB L1 Data Cache
+   - 4MB L2 Unified Cache
+   - Linux 5.15.0-78-generic
+
 ### 📦 Requirements
 
 - **Compiler**: C++20 compatible (GCC 10+, Clang 12+, MSVC 19.30+)
@@ -72,7 +99,6 @@ After installation, you can include and link against reaction in your own CMake-
 
 ```cmake
 find_package(reaction REQUIRED)
-target_link_libraries(your_target PRIVATE reaction)
 ```
 
 ### 🚀 Quick Start
@@ -408,7 +434,7 @@ stats.push_back(make([&] {
     return max;
 }));
 // 3. Grade change monitors - using set to store Action
-std::set<Calc<VoidWrapper>> monitors;
+std::set<Calc<Void>> monitors;
 for (int i = 0; i < STUDENT_COUNT; ++i) {
     monitors.insert(make([i, &grades] {
         std::cout << "[Monitor] Student " << i << " grade updated: " << grades[i]() << "\n";
