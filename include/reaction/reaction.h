@@ -22,7 +22,7 @@ template <typename SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig
 using Var = React<VarExpr, SrcType, IS, TM>;
 
 /**
- * @brief Alias template for a reactive calculation (Calc) based on CalcExpr expression type.
+ * @brief Alias template for a reactive expresstion (Expr) based on BinaryOpExpr expression type.
  *
  * @tparam SrcType The underlying data type produced by this reactive calculation.
  * @tparam IS Invalidation strategy, default is KeepStra.
@@ -30,6 +30,15 @@ using Var = React<VarExpr, SrcType, IS, TM>;
  */
 template <typename SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
 using Calc = React<CalcExpr, SrcType, IS, TM>;
+
+/**
+ * @brief Alias template for a reactive action (Action) based on CalcExpr expression type.
+ *
+ * @tparam IS Invalidation strategy, default is KeepStra.
+ * @tparam TM Trigger mode, default is ChangeTrig.
+ */
+template <IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
+using Action = React<CalcExpr, Void, IS, TM>;
 
 /**
  * @brief Base class representing a field container in the reactive graph.
@@ -49,15 +58,11 @@ public:
      * @param t The initial value to store in the field.
      * @return React<VarExpr, std::decay_t<T>, IS, TM> A reactive wrapper around the stored value.
      */
-    template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, typename T>
+    template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, NonReact T>
     auto field(T &&t) {
-        // Create a shared ReactImpl instance holding the value
         auto ptr = std::make_shared<ReactImpl<VarExpr, std::decay_t<T>, IS, TM>>(std::forward<T>(t));
-        // Register this node globally to observe changes
         ObserverGraph::getInstance().addNode(ptr->shared_from_this());
-        // Register this node to the field graph with this object's unique ID
         FieldGraph::getInstance().addObj(m_id, ptr->shared_from_this());
-        // Return a React wrapper around the pointer
         return React(ptr);
     }
 
@@ -86,7 +91,7 @@ private:
  * @param t The value to wrap as a const reactive variable.
  * @return React<VarExpr, const std::decay_t<SrcType>, IS, TM> Reactive constant wrapper.
  */
-template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, typename SrcType>
+template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, NonReact SrcType>
 auto constVar(SrcType &&t) {
     auto ptr = std::make_shared<ReactImpl<VarExpr, const std::decay_t<SrcType>, IS, TM>>(std::forward<SrcType>(t));
     ObserverGraph::getInstance().addNode(ptr);
@@ -105,7 +110,7 @@ auto constVar(SrcType &&t) {
  * @param t The value to wrap reactively.
  * @return React<VarExpr, std::decay_t<SrcType>, IS, TM> Reactive variable wrapper.
  */
-template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, typename SrcType>
+template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, NonReact SrcType>
 auto var(SrcType &&t) {
     auto ptr = std::make_shared<ReactImpl<VarExpr, std::decay_t<SrcType>, IS, TM>>(std::forward<SrcType>(t));
     ObserverGraph::getInstance().addNode(ptr);
@@ -126,7 +131,7 @@ auto var(SrcType &&t) {
  * @param opExpr The operator expression to wrap.
  * @return React<CalcExpr, std::decay_t<OpExpr>, IS, TM> Reactive calculation wrapper.
  */
-template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, typename OpExpr>
+template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, IsBinaryOpExpr OpExpr>
 auto expr(OpExpr &&opExpr) {
     auto ptr = std::make_shared<ReactImpl<CalcExpr, std::decay_t<OpExpr>, IS, TM>>(std::forward<OpExpr>(opExpr));
     ObserverGraph::getInstance().addNode(ptr);
@@ -183,7 +188,7 @@ auto action(Fun &&fun, Args &&...args) {
  * @return Corresponding reactive wrapper.
  */
 template <typename T>
-auto make(T &&t) {
+auto create(T &&t) {
     if constexpr (IsBinaryOpExpr<std::decay_t<T>>) {
         return expr(std::forward<T>(t));
     } else if constexpr (InvocableType<T>) {
@@ -203,7 +208,7 @@ auto make(T &&t) {
  * @return Reactive calculation wrapper.
  */
 template <typename Fun, typename... Args>
-auto make(Fun &&fun, Args &&...args) {
+auto create(Fun &&fun, Args &&...args) {
     return calc(std::forward<Fun>(fun), std::forward<Args>(args)...);
 }
 

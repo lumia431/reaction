@@ -41,6 +41,7 @@ foreach(header_file ${HEADERS_LIST})
 endforeach()
 target_sources(${PROJECT_NAME} INTERFACE ${HEADERS})
 
+add_subdirectory(benchmark)
 add_subdirectory(example)
 add_subdirectory(test)
 

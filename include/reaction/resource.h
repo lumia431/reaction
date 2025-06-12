@@ -98,23 +98,23 @@ protected:
 /**
  * @brief An empty struct to represent void type in Resource specialization.
  */
-struct VoidWrapper {};
+struct Void {};
 
 /**
- * @brief Specialization of Resource for VoidWrapper type.
+ * @brief Specialization of Resource for Void type.
  *
- * Since VoidWrapper contains no data, getValue simply returns a default constructed VoidWrapper.
+ * Since Void contains no data, getValue simply returns a default constructed Void.
  */
 template <>
-class Resource<VoidWrapper> : public ObserverNode {
+class Resource<Void> : public ObserverNode {
 public:
     /**
-     * @brief Return a default constructed VoidWrapper.
+     * @brief Return a default constructed Void.
      *
-     * @return VoidWrapper An empty value.
+     * @return Void An empty value.
      */
-    VoidWrapper getValue() const {
-        return VoidWrapper{};
+    Void getValue() const {
+        return Void{};
     }
 };
 

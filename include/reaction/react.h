@@ -37,7 +37,7 @@ struct RegGuard {
  *
  * This class combines expression logic, invalidation strategy, and trigger mode handling.
  *
- * @tparam Expr Expression type (e.g., lambda or operator).
+ * @tparam Expr Expression type.
  * @tparam Type Result value type.
  * @tparam IS   Invalidation strategy.
  * @tparam TM   Triggering mode.

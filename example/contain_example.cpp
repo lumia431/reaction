@@ -19,19 +19,19 @@ int main() {
     // 1. Student grades container - using vector to store VarExpr
     std::vector<Var<double>> grades;
     for (int i = 0; i < STUDENT_COUNT; ++i) {
-        grades.push_back(make(70.0 + i * 5));
+        grades.push_back(create(70.0 + i * 5));
     }
 
     // 2. Grade statistics container - using list to store CalcExpr
     std::list<Calc<double>> stats;
-    stats.push_back(make([&] {
+    stats.push_back(create([&] {
         double sum = 0;
         for (auto &grade : grades)
             sum += grade();
         return sum / grades.size();
     }));
 
-    stats.push_back(make([&] {
+    stats.push_back(create([&] {
         double max = grades[0].get();
         for (auto &grade : grades)
             max = std::max(max, grade());
@@ -39,9 +39,9 @@ int main() {
     }));
 
     // 3. Grade change monitors - using set to store Action
-    std::set<Calc<VoidWrapper>> monitors;
+    std::set<Calc<Void>> monitors;
     for (int i = 0; i < STUDENT_COUNT; ++i) {
-        monitors.insert(make([i, &grades] {
+        monitors.insert(create([i, &grades] {
             std::cout << "[Monitor] Student " << i << " grade updated: " << grades[i]() << "\n";
         }));
     }
@@ -49,7 +49,7 @@ int main() {
     // 4. Grade level mapping - using map to store CalcExpr
     std::map<int, Calc<const char *>> gradeLevels;
     for (int i = 0; i < STUDENT_COUNT; ++i) {
-        gradeLevels.insert({i, make([i, &grades] {
+        gradeLevels.insert({i, create([i, &grades] {
                                 double g = grades[i]();
                                 if (g >= 90) return "A";
                                 if (g >= 80) return "B";

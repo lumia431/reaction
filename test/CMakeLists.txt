@@ -8,5 +8,3 @@ if(GTest_FOUND)
 else()
     message(WARNING "GTest not found, skipping tests.")
 endif()
-
-add_subdirectory(benchmark)

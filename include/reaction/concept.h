@@ -17,7 +17,7 @@ namespace reaction {
 class FieldBase;
 class ObserverNode;
 struct VarExpr;
-struct VoidWrapper;
+struct Void;
 struct ChangeTrig;
 
 template <typename Op, typename L, typename R>
@@ -62,10 +62,10 @@ template <typename T>
 concept ConstType = std::is_const_v<std::remove_reference_t<T>>;
 
 /**
- * @brief Determines if the type represents a void type or VoidWrapper.
+ * @brief Determines if the type represents a Void type.
  */
 template <typename T>
-concept VoidType = std::is_void_v<T> || std::is_same_v<T, VoidWrapper>;
+concept VoidType = std::is_void_v<T> || std::is_same_v<T, Void>;
 
 /**
  * @brief Checks if a type is invocable (i.e., a callable function, lambda, etc).
@@ -174,7 +174,13 @@ struct ReactTraits<React<Expr, Type, IS, TM>> : std::true_type {
  * @brief Concept to determine if a type is a React instance.
  */
 template <typename T>
-concept IsReact = ReactTraits<T>::value;
+concept IsReact = ReactTraits<std::decay_t<T>>::value;
+
+/**
+ * @brief Logical negation of IsReact.
+ */
+template <typename T>
+concept NonReact = !IsReact<T>;
 
 /**
  * @brief Extracts the return type from a callable expression using the React argument types.
@@ -182,7 +188,7 @@ concept IsReact = ReactTraits<T>::value;
 template <typename Fun, typename... Args>
 struct ExpressionTraits {
     using RawType = std::invoke_result_t<Fun, typename ReactTraits<Args>::type...>;
-    using type = std::conditional_t<VoidType<RawType>, VoidWrapper, std::decay_t<RawType>>;
+    using type = std::conditional_t<VoidType<RawType>, Void, std::decay_t<RawType>>;
 };
 
 /**
