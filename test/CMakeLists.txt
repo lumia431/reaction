@@ -1,0 +1,12 @@
+find_package(GTest)
+if(GTest_FOUND)
+    enable_testing()
+    file(GLOB TEST_SOURCES ${PROJECT_SOURCE_DIR}/test/*.cpp)
+    add_executable(runTests ${TEST_SOURCES})
+    target_link_libraries(runTests PRIVATE GTest::GTest GTest::Main ${PROJECT_NAME})
+    add_test(NAME reactionTest COMMAND runTests)
+else()
+    message(WARNING "GTest not found, skipping tests.")
+endif()
+
+add_subdirectory(benchmark)

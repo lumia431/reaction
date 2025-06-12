@@ -14,6 +14,7 @@
 #include <set>
 #include <vector>
 
+// Test basic calculation functionality with different types
 TEST(ReactionTest, TestCalac) {
     auto a = reaction::var(1);
     auto b = reaction::var(3.14);
@@ -29,6 +30,7 @@ TEST(ReactionTest, TestCalac) {
     EXPECT_EQ(ddds.get(), 1);
 }
 
+// Test reactive value updates and triggering
 TEST(ReactionTest, TestTrigger) {
     auto a = reaction::var(1);
     auto b = reaction::var(3.14);
@@ -46,6 +48,7 @@ TEST(ReactionTest, TestTrigger) {
     EXPECT_EQ(dds.get(), "25.140000");
 }
 
+// Test copy semantics of reactive variables
 TEST(ReactionTest, TestCopy) {
     auto a = reaction::var(1);
     auto b = reaction::var(3.14);
@@ -61,6 +64,7 @@ TEST(ReactionTest, TestCopy) {
     EXPECT_EQ(dds.get(), "223.140000");
 }
 
+// Test move semantics of reactive variables
 TEST(ReactionTest, TestMove) {
     auto a = reaction::var(1);
     auto b = reaction::var(3.14);
@@ -77,6 +81,7 @@ TEST(ReactionTest, TestMove) {
     EXPECT_FALSE(static_cast<bool>(dds));
 }
 
+// Test constant reactive variables
 TEST(ReactionTest, TestConst) {
     auto a = reaction::var(1);
     auto b = reaction::constVar(3.14);
@@ -85,9 +90,10 @@ TEST(ReactionTest, TestConst) {
 
     a.value(2);
     ASSERT_FLOAT_EQ(ds.get(), 5.14);
-    // b.value(4.14); // compile error;
+    // b.value(4.14); // compile error; constVar cannot be modified
 }
 
+// Test action functionality that responds to changes
 TEST(ReactionTest, TestAction) {
     auto a = reaction::var(1);
     auto b = reaction::var(3.14);
@@ -106,6 +112,7 @@ TEST(ReactionTest, TestAction) {
     EXPECT_TRUE(trigger);
 }
 
+// Person class demonstrating field-based reactivity
 class Person : public reaction::FieldBase {
 public:
     Person(std::string name, int age, bool male) : m_name(field(name)), m_age(field(age)), m_male(male) {
@@ -131,6 +138,7 @@ private:
     bool m_male;
 };
 
+// Test field-based reactivity with objects
 TEST(ReactionTest, TestField) {
     Person person{"lummy", 18, true};
     auto p = reaction::var(person);
@@ -142,6 +150,7 @@ TEST(ReactionTest, TestField) {
     EXPECT_EQ(ds.get(), "1lummy-new");
 }
 
+// Test reset functionality of reactive calculations
 TEST(ReactionTest, TestReset) {
     auto a = reaction::var(1);
     auto b = reaction::var(2);
@@ -155,6 +164,7 @@ TEST(ReactionTest, TestReset) {
     EXPECT_EQ(dds.get(), 6);
 }
 
+// Test operator() syntax for reactive values
 TEST(ReactionTest, TestParentheses) {
     auto a = reaction::var(1);
     auto b = reaction::var(3.14);
@@ -172,6 +182,7 @@ TEST(ReactionTest, TestParentheses) {
     EXPECT_EQ(dds.get(), "25.140000");
 }
 
+// Test expression templates with reactive values
 TEST(ReactionTest, TestExpr) {
     auto a = reaction::var(1);
     auto b = reaction::var(2);
@@ -184,6 +195,7 @@ TEST(ReactionTest, TestExpr) {
     ASSERT_FLOAT_EQ(expr_ds.get(), -3.86);
 }
 
+// Test detection of self-dependency cycles
 TEST(ReactionTest, TestSelfDependency) {
     auto a = reaction::var(1);
     auto dsA = reaction::calc([](int aa) { return aa; }, a);
@@ -191,6 +203,7 @@ TEST(ReactionTest, TestSelfDependency) {
     EXPECT_THROW(dsA.reset([&]() { return a() + dsA(); }), std::runtime_error);
 }
 
+// Test detection of circular dependencies
 TEST(ReactionTest, TestCycleDependency) {
     auto a = reaction::var(1);
     auto b = reaction::var(2);
@@ -209,6 +222,7 @@ TEST(ReactionTest, TestCycleDependency) {
     EXPECT_THROW(dsC.reset([&]() { return a() - dsA(); }), std::runtime_error);
 }
 
+// Test handling of repeated dependencies in the graph
 TEST(ReactionTest, TestRepeatDependency) {
     // ds → A, ds → a, A → a
     auto a = reaction::var(1).setName("a");
@@ -225,6 +239,7 @@ TEST(ReactionTest, TestRepeatDependency) {
     EXPECT_EQ(dsB.get(), 6);
 }
 
+// Test more complex repeated dependency scenarios
 TEST(ReactionTest, TestRepeatDependency2) {
     // ds → A, ds → B, ds → C, A → a, B → a
     int triggerCount = 0;
@@ -240,6 +255,7 @@ TEST(ReactionTest, TestRepeatDependency2) {
     EXPECT_EQ(ds.get(), 12);
 }
 
+// Test deep nested dependency scenarios
 TEST(ReactionTest, TestRepeatDependency3) {
     // ds → A, ds → B, A → A1, A1 → A2, A2 → a, B → B1, B1 → a
     auto a = reaction::var(1).setName("a");
@@ -263,6 +279,7 @@ TEST(ReactionTest, TestRepeatDependency3) {
     EXPECT_EQ(ds.get(), 2);
 }
 
+// Test different trigger strategies (AlwaysTrig vs default)
 TEST(ReactionTest, TestChangeTrig) {
     auto a = reaction::var(1);
     auto b = reaction::var(2);
@@ -282,6 +299,7 @@ TEST(ReactionTest, TestChangeTrig) {
     EXPECT_EQ(triggerCountB, 2);
 }
 
+// Test filter-based triggering
 TEST(ReactionTest, TestFilterTrig) {
     auto a = reaction::var(1);
     auto b = reaction::var(2);
@@ -300,6 +318,7 @@ TEST(ReactionTest, TestFilterTrig) {
     EXPECT_EQ(dds.get(), 8);
 }
 
+// Test close strategy for reactive graph cleanup
 TEST(ReactionTest, TestCloseStra) {
     auto a = reaction::var(1).setName("a");
     auto b = reaction::var(2).setName("b");
@@ -329,6 +348,7 @@ TEST(ReactionTest, TestCloseStra) {
     EXPECT_FALSE(static_cast<bool>(dsG));
 }
 
+// Test keep strategy for maintaining dependencies
 TEST(ReactionTest, TestKeepStra) {
     auto a = reaction::var(1).setName("a");
 
@@ -350,6 +370,7 @@ TEST(ReactionTest, TestKeepStra) {
     EXPECT_EQ(dsC.get(), 40);
 }
 
+// Test last strategy for maintaining only the last value
 TEST(ReactionTest, TestLastStra) {
     auto a = reaction::var(1).setName("a");
 
@@ -371,6 +392,7 @@ TEST(ReactionTest, TestLastStra) {
     EXPECT_EQ(dsC.get(), 22);
 }
 
+// Test reactive variables in various STL containers
 TEST(ReactionTest, TestReactContainer) {
     using namespace reaction;
     constexpr int N = 10;

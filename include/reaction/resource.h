@@ -11,20 +11,47 @@
 
 namespace reaction {
 
+/**
+ * @brief A reactive resource wrapper managing a value of type Type.
+ *
+ * Inherits from ObserverNode, so it can participate in the reactive graph.
+ * Wraps the resource in a std::unique_ptr to manage its lifetime.
+ *
+ * @tparam Type The type of the resource to manage.
+ */
 template <typename Type>
 class Resource : public ObserverNode {
 public:
+    /**
+     * @brief Default constructor initializes with nullptr.
+     */
     Resource() : m_ptr(nullptr) {
     }
 
+    /**
+     * @brief Constructor that initializes the resource with a forwarded value.
+     *
+     * @tparam T Type of the initialization argument, constrained so it cannot be another Resource<Type>.
+     * @param t The initialization value for the resource.
+     */
     template <typename T>
         requires(!std::is_same_v<std::decay_t<T>, Resource<Type>>)
     Resource(T &&t) : m_ptr(std::make_unique<Type>(std::forward<T>(t))) {
     }
 
+    // Delete copy constructor to avoid copying unique_ptr
     Resource(const Resource &) = delete;
+
+    // Delete copy assignment operator to avoid copying unique_ptr
     Resource &operator=(const Resource &) = delete;
 
+    /**
+     * @brief Get a reference to the managed resource.
+     *
+     * Throws std::runtime_error if the resource is not initialized.
+     *
+     * @return Type& Reference to the managed resource.
+     */
     Type &getValue() const {
         if (!m_ptr) {
             throw std::runtime_error("Resource is not initialized");
@@ -32,6 +59,15 @@ public:
         return *m_ptr;
     }
 
+    /**
+     * @brief Update the managed resource with a new value.
+     *
+     * If the resource is not yet initialized, create a new one with the forwarded value.
+     * Otherwise, assign the forwarded value to the existing resource.
+     *
+     * @tparam T Type of the new value to update with.
+     * @param t The new value.
+     */
     template <typename T>
     void updateValue(T &&t) {
         if (!m_ptr) {
@@ -41,6 +77,13 @@ public:
         }
     }
 
+    /**
+     * @brief Get the raw pointer to the managed resource.
+     *
+     * Throws std::runtime_error if the resource is not initialized.
+     *
+     * @return Type* Raw pointer to the resource.
+     */
     Type *getRawPtr() const {
         if (!this->m_ptr) {
             throw std::runtime_error("Attempt to get a null pointer");
@@ -49,16 +92,30 @@ public:
     }
 
 protected:
-    std::unique_ptr<Type> m_ptr;
+    std::unique_ptr<Type> m_ptr; ///< Unique pointer managing the resource.
 };
 
+/**
+ * @brief An empty struct to represent void type in Resource specialization.
+ */
 struct VoidWrapper {};
 
+/**
+ * @brief Specialization of Resource for VoidWrapper type.
+ *
+ * Since VoidWrapper contains no data, getValue simply returns a default constructed VoidWrapper.
+ */
 template <>
 class Resource<VoidWrapper> : public ObserverNode {
 public:
+    /**
+     * @brief Return a default constructed VoidWrapper.
+     *
+     * @return VoidWrapper An empty value.
+     */
     VoidWrapper getValue() const {
         return VoidWrapper{};
     }
 };
+
 } // namespace reaction
