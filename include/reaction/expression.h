@@ -38,7 +38,7 @@ public:
 
     template <typename Left, typename Right>
     BinaryOpExpr(Left &&l, Right &&r, Op o = Op{})
-        : left(std::forward<Left>(l)), right(std::forward<Right>(r)), op(o) {}
+        : m_left(std::forward<Left>(l)), m_right(std::forward<Right>(r)), m_op(o) {}
 
     /// @brief Evaluates the expression.
     auto operator()() const {
@@ -52,12 +52,12 @@ public:
 
 private:
     auto calculate() const {
-        return op(left(), right());
+        return m_op(m_left(), m_right());
     }
 
-    L left;
-    R right;
-    [[no_unique_address]] Op op;
+    L m_left;
+    R m_right;
+    [[no_unique_address]] Op m_op;
 };
 
 // === Operator Functors ===
@@ -94,13 +94,13 @@ struct DivOp {
 template <typename T>
 struct ValueWrapper {
     using ValueType = std::decay_t<T>;
-    T value;
+    T m_value;
 
     template <typename Type>
-    ValueWrapper(Type &&t) : value(std::forward<Type>(t)) {}
+    ValueWrapper(Type &&t) : m_value(std::forward<Type>(t)) {}
 
     const T &operator()() const {
-        return value;
+        return m_value;
     }
 };
 
@@ -198,15 +198,7 @@ private:
 
         if (TM::checkTrig()) {
             if constexpr (!VoidType<Type>) {
-                auto oldVal = this->getValue();
-                auto newVal = evaluate();
-                this->updateValue(newVal);
-
-                if constexpr (ComparableType<Type>) {
-                    this->notify(oldVal != newVal);
-                } else {
-                    this->notify(true);
-                }
+                this->notify(this->updateValue(evaluate()));
             } else {
                 evaluate();
                 this->notify(true);
@@ -251,12 +243,7 @@ public:
 
     template <typename T>
     void setValue(T &&t) {
-        bool changed = true;
-        if constexpr (ComparableType<Type>) {
-            changed = this->getValue() != t;
-        }
-        this->updateValue(std::forward<T>(t));
-        this->notify(changed);
+        this->notify(this->updateValue(std::forward<T>(t)));
     }
 };
 

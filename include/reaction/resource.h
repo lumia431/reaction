@@ -67,14 +67,20 @@ public:
      *
      * @tparam T Type of the new value to update with.
      * @param t The new value.
+     * @return true if the value changed.
      */
     template <typename T>
-    void updateValue(T &&t) {
+    bool updateValue(T &&t) {
+        bool changed = true;
         if (!m_ptr) {
             m_ptr = std::make_unique<Type>(std::forward<T>(t));
         } else {
+            if constexpr (ComparableType<Type>) {
+                changed = *m_ptr != t;
+            }
             *m_ptr = std::forward<T>(t);
         }
+        return changed;
     }
 
     /**

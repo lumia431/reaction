@@ -6,6 +6,7 @@
  */
 
 #include "reaction/reaction.h"
+#include <iostream>
 
 // Person class with reactive fields for name and age
 class Person : public reaction::FieldBase {

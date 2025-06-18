@@ -8,6 +8,7 @@
 #include <reaction/reaction.h>
 #include <cmath>
 #include <iomanip>
+#include <iostream>
 
 int main() {
     using namespace reaction;

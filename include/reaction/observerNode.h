@@ -53,11 +53,9 @@ public:
      */
     void addObserver(NodePtr source, NodePtr target) {
         if (source == target) {
-            Log::error("Cannot observe self, node = {}.", m_nameList[source]);
             throw std::runtime_error("detect observe self");
         }
         if (hasCycle(source, target)) {
-            Log::error("Cycle dependency detected, node = {}. Cycle dependent = {}", m_nameList[source], m_nameList[target]);
             throw std::runtime_error("detect cycle dependency");
         }
 
@@ -138,7 +136,6 @@ private:
                 auto &repeat_map = repeat_it->second.get();
 
                 for (auto map_it = repeat_map.begin(); map_it != repeat_map.end();) {
-                    Log::info("reduce repeat dependent, source = {}, repeatNode = {}, count = {}", m_nameList[dep], m_nameList[map_it->first.lock()], map_it->second);
                     if (observers.contains(map_it->first) && --map_it->second == 1) {
                         map_it = repeat_map.erase(map_it);
                     } else {
@@ -333,7 +330,6 @@ private:
         visited.insert(node);
 
         if (targetDependencies.contains(node)) {
-            Log::info("detect repeat dependent, source = {}, repeatNode = {}.", m_nameList[source], m_nameList[node]);
             if (m_repeatList.at(node).get().contains(source)) {
                 m_repeatList.at(node).get()[source]++;
             } else {
@@ -400,8 +396,6 @@ public:
      * @param changed Whether the node's value has changed.
      */
     void notify(bool changed = true) {
-        // Log::info("node {} trigger.", ObserverGraph::getInstance().getName(shared_from_this()));
-
         // Insert repeat nodes into delay list to prevent re-entrant notifications.
         for (auto &[repeat, _] : m_repeats) {
             g_delay_list.insert(repeat);

@@ -8,9 +8,9 @@
 #pragma once
 
 #include "reaction/concept.h"
-#include "reaction/log.h"
+#include <string>
 #include <atomic>
-#include <exception>
+#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
 

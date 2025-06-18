@@ -63,7 +63,7 @@ public:
         auto ptr = std::make_shared<ReactImpl<VarExpr, std::decay_t<T>, IS, TM>>(std::forward<T>(t));
         ObserverGraph::getInstance().addNode(ptr->shared_from_this());
         FieldGraph::getInstance().addObj(m_id, ptr->shared_from_this());
-        return React(ptr);
+        return React{ptr};
     }
 
     /**
@@ -95,7 +95,7 @@ template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, NonReact SrcType
 auto constVar(SrcType &&t) {
     auto ptr = std::make_shared<ReactImpl<VarExpr, const std::decay_t<SrcType>, IS, TM>>(std::forward<SrcType>(t));
     ObserverGraph::getInstance().addNode(ptr);
-    return React(ptr);
+    return React{ptr};
 }
 
 /**
@@ -117,7 +117,7 @@ auto var(SrcType &&t) {
     if constexpr (HasField<SrcType>) {
         FieldGraph::getInstance().bindField(t.getId(), ptr->shared_from_this());
     }
-    return React(ptr);
+    return React{ptr};
 }
 
 /**
@@ -157,7 +157,7 @@ auto calc(Fun &&fun, Args &&...args) {
     auto ptr = std::make_shared<ReactImpl<CalcExpr, ReturnType<Fun, Args...>, IS, TM>>();
     ObserverGraph::getInstance().addNode(ptr);
     ptr->set(std::forward<Fun>(fun), std::forward<Args>(args)...);
-    return React(ptr);
+    return React{ptr};
 }
 
 /**

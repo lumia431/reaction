@@ -6,6 +6,7 @@
  */
 
 #include "reaction/reaction.h"
+#include <iostream>
 
 void triggerExample() {
     // Create primary data source

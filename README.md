@@ -90,8 +90,7 @@ To build and install the `reaction` reactive framework, follow the steps below:
 
 ```bash
 git clone https://github.com/lumia431/reaction.git && cd reaction
-cmake -B build
-cmake --build build/
+cmake -S . -B build
 cmake --install build/ --prefix /your/install/path
 ```
 
@@ -99,6 +98,13 @@ After installation, you can include and link against reaction in your own CMake-
 
 ```cmake
 find_package(reaction REQUIRED)
+```
+
+If you want to run example or test units:
+
+```bash
+cmake -S . -DBUILD_EXAMPLES=TRUE -DBUILD_TESTS=TRUE -B build
+cmake --build build/
 ```
 
 ## 🚀 Quick Start
@@ -434,7 +440,7 @@ stats.push_back(create([&] {
     return max;
 }));
 // 3. Grade change monitors - using set to store Action
-std::set<Calc<Void>> monitors;
+std::set<Action<>> monitors;
 for (int i = 0; i < STUDENT_COUNT; ++i) {
     monitors.insert(create([i, &grades] {
         std::cout << "[Monitor] Student " << i << " grade updated: " << grades[i]() << "\n";
