@@ -2,10 +2,14 @@ cmake_minimum_required(VERSION 3.10)
 
 project(reaction VERSION 1.0 LANGUAGES CXX)
 
+option(ENABLE_CLANG_TIDY "Enable clang-tidy analysis" OFF)
+option(BUILD_EXAMPLES "Build example projects" OFF)
+option(BUILD_TESTS "Build test projects" OFF)
+option(BUILD_BENCHMARKS "Build benchmark projects" OFF)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-option(ENABLE_CLANG_TIDY "Enable clang-tidy analysis" OFF)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(ENABLE_CLANG_TIDY)
   set(CMAKE_CXX_CLANG_TIDY
@@ -41,9 +45,15 @@ foreach(header_file ${HEADERS_LIST})
 endforeach()
 target_sources(${PROJECT_NAME} INTERFACE ${HEADERS})
 
-add_subdirectory(benchmark)
-add_subdirectory(example)
-add_subdirectory(test)
+if(BUILD_EXAMPLES)
+    add_subdirectory(example)
+endif()
+if(BUILD_TESTS)
+    add_subdirectory(test)
+endif()
+if(BUILD_BENCHMARKS)
+    add_subdirectory(benchmark)
+endif()
 
 include(GNUInstallDirs)
 
@@ -80,12 +90,6 @@ write_basic_package_version_file(
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion
-)
-install(
-    FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
 )
 
 install(
