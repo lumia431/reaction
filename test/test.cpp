@@ -415,7 +415,7 @@ TEST(ReactionTest, TestReactContainer) {
         EXPECT_EQ(r.get(), ++index);
     }
 
-    std::list<Calc<Void>> rc3;
+    std::list<Action<>> rc3;
     for (int i = 0; i < N; ++i) {
         rc3.push_back(create([i, &rc]() { std::cout << " rc " << i << " changed to " << rc[i]() << '\n'; }));
     }
