@@ -8,9 +8,9 @@
 #pragma once
 
 #include "reaction/concept.h"
-#include <string>
 #include <atomic>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -116,19 +116,8 @@ namespace reaction {
 using NodeSet = std::unordered_set<NodeWeak, std::WeakPtrHash, std::WeakPtrEqual>;
 
 /**
- * @brief Alias for an unordered map from weak pointer to uint8_t,
- * representing counts or flags, with custom hash and equality.
- */
-using NodeMap = std::unordered_map<NodeWeak, uint8_t, std::WeakPtrHash, std::WeakPtrEqual>;
-
-/**
  * @brief Reference wrapper type for NodeSet.
  */
 using NodeSetRef = std::reference_wrapper<NodeSet>;
-
-/**
- * @brief Reference wrapper type for NodeMap.
- */
-using NodeMapRef = std::reference_wrapper<NodeMap>;
 
 } // namespace reaction

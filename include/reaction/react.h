@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "reaction/batch.h"
 #include "reaction/expression.h"
 #include "reaction/invalidStrategy.h"
 
@@ -243,7 +244,11 @@ public:
     /// @brief Assigns a value (only if valid).
     template <typename T>
     React &value(T &&t) {
-        getPtr()->value(std::forward<T>(t));
+        if (g_batch_fun) {
+            std::invoke(g_batch_fun, getPtr());
+        } else {
+            getPtr()->value(std::forward<T>(t));
+        }
         return *this;
     }
 

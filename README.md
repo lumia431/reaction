@@ -460,6 +460,41 @@ for (int i = 0; i < STUDENT_COUNT; ++i) {
 
 ```
 
+### 11. Batch Operations
+
+**Reaction** allows grouping multiple reactive updates into a single **batch**, deferring propagation until the batch ends.
+This helps eliminate redundant intermediate updates and improves performance when updating multiple reactive nodes at once.
+
+```cpp
+using namespace reaction;
+
+Var<int> a = create(1);
+Var<int> b = create(2);
+
+// Create a computed value depending on both a and b
+Calc<int> sum = create([&] {
+    std::cout << "[Recompute] sum = " << a() << " + " << b() << "\n";
+    return a() + b();
+});
+
+// 1. Without batching: triggers recomputation twice
+a.value(10);  // [Recompute] sum = 10 + 2
+b.value(20);  // [Recompute] sum = 10 + 20
+
+// 2. With batching: triggers recomputation only once
+auto batchScope = batch([&] {
+    a.value(100);
+    b.value(200);
+});
+batchScope.execute();       // [Recompute] sum = 100 + 200
+
+// or you can use 'batchExecute' to execute directly
+batchExecute([&] {
+    a.value(300);
+    b.value(400);
+});                         // [Recompute] sum = 300 + 400
+```
+
 ## **Contributions Welcome!**
 
 We welcome all forms of contributions to make **Reaction** even better:

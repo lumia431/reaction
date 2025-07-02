@@ -201,15 +201,48 @@ auto create(T &&t) {
 /**
  * @brief Factory function to create a reactive calculation from a callable and arguments.
  *
+ * This function wraps a callable and its arguments into a reactive calculation,
+ * which automatically updates when any of its dependencies change.
+ *
  * @tparam Fun Callable type.
- * @tparam Args Argument types.
+ * @tparam Args Argument types to be forwarded to the callable.
  * @param fun The callable to invoke reactively.
  * @param args Arguments to forward to the callable.
- * @return Reactive calculation wrapper.
+ * @return A reactive calculation wrapper.
  */
 template <typename Fun, typename... Args>
 auto create(Fun &&fun, Args &&...args) {
     return calc(std::forward<Fun>(fun), std::forward<Args>(args)...);
+}
+
+/**
+ * @brief Begins a batch of reactive updates.
+ *
+ * This function creates a batch context, deferring propagation of reactive updates
+ * until the batch is executed. Useful for grouping multiple changes together efficiently.
+ *
+ * @tparam Fun Callable type to execute within the batch.
+ * @param fun A function containing batched operations.
+ * @return A Batch object encapsulating the operation.
+ */
+template <typename Fun>
+auto batch(Fun &&fun) {
+    return Batch{std::forward<Fun>(fun)};
+}
+
+/**
+ * @brief Immediately executes a batch of reactive updates.
+ *
+ * This function creates a batch context and executes it immediately.
+ * Any reactive updates are postponed until the end of the batch execution.
+ *
+ * @tparam Fun Callable type to execute within the batch.
+ * @param fun A function containing batched operations to be executed.
+ */
+template <typename Fun>
+void batchExecute(Fun &&fun) {
+    Batch batch{std::forward<Fun>(fun)};
+    batch.execute();
 }
 
 } // namespace reaction

@@ -12,20 +12,12 @@
 namespace reaction {
 
 /**
- * @brief Global thread-local set used for delaying node notifications.
- *
- * This set is used to avoid recursive notifications and manage delayed updates.
- */
-inline thread_local NodeSet g_delay_list;
-
-/**
  * @brief Manages the graph structure of reactive observers and dependencies.
  *
  * This singleton class is responsible for:
  * - Adding and removing nodes
  * - Managing observer/dependent relationships
  * - Detecting cycles
- * - Managing repeated dependencies
  */
 class ObserverGraph {
 public:
@@ -53,13 +45,14 @@ public:
      */
     void addObserver(NodePtr source, NodePtr target) {
         if (source == target) {
-            throw std::runtime_error("detect observe self");
+            std::string msg{"detect observe self, node name = " + m_nameList[source]};
+            throw std::runtime_error(msg.c_str());
         }
         if (hasCycle(source, target)) {
-            throw std::runtime_error("detect cycle dependency");
+            std::string msg{"detect cycle dependency, source name = " + m_nameList[source]};
+            msg += " target name = " + m_nameList[target];
+            throw std::runtime_error(msg.c_str());
         }
-
-        hasRepeatDependencies(source, target);
 
         m_dependentList.at(source).insert(target);
         m_observerList.at(target).get().insert({source});
@@ -72,7 +65,9 @@ public:
      * @param node The node to reset.
      */
     void resetNode(NodePtr node) {
-        cleanupDependencies(node);
+        for (auto dep : m_dependentList[node]) {
+            m_observerList.at(dep.lock()).get().erase(node);
+        }
         m_dependentList.at(node).clear();
     }
 
@@ -87,6 +82,8 @@ public:
         NodeSet closedNodes;
         cascadeCloseDependents(node, closedNodes);
     }
+
+    void collectObservers(NodePtr node, NodeSet &observers, uint8_t lev);
 
     /**
      * @brief Set a human-readable name for a node.
@@ -114,41 +111,6 @@ public:
 
 private:
     ObserverGraph() {}
-
-    /**
-     * @brief Cleanup dependency data related to a node.
-     *
-     * This handles removing observer links and adjusting repeated dependency counts.
-     * @param node Node whose dependencies are cleaned up.
-     */
-    void cleanupDependencies(NodePtr node) {
-        NodeSet observers;
-        collectObservers(node, observers);
-
-        NodeSet dependents;
-        collectDependencies(node, dependents);
-
-        for (const auto &weak_dep : dependents) {
-            const auto dep = weak_dep.lock();
-            if (!dep) continue;
-
-            if (auto repeat_it = m_repeatList.find(dep); repeat_it != m_repeatList.end()) {
-                auto &repeat_map = repeat_it->second.get();
-
-                for (auto map_it = repeat_map.begin(); map_it != repeat_map.end();) {
-                    if (observers.contains(map_it->first) && --map_it->second == 1) {
-                        map_it = repeat_map.erase(map_it);
-                    } else {
-                        ++map_it;
-                    }
-                }
-            }
-        }
-
-        for (auto dep : m_dependentList[node]) {
-            m_observerList.at(dep.lock()).get().erase(node);
-        }
-    }
 
     /**
      * @brief Helper function to recursively close dependents of a node.
@@ -183,7 +145,6 @@ private:
             m_dependentList.at(ob.lock()).erase(node);
         }
         m_observerList.erase(node);
-        m_repeatList.erase(node);
         m_nameList.erase(node);
     }
 
@@ -232,120 +193,9 @@ private:
         return false;
     }
 
-    /**
-     * @brief Detect repeated dependencies and update tracking.
-     * @param source The observing node.
-     * @param target The node being observed.
-     */
-    void hasRepeatDependencies(NodePtr source, NodePtr target) {
-
-        NodeSet dependencies;
-        collectDependencies(target, dependencies);
-
-        NodeSet visited;
-        for (auto &dependent : m_dependentList.at(source)) {
-            checkDependency(source, dependent.lock(), dependencies, visited);
-        }
-    }
-
-    /**
-     * @brief Collect all dependencies of a node, counting occurrences.
-     * @param node Node to analyze.
-     * @param dependencies Map from node to count of dependencies.
-     */
-    void collectDependencies(NodePtr node, NodeMap &dependencies) {
-        if (!node) return;
-
-        if (dependencies.count(node)) {
-            dependencies[node]++;
-        } else {
-            dependencies[node] = 1;
-        }
-
-        for (auto neighbor : m_dependentList.at(node)) {
-            collectDependencies(neighbor.lock(), dependencies);
-        }
-    }
-
-    /**
-     * @brief Collect unique dependencies of a node into a set.
-     * @param node Node to analyze.
-     * @param dependencies Set to fill with unique dependencies.
-     */
-    void collectDependencies(NodePtr node, NodeSet &dependencies) {
-        NodeMap targetDependencies;
-        collectDependencies(node, targetDependencies);
-
-        for (auto &[dependent, count] : targetDependencies) {
-            if (count == 1) {
-                dependencies.insert(dependent);
-            }
-        }
-    }
-
-    /**
-     * @brief Collect all observers of a node, counting occurrences.
-     * @param node Node to analyze.
-     * @param observers Map from node to count of observers.
-     */
-    void collectObservers(NodePtr node, NodeMap &observers) {
-        if (!node) return;
-
-        if (observers.contains(node)) {
-            observers[node]++;
-        } else {
-            observers[node] = 1;
-        }
-
-        for (auto neighbor : m_observerList.at(node).get()) {
-            collectObservers(neighbor.lock(), observers);
-        }
-    }
-
-    /**
-     * @brief Collect unique observers of a node into a set.
-     * @param node Node to analyze.
-     * @param observers Set to fill with unique observers.
-     */
-    void collectObservers(NodePtr node, NodeSet &observers) {
-        NodeMap targetObservers;
-        collectDependencies(node, targetObservers);
-
-        for (auto &[observer, count] : targetObservers) {
-            if (count == 1) {
-                observers.insert(observer);
-            }
-        }
-    }
-
-    /**
-     * @brief Check if a node is a repeated dependency and update repeat counts.
-     * @param source Observing node.
-     * @param node Current node being checked.
-     * @param targetDependencies Set of dependencies to check against.
-     * @param visited Set of nodes already visited to prevent cycles.
-     */
-    void checkDependency(NodePtr source, NodePtr node, NodeSet &targetDependencies, NodeSet &visited) {
-        if (visited.contains(node)) return;
-        visited.insert(node);
-
-        if (targetDependencies.contains(node)) {
-            if (m_repeatList.at(node).get().contains(source)) {
-                m_repeatList.at(node).get()[source]++;
-            } else {
-                m_repeatList.at(node).get()[source] = 2;
-            }
-        }
-
-        for (auto &dependent : m_dependentList.at(node)) {
-            checkDependency(source, dependent.lock(), targetDependencies, visited);
-        }
-    }
-
-    std::unordered_map<NodePtr, NodeSetRef> m_observerList;   ///< Map from node to its observers (refs).
-    std::unordered_map<NodePtr, NodeSet> m_dependentList;     ///< Map from node to its dependencies.
-    std::unordered_map<NodePtr, NodeMapRef> m_repeatList;     ///< Repeated dependencies tracking.
-    std::unordered_map<NodePtr, std::string> m_nameList;      ///< Human-readable node names.
+    std::unordered_map<NodePtr, NodeSetRef> m_observerList; ///< Map from node to its observers (refs).
+    std::unordered_map<NodePtr, NodeSet> m_dependentList;   ///< Map from node to its dependencies.
+    std::unordered_map<NodePtr, std::string> m_nameList;    ///< Human-readable node names.
 };
 
 /**
@@ -356,6 +206,9 @@ private:
  */
 class ObserverNode : public std::enable_shared_from_this<ObserverNode> {
 public:
+    std::atomic<int> batchCount{0};
+    uint8_t level = 0;
+
     virtual ~ObserverNode() = default;
 
     /**
@@ -366,6 +219,10 @@ public:
      */
     virtual void valueChanged(bool changed = true) {
         this->notify(changed);
+    }
+
+    void updateLevel(uint8_t lev) {
+        level = std::max(lev, level);
     }
 
     /**
@@ -391,37 +248,16 @@ public:
 
     /**
      * @brief Notify observers and delayed repeat nodes.
-     *
-     * Notifies all observers unless already delayed, then processes delayed repeat nodes.
      * @param changed Whether the node's value has changed.
      */
     void notify(bool changed = true) {
-        // Insert repeat nodes into delay list to prevent re-entrant notifications.
-        for (auto &[repeat, _] : m_repeats) {
-            g_delay_list.insert(repeat);
-        }
-
-        // Notify observers not in delay list.
         for (auto &observer : m_observers) {
-            if (!g_delay_list.contains(observer)) {
-                if (auto wp = observer.lock()) wp->valueChanged(changed);
-            }
-        }
-
-        // Notify delayed repeat nodes.
-        if (!g_delay_list.empty()) {
-            for (auto &[repeat, _] : m_repeats) {
-                g_delay_list.erase(repeat);
-            }
-            for (auto &[repeat, _] : m_repeats) {
-                if (auto wp = repeat.lock()) wp->valueChanged(changed);
-            }
+            if (auto wp = observer.lock()) wp->valueChanged(changed);
         }
     }
 
 private:
-    NodeSet m_observers;  ///< Direct observers of this node.
-    NodeMap m_repeats;    ///< Repeat observers and their counts.
+    NodeSet m_observers; ///< Direct observers of this node.
     friend class ObserverGraph;
 };
 
@@ -488,7 +324,25 @@ private:
 inline void ObserverGraph::addNode(NodePtr node) {
     m_observerList.insert({node, std::ref(node->m_observers)});
     m_dependentList[node] = NodeSet{};
-    m_repeatList.insert({node, std::ref(node->m_repeats)});
+}
+
+/**
+ * @brief Implementation of ObserverGraph::collectObservers.
+ * @param node origin node to find observers.
+ * @param observers container for output observers.
+ * @param lev current dependent level.
+ */
+inline void ObserverGraph::collectObservers(NodePtr node, NodeSet &observers, uint8_t lev = 1) {
+    if (!node) return;
+
+    for (auto &ob : m_observerList.at(node).get()) {
+        if (auto wp = ob.lock()) {
+            wp->updateLevel(lev);
+            wp->batchCount++;
+            observers.insert(ob);
+            collectObservers(wp, observers, ++lev);
+        }
+    }
 }
 
 } // namespace reaction

@@ -197,11 +197,14 @@ private:
         }
 
         if (TM::checkTrig()) {
+            bool changed = true;
             if constexpr (!VoidType<Type>) {
-                this->notify(this->updateValue(evaluate()));
+                changed = this->updateValue(evaluate());
             } else {
                 evaluate();
-                this->notify(true);
+            }
+            if (this->batchCount == 0) {
+                this->notify(changed);
             }
         }
     }
@@ -243,7 +246,10 @@ public:
 
     template <typename T>
     void setValue(T &&t) {
-        this->notify(this->updateValue(std::forward<T>(t)));
+        bool changed = this->updateValue(std::forward<T>(t));
+        if (this->batchCount == 0) {
+            this->notify(changed);
+        }
     }
 };
 
