@@ -165,7 +165,7 @@ public:
                 evaluate();
             }
         } else {
-            throw std::runtime_error("return type can reset another!");
+            throw std::runtime_error("return type cannot reset another!");
         }
     }
 
@@ -197,14 +197,14 @@ private:
         }
 
         if (TM::checkTrig()) {
-            bool changed = true;
+            bool change = true;
             if constexpr (!VoidType<Type>) {
-                changed = this->updateValue(evaluate());
+                change = this->updateValue(evaluate());
             } else {
                 evaluate();
             }
             if (this->batchCount == 0) {
-                this->notify(changed);
+                this->notify(change);
             }
         }
     }
