@@ -34,7 +34,7 @@ struct CalcExpr {};
 template <typename Op, typename L, typename R>
 class BinaryOpExpr {
 public:
-    using ValueType = typename std::decay_t<std::common_type_t<typename L::ValueType, typename R::ValueType>>;
+    using value_type = typename std::remove_cvref_t<std::common_type_t<typename L::value_type, typename R::value_type>>;
 
     template <typename Left, typename Right>
     BinaryOpExpr(Left &&l, Right &&r, Op o = Op{})
@@ -46,7 +46,7 @@ public:
     }
 
     /// @brief Implicit conversion to value type (evaluates expression).
-    operator ValueType() {
+    operator value_type() {
         return calculate();
     }
 
@@ -93,7 +93,7 @@ struct DivOp {
  */
 template <typename T>
 struct ValueWrapper {
-    using ValueType = std::decay_t<T>;
+    using value_type = std::remove_cvref_t<T>;
     T m_value;
 
     template <typename Type>
@@ -109,8 +109,7 @@ struct ValueWrapper {
  */
 template <typename Op, typename L, typename R>
 auto make_binary_expr(L &&l, R &&r) {
-    return BinaryOpExpr<Op, ExprTraits<std::decay_t<L>>, ExprTraits<std::decay_t<R>>>(
-        std::forward<L>(l), std::forward<R>(r));
+    return BinaryOpExpr<Op, ExprTraits<std::remove_cvref_t<L>>, ExprTraits<std::remove_cvref_t<R>>>(std::forward<L>(l), std::forward<R>(r));
 }
 
 // === Operator Overloads for Reactive Expressions ===
@@ -165,7 +164,7 @@ public:
                 evaluate();
             }
         } else {
-            throw std::runtime_error("return type can reset another!");
+            throw std::runtime_error("return type cannot reset another!");
         }
     }
 
@@ -197,14 +196,14 @@ private:
         }
 
         if (TM::checkTrig()) {
-            bool changed = true;
+            bool change = true;
             if constexpr (!VoidType<Type>) {
-                changed = this->updateValue(evaluate());
+                change = this->updateValue(evaluate());
             } else {
                 evaluate();
             }
             if (this->batchCount == 0) {
-                this->notify(changed);
+                this->notify(change);
             }
         }
     }
@@ -258,10 +257,10 @@ public:
  */
 template <typename Op, typename L, typename R, IsTrigMode TM>
 class Expression<CalcExpr, BinaryOpExpr<Op, L, R>, TM>
-    : public CalcExprBase<std::common_type_t<typename L::ValueType, typename R::ValueType>, TM> {
+    : public CalcExprBase<std::common_type_t<typename L::value_type, typename R::value_type>, TM> {
 public:
     template <typename T>
-        requires(!std::is_same_v<std::decay_t<T>, Expression>)
+        requires(!std::is_same_v<std::remove_cvref_t<T>, Expression>)
     Expression(T &&expr) : m_expr(std::forward<T>(expr)) {
     }
 

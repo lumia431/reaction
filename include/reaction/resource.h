@@ -35,7 +35,7 @@ public:
      * @param t The initialization value for the resource.
      */
     template <typename T>
-        requires(!std::is_same_v<std::decay_t<T>, Resource<Type>>)
+        requires(!std::is_same_v<std::remove_cvref_t<T>, Resource<Type>>)
     Resource(T &&t) : m_ptr(std::make_unique<Type>(std::forward<T>(t))) {
     }
 

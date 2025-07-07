@@ -149,11 +149,11 @@ private:
 template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
 class React {
 public:
-    using ValueType = Type;
-    using ReactType = ReactImpl<Expr, Type, IS, TM>;
+    using value_type = Type;
+    using react_type = ReactImpl<Expr, Type, IS, TM>;
 
     /// @brief Construct a React from shared pointer (usually internal use).
-    explicit React(std::shared_ptr<ReactType> ptr = nullptr) : m_weakPtr(ptr) {
+    explicit React(std::shared_ptr<react_type> ptr = nullptr) : m_weakPtr(ptr) {
         if (auto p = m_weakPtr.lock())
             p->addWeakRef();
     }
@@ -278,7 +278,7 @@ public:
 
 private:
     /// @brief Lock the weak pointer and get the shared instance. Throws on failure.
-    std::shared_ptr<ReactType> getPtr() const {
+    std::shared_ptr<react_type> getPtr() const {
         if (m_weakPtr.expired()) {
             throw std::runtime_error("Null weak pointer access");
         }
@@ -286,14 +286,14 @@ private:
     }
 
     /// @brief Returns the underlying weak pointer (checked).
-    std::weak_ptr<ReactType> getWeak() const {
+    std::weak_ptr<react_type> getWeak() const {
         if (m_weakPtr.expired()) {
             throw std::runtime_error("Null weak pointer access");
         }
         return m_weakPtr;
     }
 
-    std::weak_ptr<ReactType> m_weakPtr; ///< Weak reference to the implementation node.
+    std::weak_ptr<react_type> m_weakPtr; ///< Weak reference to the implementation node.
 
     template <typename T, IsTrigMode M>
     friend class CalcExprBase;

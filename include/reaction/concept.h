@@ -26,7 +26,6 @@ class BinaryOpExpr;
 template <typename T>
 struct ValueWrapper;
 
-
 // ==================== Basic type concepts ====================
 
 /**
@@ -34,14 +33,14 @@ struct ValueWrapper;
  */
 struct AnyTp {
     template <typename T>
-    operator T() { return T{}; }
+    operator T();
 };
 
 /**
  * @brief Checks if type T is convertible to type U (after decay).
  */
 template <typename T, typename U>
-concept Convertable = std::is_convertible_v<std::decay_t<T>, std::decay_t<U>>;
+concept Convertable = std::is_convertible_v<std::remove_cvref_t<T>, std::remove_cvref_t<U>>;
 
 /**
  * @brief Determines if the type is a variable expression.
@@ -71,7 +70,7 @@ concept VoidType = std::is_void_v<T> || std::is_same_v<T, Void>;
  * @brief Checks if a type is invocable (i.e., a callable function, lambda, etc).
  */
 template <typename T>
-concept InvocableType = std::is_invocable_v<std::decay_t<T>>;
+concept InvocableType = std::is_invocable_v<std::remove_cvref_t<T>>;
 
 /**
  * @brief Logical negation of InvocableType.
@@ -99,7 +98,7 @@ concept ComparableType = requires(T &a, T &b) {
 template <typename T>
 concept HasField = requires(T t) {
     { t.getId() } -> std::same_as<uint64_t>;
-    requires std::is_base_of_v<FieldBase, std::decay_t<T>>;
+    requires std::is_base_of_v<FieldBase, std::remove_cvref_t<T>>;
 };
 
 /**
@@ -124,9 +123,7 @@ concept IsInvaStra = requires(T t, AnyTp ds) {
  */
 template <typename T>
 concept IsReactSource = requires(T t) {
-    requires requires {
-        { t.shared_from_this() } -> std::same_as<std::shared_ptr<ObserverNode>>;
-    };
+    { t.shared_from_this() } -> std::same_as<std::shared_ptr<ObserverNode>>;
 };
 
 /**
@@ -151,7 +148,6 @@ class ReactImpl;
 template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
 class React;
 
-
 // ==================== Type Traits =======================
 
 /**
@@ -174,7 +170,7 @@ struct ReactTraits<React<Expr, Type, IS, TM>> : std::true_type {
  * @brief Concept to determine if a type is a React instance.
  */
 template <typename T>
-concept IsReact = ReactTraits<std::decay_t<T>>::value;
+concept IsReact = ReactTraits<std::remove_cvref_t<T>>::value;
 
 /**
  * @brief Logical negation of IsReact.
@@ -187,15 +183,15 @@ concept NonReact = !IsReact<T>;
  */
 template <typename Fun, typename... Args>
 struct ExpressionTraits {
-    using RawType = std::invoke_result_t<Fun, typename ReactTraits<Args>::type...>;
-    using type = std::conditional_t<VoidType<RawType>, Void, std::decay_t<RawType>>;
+    using raw_type = std::invoke_result_t<Fun, typename ReactTraits<Args>::type...>;
+    using type = std::conditional_t<VoidType<raw_type>, Void, std::remove_cvref_t<raw_type>>;
 };
 
 /**
  * @brief Alias to get the return type of a callable using React traits.
  */
 template <typename Fun, typename... Args>
-using ReturnType = typename ExpressionTraits<std::decay_t<Fun>, std::decay_t<Args>...>::type;
+using ReturnType = typename ExpressionTraits<std::remove_cvref_t<Fun>, std::remove_cvref_t<Args>...>::type;
 
 /**
  * @brief Fallback trait for identifying binary operation expressions.
@@ -221,18 +217,15 @@ concept IsBinaryOpExpr = BinaryOpExprTraits<T>::value;
  *        Otherwise, wrap it using ValueWrapper.
  */
 template <typename T>
-using ExprTraits = std::conditional_t<
-    IsReact<T> || IsBinaryOpExpr<T>,
-    T,
-    ValueWrapper<T>>;
+using ExprTraits = std::conditional_t<IsReact<T> || IsBinaryOpExpr<T>, T, ValueWrapper<T>>;
 
 /**
  * @brief Concept to determine if either operand is reactive or a binary expression.
  */
 template <typename L, typename R>
-concept HasReactOp = IsReact<std::decay_t<L>> ||
-                     IsReact<std::decay_t<R>> ||
-                     IsBinaryOpExpr<std::decay_t<L>> ||
-                     IsBinaryOpExpr<std::decay_t<R>>;
+concept HasReactOp = IsReact<std::remove_cvref_t<L>> ||
+                     IsReact<std::remove_cvref_t<R>> ||
+                     IsBinaryOpExpr<std::remove_cvref_t<L>> ||
+                     IsBinaryOpExpr<std::remove_cvref_t<R>>;
 
 } // namespace reaction

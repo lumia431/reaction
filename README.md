@@ -1,5 +1,7 @@
 # Reaction: Modern C++ Reactive Programming Framework
 
+[🇨🇳 中文文档](README.zh-CN.md) | [🇬🇧 English](README.md)
+
 [![C++20](https://img.shields.io/badge/C++-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
 [![Header-only](https://img.shields.io/badge/Header--only-Yes-green.svg)](https://en.wikipedia.org/wiki/Header-only)
 [![CMake](https://img.shields.io/badge/CMake-3.15+-blueviolet.svg)](https://cmake.org)

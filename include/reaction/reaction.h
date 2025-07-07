@@ -18,7 +18,7 @@ namespace reaction {
  * @tparam IS Invalidation strategy, default is KeepStra.
  * @tparam TM Trigger mode, default is ChangeTrig.
  */
-template <typename SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
+template <NonReact SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
 using Var = React<VarExpr, SrcType, IS, TM>;
 
 /**
@@ -28,7 +28,7 @@ using Var = React<VarExpr, SrcType, IS, TM>;
  * @tparam IS Invalidation strategy, default is KeepStra.
  * @tparam TM Trigger mode, default is ChangeTrig.
  */
-template <typename SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
+template <NonReact SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
 using Calc = React<CalcExpr, SrcType, IS, TM>;
 
 /**
@@ -56,11 +56,11 @@ public:
      * @tparam IS Invalidation strategy, default is KeepStra.
      * @tparam T The type of the initial value (deduced).
      * @param t The initial value to store in the field.
-     * @return React<VarExpr, std::decay_t<T>, IS, TM> A reactive wrapper around the stored value.
+     * @return React<VarExpr, std::remove_cvref_t<T>, IS, TM> A reactive wrapper around the stored value.
      */
     template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, NonReact T>
     auto field(T &&t) {
-        auto ptr = std::make_shared<ReactImpl<VarExpr, std::decay_t<T>, IS, TM>>(std::forward<T>(t));
+        auto ptr = std::make_shared<ReactImpl<VarExpr, std::remove_cvref_t<T>, IS, TM>>(std::forward<T>(t));
         ObserverGraph::getInstance().addNode(ptr->shared_from_this());
         FieldGraph::getInstance().addObj(m_id, ptr->shared_from_this());
         return React{ptr};
@@ -89,11 +89,11 @@ private:
  * @tparam IS Invalidation strategy, default is KeepStra.
  * @tparam SrcType The type of the source value.
  * @param t The value to wrap as a const reactive variable.
- * @return React<VarExpr, const std::decay_t<SrcType>, IS, TM> Reactive constant wrapper.
+ * @return React<VarExpr, const std::remove_cvref_t<SrcType>, IS, TM> Reactive constant wrapper.
  */
 template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, NonReact SrcType>
 auto constVar(SrcType &&t) {
-    auto ptr = std::make_shared<ReactImpl<VarExpr, const std::decay_t<SrcType>, IS, TM>>(std::forward<SrcType>(t));
+    auto ptr = std::make_shared<ReactImpl<VarExpr, const std::remove_cvref_t<SrcType>, IS, TM>>(std::forward<SrcType>(t));
     ObserverGraph::getInstance().addNode(ptr);
     return React{ptr};
 }
@@ -108,11 +108,11 @@ auto constVar(SrcType &&t) {
  * @tparam IS Invalidation strategy, default is KeepStra.
  * @tparam SrcType The type of the source value.
  * @param t The value to wrap reactively.
- * @return React<VarExpr, std::decay_t<SrcType>, IS, TM> Reactive variable wrapper.
+ * @return React<VarExpr, std::remove_cvref_t<SrcType>, IS, TM> Reactive variable wrapper.
  */
 template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, NonReact SrcType>
 auto var(SrcType &&t) {
-    auto ptr = std::make_shared<ReactImpl<VarExpr, std::decay_t<SrcType>, IS, TM>>(std::forward<SrcType>(t));
+    auto ptr = std::make_shared<ReactImpl<VarExpr, std::remove_cvref_t<SrcType>, IS, TM>>(std::forward<SrcType>(t));
     ObserverGraph::getInstance().addNode(ptr);
     if constexpr (HasField<SrcType>) {
         FieldGraph::getInstance().bindField(t.getId(), ptr->shared_from_this());
@@ -129,11 +129,11 @@ auto var(SrcType &&t) {
  * @tparam IS Invalidation strategy, default is KeepStra.
  * @tparam OpExpr The operator expression type.
  * @param opExpr The operator expression to wrap.
- * @return React<CalcExpr, std::decay_t<OpExpr>, IS, TM> Reactive calculation wrapper.
+ * @return React<CalcExpr, std::remove_cvref_t<OpExpr>, IS, TM> Reactive calculation wrapper.
  */
 template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, IsBinaryOpExpr OpExpr>
 auto expr(OpExpr &&opExpr) {
-    auto ptr = std::make_shared<ReactImpl<CalcExpr, std::decay_t<OpExpr>, IS, TM>>(std::forward<OpExpr>(opExpr));
+    auto ptr = std::make_shared<ReactImpl<CalcExpr, std::remove_cvref_t<OpExpr>, IS, TM>>(std::forward<OpExpr>(opExpr));
     ObserverGraph::getInstance().addNode(ptr);
     ptr->set();
     return React{ptr};
@@ -187,9 +187,9 @@ auto action(Fun &&fun, Args &&...args) {
  * @param t The input value, expression, or callable.
  * @return Corresponding reactive wrapper.
  */
-template <typename T>
+template <NonReact T>
 auto create(T &&t) {
-    if constexpr (IsBinaryOpExpr<std::decay_t<T>>) {
+    if constexpr (IsBinaryOpExpr<std::remove_cvref_t<T>>) {
         return expr(std::forward<T>(t));
     } else if constexpr (InvocableType<T>) {
         return calc(std::forward<T>(t));
@@ -225,7 +225,7 @@ auto create(Fun &&fun, Args &&...args) {
  * @param fun A function containing batched operations.
  * @return A Batch object encapsulating the operation.
  */
-template <typename Fun>
+template <InvocableType Fun>
 auto batch(Fun &&fun) {
     return Batch{std::forward<Fun>(fun)};
 }
@@ -239,7 +239,7 @@ auto batch(Fun &&fun) {
  * @tparam Fun Callable type to execute within the batch.
  * @param fun A function containing batched operations to be executed.
  */
-template <typename Fun>
+template <InvocableType Fun>
 void batchExecute(Fun &&fun) {
     Batch batch{std::forward<Fun>(fun)};
     batch.execute();

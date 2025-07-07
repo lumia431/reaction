@@ -20,7 +20,7 @@ namespace reaction {
 struct CloseStra {
     template <typename Source>
     void handleInvalid(Source &&source) {
-        if constexpr (IsReactSource<std::decay_t<Source>>) {
+        if constexpr (IsReactSource<std::remove_cvref_t<Source>>) {
             source.close();
         }
     }
@@ -48,7 +48,7 @@ struct KeepStra {
 struct LastStra {
     template <typename Source>
     void handleInvalid(Source &&source) {
-        if constexpr (IsReactSource<std::decay_t<Source>>) {
+        if constexpr (IsReactSource<std::remove_cvref_t<Source>>) {
             auto val = source.get();
             source.set([=]() { return val; });
         }
