@@ -165,7 +165,7 @@ public:
                 evaluate();
             }
         } else {
-            throw std::runtime_error("return type can reset another!");
+            throw std::runtime_error("return type cannot reset another!");
         }
     }
 

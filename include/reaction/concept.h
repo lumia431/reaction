@@ -26,7 +26,6 @@ class BinaryOpExpr;
 template <typename T>
 struct ValueWrapper;
 
-
 // ==================== Basic type concepts ====================
 
 /**
@@ -34,7 +33,7 @@ struct ValueWrapper;
  */
 struct AnyTp {
     template <typename T>
-    operator T() { return T{}; }
+    operator T();
 };
 
 /**
@@ -124,9 +123,7 @@ concept IsInvaStra = requires(T t, AnyTp ds) {
  */
 template <typename T>
 concept IsReactSource = requires(T t) {
-    requires requires {
-        { t.shared_from_this() } -> std::same_as<std::shared_ptr<ObserverNode>>;
-    };
+    { t.shared_from_this() } -> std::same_as<std::shared_ptr<ObserverNode>>;
 };
 
 /**
@@ -150,7 +147,6 @@ class ReactImpl;
  */
 template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
 class React;
-
 
 // ==================== Type Traits =======================
 
@@ -221,10 +217,7 @@ concept IsBinaryOpExpr = BinaryOpExprTraits<T>::value;
  *        Otherwise, wrap it using ValueWrapper.
  */
 template <typename T>
-using ExprTraits = std::conditional_t<
-    IsReact<T> || IsBinaryOpExpr<T>,
-    T,
-    ValueWrapper<T>>;
+using ExprTraits = std::conditional_t<IsReact<T> || IsBinaryOpExpr<T>, T, ValueWrapper<T>>;
 
 /**
  * @brief Concept to determine if either operand is reactive or a binary expression.

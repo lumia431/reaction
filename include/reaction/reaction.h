@@ -18,7 +18,7 @@ namespace reaction {
  * @tparam IS Invalidation strategy, default is KeepStra.
  * @tparam TM Trigger mode, default is ChangeTrig.
  */
-template <typename SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
+template <NonReact SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
 using Var = React<VarExpr, SrcType, IS, TM>;
 
 /**
@@ -28,7 +28,7 @@ using Var = React<VarExpr, SrcType, IS, TM>;
  * @tparam IS Invalidation strategy, default is KeepStra.
  * @tparam TM Trigger mode, default is ChangeTrig.
  */
-template <typename SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
+template <NonReact SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
 using Calc = React<CalcExpr, SrcType, IS, TM>;
 
 /**
@@ -187,7 +187,7 @@ auto action(Fun &&fun, Args &&...args) {
  * @param t The input value, expression, or callable.
  * @return Corresponding reactive wrapper.
  */
-template <typename T>
+template <NonReact T>
 auto create(T &&t) {
     if constexpr (IsBinaryOpExpr<std::decay_t<T>>) {
         return expr(std::forward<T>(t));
@@ -225,7 +225,7 @@ auto create(Fun &&fun, Args &&...args) {
  * @param fun A function containing batched operations.
  * @return A Batch object encapsulating the operation.
  */
-template <typename Fun>
+template <InvocableType Fun>
 auto batch(Fun &&fun) {
     return Batch{std::forward<Fun>(fun)};
 }
@@ -239,7 +239,7 @@ auto batch(Fun &&fun) {
  * @tparam Fun Callable type to execute within the batch.
  * @param fun A function containing batched operations to be executed.
  */
-template <typename Fun>
+template <InvocableType Fun>
 void batchExecute(Fun &&fun) {
     Batch batch{std::forward<Fun>(fun)};
     batch.execute();
