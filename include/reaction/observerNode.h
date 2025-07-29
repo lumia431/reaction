@@ -25,7 +25,7 @@ public:
      * @brief Get the singleton instance of the graph.
      * @return ObserverGraph& singleton reference.
      */
-    static ObserverGraph &getInstance() {
+    [[nodiscard]] static ObserverGraph &getInstance() noexcept {
         static ObserverGraph instance;
         return instance;
     }
@@ -34,7 +34,7 @@ public:
      * @brief Add a new node into the graph.
      * @param node Node to add.
      */
-    void addNode(NodePtr node);
+    void addNode(const NodePtr &node) noexcept;
 
     /**
      * @brief Add an observer relationship (source observes target).
@@ -43,15 +43,16 @@ public:
      * @param target The node being observed.
      * @throws std::runtime_error if a cycle or self-observation is detected.
      */
-    void addObserver(NodePtr source, NodePtr target) {
+    void addObserver(const NodePtr &source, const NodePtr &target) {
         if (source == target) {
-            std::string msg{"detect observe self, node name = " + m_nameList[source]};
-            throw std::runtime_error(msg.c_str());
+            std::ostringstream oss;
+            oss << "detect observe self, node name = " << m_nameList[source];
+            throw std::runtime_error(oss.str());
         }
         if (hasCycle(source, target)) {
-            std::string msg{"detect cycle dependency, source name = " + m_nameList[source]};
-            msg += " target name = " + m_nameList[target];
-            throw std::runtime_error(msg.c_str());
+            std::ostringstream oss;
+            oss << "detect cycle dependency, source name = " << m_nameList[source] << " target name = " << m_nameList[target];
+            throw std::runtime_error(oss.str());
         }
 
         m_dependentList.at(source).insert(target);
@@ -64,7 +65,7 @@ public:
      * This clears dependencies and cleans up related data structures.
      * @param node The node to reset.
      */
-    void resetNode(NodePtr node) {
+    void resetNode(const NodePtr &node) {
         for (auto dep : m_dependentList[node]) {
             m_observerList.at(dep.lock()).get().erase(node);
         }
@@ -77,13 +78,13 @@ public:
      * This is a cascade delete for the node and all nodes depending on it.
      * @param node Node to remove.
      */
-    void closeNode(NodePtr node) {
+    void closeNode(const NodePtr &node) {
         if (!node) return;
         NodeSet closedNodes;
         cascadeCloseDependents(node, closedNodes);
     }
 
-    void collectObservers(NodePtr node, NodeSet &observers, uint8_t lev);
+    void collectObservers(const NodePtr &node, NodeSet &observers, uint8_t depth) noexcept;
 
     /**
      * @brief Set a human-readable name for a node.
@@ -92,7 +93,7 @@ public:
      * @param node Node to name.
      * @param name Assigned name.
      */
-    void setName(NodePtr node, const std::string &name) {
+    void setName(const NodePtr &node, const std::string &name) noexcept {
         m_nameList.insert({node, name});
     }
 
@@ -101,7 +102,7 @@ public:
      * @param node Node to query.
      * @return Human-readable name or empty string if not found.
      */
-    std::string getName(NodePtr node) {
+    [[nodiscard]] std::string getName(const NodePtr &node) noexcept {
         if (m_nameList.contains(node)) {
             return m_nameList[node];
         } else {
@@ -117,7 +118,7 @@ private:
      * @param node Starting node.
      * @param closedNodes Set of already closed nodes to avoid cycles.
      */
-    void cascadeCloseDependents(NodePtr node, NodeSet &closedNodes) {
+    void cascadeCloseDependents(const NodePtr &node, NodeSet &closedNodes) {
         if (!node || closedNodes.contains(node)) return;
         closedNodes.insert(node);
         auto observerLists = m_observerList.at(node).get();
@@ -135,7 +136,7 @@ private:
      * Removes node from all internal data structures.
      * @param node Node to close.
      */
-    void closeNodeInternal(NodePtr node) {
+    void closeNodeInternal(const NodePtr &node) {
         if (!node) return;
         for (auto dep : m_dependentList[node]) {
             m_observerList.at(dep.lock()).get().erase(node);
@@ -156,7 +157,7 @@ private:
      * @param target The node being observed.
      * @return true if a cycle would be created, false otherwise.
      */
-    bool hasCycle(NodePtr source, NodePtr target) {
+    [[nodiscard]] bool hasCycle(const NodePtr &source, const NodePtr &target) {
         m_dependentList.at(source).insert(target);
         m_observerList.at(target).get().insert(source);
 
@@ -177,7 +178,7 @@ private:
      * @param recursionStack Stack of nodes in current DFS path.
      * @return true if cycle detected, false otherwise.
      */
-    bool dfs(NodePtr node, NodeSet &visited, NodeSet &recursionStack) {
+    [[nodiscard]] bool dfs(const NodePtr &node, NodeSet &visited, NodeSet &recursionStack) {
         if (recursionStack.contains(node)) return true;
         if (visited.contains(node)) return false;
 
@@ -206,9 +207,6 @@ private:
  */
 class ObserverNode : public std::enable_shared_from_this<ObserverNode> {
 public:
-    std::atomic<int> batchCount{0};
-    uint8_t level = 0;
-
     virtual ~ObserverNode() = default;
 
     /**
@@ -221,8 +219,10 @@ public:
         this->notify(changed);
     }
 
-    void updateLevel(uint8_t lev) {
-        level = std::max(lev, level);
+    virtual void changedNoNotify([[maybe_unused]] bool changed = true) {}
+
+    void updateDepth(uint8_t depth) noexcept {
+        m_depth = std::max(depth, m_depth);
     }
 
     /**
@@ -242,7 +242,7 @@ public:
      * @brief Add a single observer node.
      * @param node Observer node to add.
      */
-    void addOneObserver(NodePtr node) {
+    void addOneObserver(const NodePtr &node) {
         ObserverGraph::getInstance().addObserver(shared_from_this(), node);
     }
 
@@ -252,19 +252,22 @@ public:
      */
     void notify(bool changed = true) {
         for (auto &observer : m_observers) {
-            if (auto wp = observer.lock()) wp->valueChanged(changed);
+            if (auto wp = observer.lock()) [[likely]]
+                wp->valueChanged(changed);
         }
     }
 
 private:
+    uint8_t m_depth = 0; ///< Depth of the node in reactive chain.
     NodeSet m_observers; ///< Direct observers of this node.
     friend class ObserverGraph;
+    friend struct BatchCompare;
 };
 
 /**
  * @brief Manages object field bindings in the reactive graph.
  *
- * Used to track field-level reactive nodes for specific object IDs.
+ * Used to track field-depth reactive nodes for specific object IDs.
  */
 class FieldGraph {
 public:
@@ -272,7 +275,7 @@ public:
      * @brief Get singleton instance.
      * @return FieldGraph& singleton reference.
      */
-    static FieldGraph &getInstance() {
+    [[nodiscard]] static FieldGraph &getInstance() noexcept {
         static FieldGraph instance;
         return instance;
     }
@@ -282,7 +285,7 @@ public:
      * @param id Object ID.
      * @param node Node pointer.
      */
-    void addObj(uint64_t id, NodePtr node) {
+    void addObj(uint64_t id, const NodePtr &node) noexcept {
         m_fieldMap[id].insert(node);
     }
 
@@ -290,7 +293,7 @@ public:
      * @brief Remove all fields for an object.
      * @param id Object ID.
      */
-    void deleteObj(uint64_t id) {
+    void deleteObj(uint64_t id) noexcept {
         m_fieldMap.erase(id);
     }
 
@@ -301,7 +304,7 @@ public:
      * @param id Object ID.
      * @param objPtr Source node.
      */
-    void bindField(uint64_t id, NodePtr objPtr) {
+    void bindField(uint64_t id, const NodePtr &objPtr) {
         if (!m_fieldMap.contains(id)) {
             return;
         }
@@ -321,7 +324,7 @@ private:
  * Initializes internal data structures for the given node.
  * @param node Node to add.
  */
-inline void ObserverGraph::addNode(NodePtr node) {
+inline void ObserverGraph::addNode(const NodePtr &node) noexcept {
     m_observerList.insert({node, std::ref(node->m_observers)});
     m_dependentList[node] = NodeSet{};
 }
@@ -330,17 +333,16 @@ inline void ObserverGraph::addNode(NodePtr node) {
  * @brief Implementation of ObserverGraph::collectObservers.
  * @param node origin node to find observers.
  * @param observers container for output observers.
- * @param lev current dependent level.
+ * @param depth current dependent depth.
  */
-inline void ObserverGraph::collectObservers(NodePtr node, NodeSet &observers, uint8_t lev = 1) {
+inline void ObserverGraph::collectObservers(const NodePtr &node, NodeSet &observers, uint8_t depth = 1) noexcept {
     if (!node) return;
 
     for (auto &ob : m_observerList.at(node).get()) {
-        if (auto wp = ob.lock()) {
-            wp->updateLevel(lev);
-            wp->batchCount++;
+        if (auto wp = ob.lock()) [[likely]] {
+            wp->updateDepth(depth);
             observers.insert(ob);
-            collectObservers(wp, observers, ++lev);
+            collectObservers(wp, observers, ++depth);
         }
     }
 }

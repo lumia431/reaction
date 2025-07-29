@@ -31,6 +31,7 @@ struct CalcExpr {};
  * @tparam L  Left-hand side expression type.
  * @tparam R  Right-hand side expression type.
  */
+// TODO: Adapt to multiple operators
 template <typename Op, typename L, typename R>
 class BinaryOpExpr {
 public:
@@ -41,7 +42,7 @@ public:
         : m_left(std::forward<Left>(l)), m_right(std::forward<Right>(r)), m_op(o) {}
 
     /// @brief Evaluates the expression.
-    auto operator()() const {
+    auto operator()() const noexcept {
         return calculate();
     }
 
@@ -51,7 +52,7 @@ public:
     }
 
 private:
-    auto calculate() const {
+    auto calculate() const noexcept {
         return m_op(m_left(), m_right());
     }
 
@@ -156,7 +157,7 @@ public:
     void setSource(F &&f, A &&...args) {
         if constexpr (std::convertible_to<ReturnType<F, A...>, Type>) {
             this->updateObservers(args.getPtr()...);
-            setFunctor(createFun(std::forward<F>(f), std::forward<A>(args)...));
+            m_fun = createFun(std::forward<F>(f), std::forward<A>(args)...);
 
             if constexpr (!VoidType<Type>) {
                 this->updateValue(evaluate());
@@ -169,28 +170,39 @@ public:
     }
 
     /// @brief Registers an observer for dependency tracking.
-    void addObCb(NodePtr node) {
+    void addObCb(const NodePtr &node) {
         this->addOneObserver(node);
+    }
+
+    /// @brief Handles value change notifications and trigger checks.
+    void valueChanged(bool changed) override {
+        handleChange<true>(changed);
+    }
+
+    /// @brief Handles value change without notifications.
+    void changedNoNotify(bool changed) override {
+        handleChange<false>(changed);
     }
 
 private:
     /**
      * @brief Captures and wraps a function with weak references to arguments.
      */
+    // TODO: Use move only function return
     template <typename F, typename... A>
     auto createFun(F &&f, A &&...args) {
-        return [f = std::forward<F>(f), ... args = args.getWeak()]() {
+        return [f = std::forward<F>(f), ... args = args.getPtr()]() {
             if constexpr (VoidType<Type>) {
-                std::invoke(f, args.lock()->get()...);
+                std::invoke(f, args->get()...);
                 return Void{};
             } else {
-                return std::invoke(f, args.lock()->get()...);
+                return std::invoke(f, args->get()...);
             }
         };
     }
 
-    /// @brief Handles value change notifications and trigger checks.
-    void valueChanged(bool changed) override {
+    template <bool Notify>
+    void handleChange(bool changed) {
         if constexpr (IsChangeTrig<TM>) {
             this->setChanged(changed);
         }
@@ -202,7 +214,7 @@ private:
             } else {
                 evaluate();
             }
-            if (this->batchCount == 0) {
+            if constexpr (Notify) {
                 this->notify(change);
             }
         }
@@ -215,10 +227,6 @@ private:
         } else {
             return std::invoke(m_fun);
         }
-    }
-
-    void setFunctor(const std::function<Type()> &fun) {
-        m_fun = fun;
     }
 
     std::function<Type()> m_fun;
@@ -246,7 +254,7 @@ public:
     template <typename T>
     void setValue(T &&t) {
         bool changed = this->updateValue(std::forward<T>(t));
-        if (this->batchCount == 0) {
+        if (!g_batch_execute) {
             this->notify(changed);
         }
     }

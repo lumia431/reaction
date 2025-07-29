@@ -22,7 +22,7 @@ struct AlwaysTrig {
      * @brief Always returns true to trigger.
      * @return true
      */
-    bool checkTrig() {
+    [[nodiscard]] bool checkTrig() const noexcept {
         return true;
     }
 };
@@ -38,7 +38,7 @@ public:
      * @brief Check if the trigger condition is met.
      * @return true if the change flag is set, false otherwise.
      */
-    bool checkTrig() {
+    [[nodiscard]] bool checkTrig() noexcept {
         return m_changed;
     }
 
@@ -46,7 +46,7 @@ public:
      * @brief Set the internal change flag.
      * @param changed New value of the change flag.
      */
-    void setChanged(bool changed) {
+    void setChanged(bool changed) noexcept {
         m_changed = changed;
     }
 
@@ -59,7 +59,7 @@ private:
  *
  * The filter function is stored internally as a std::function<bool()>.
  * It is created from a callable and its arguments, where arguments are expected
- * to have a getWeak() method returning a weak_ptr-like object.
+ * to have a getPtr() method returning a shared_ptr-like object.
  */
 struct FilterTrig {
 public:
@@ -67,12 +67,12 @@ public:
      * @brief Set the filter function used to determine triggering.
      *
      * The filter function is created by binding the provided callable and arguments,
-     * where arguments are expected to have getWeak() method returning weak pointers.
+     * where arguments are expected to have getPtr() method returning shared_ptr pointers.
      *
      * @tparam F Callable type.
      * @tparam A Argument types.
      * @param f Callable object.
-     * @param args Arguments to bind (expected to support getWeak()).
+     * @param args Arguments to bind (expected to support getPtr()).
      */
     template <typename F, typename... A>
     void filter(F &&f, A &&...args) {
@@ -83,7 +83,7 @@ public:
      * @brief Invoke the stored filter function to determine trigger condition.
      * @return true if filter passes, false otherwise.
      */
-    bool checkTrig() {
+    [[nodiscard]] bool checkTrig() const noexcept {
         return std::invoke(m_filterFun);
     }
 
@@ -96,15 +96,15 @@ private:
      * @tparam F Callable type.
      * @tparam A Argument types.
      * @param f Callable object.
-     * @param args Arguments to bind (expected to support getWeak()).
+     * @param args Arguments to bind (expected to support getPtr()).
      * @return A lambda function returning bool.
      */
     template <typename F, typename... A>
     auto createFun(F &&f, A &&...args) {
         // Capture f by forwarding, and capture each args by getting weak pointer
-        return [f = std::forward<F>(f), ... args = args.getWeak()]() {
+        return [f = std::forward<F>(f), ... args = args.getPtr()]() {
             // Lock each weak pointer and call f with dereferenced values
-            return std::invoke(f, args.lock()->get()...);
+            return std::invoke(f, args->get()...);
         };
     }
 

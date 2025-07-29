@@ -52,7 +52,7 @@ public:
      *
      * @return Type& Reference to the managed resource.
      */
-    Type &getValue() const {
+    [[nodiscard]] Type &getValue() const {
         if (!m_ptr) {
             throw std::runtime_error("Resource is not initialized");
         }
@@ -70,7 +70,7 @@ public:
      * @return true if the value changed.
      */
     template <typename T>
-    bool updateValue(T &&t) {
+    bool updateValue(T &&t) noexcept {
         bool changed = true;
         if (!m_ptr) {
             m_ptr = std::make_unique<Type>(std::forward<T>(t));
@@ -90,7 +90,7 @@ public:
      *
      * @return Type* Raw pointer to the resource.
      */
-    Type *getRawPtr() const {
+    [[nodiscard]] Type *getRawPtr() const {
         if (!this->m_ptr) {
             throw std::runtime_error("Attempt to get a null pointer");
         }
@@ -119,7 +119,7 @@ public:
      *
      * @return Void An empty value.
      */
-    Void getValue() const {
+    Void getValue() const noexcept {
         return Void{};
     }
 };

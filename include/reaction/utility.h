@@ -9,8 +9,10 @@
 
 #include "reaction/concept.h"
 #include <atomic>
+#include <functional>
 #include <stdexcept>
 #include <string>
+#include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -67,6 +69,27 @@ private:
 // Alias for shared and weak pointers to ObserverNode.
 using NodePtr = std::shared_ptr<ObserverNode>;
 using NodeWeak = std::weak_ptr<ObserverNode>;
+
+template <auto &val, auto guard>
+struct GlobalGuard {
+    template <typename T>
+        requires(!std::is_same_v<std::remove_cvref_t<T>, GlobalGuard>)
+    explicit GlobalGuard(T &&t) {
+        val = std::forward<T>(t);
+    }
+
+    ~GlobalGuard() {
+        val = guard;
+    }
+};
+
+inline std::function<void(const NodePtr &)> g_reg_fun = nullptr;
+inline std::function<void(const NodePtr &)> g_batch_fun = nullptr;
+inline bool g_batch_execute = false;
+
+using RegFunGuard = GlobalGuard<g_reg_fun, nullptr>;
+using BatchFunGuard = GlobalGuard<g_batch_fun, nullptr>;
+using BatchExeGuard = GlobalGuard<g_batch_execute, false>;
 
 } // namespace reaction
 

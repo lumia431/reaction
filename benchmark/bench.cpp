@@ -12,7 +12,8 @@
 using namespace reaction;
 
 static void BM_TreeDeepDependency_Reaction(benchmark::State &state) {
-    auto base = var(1);
+    int index = 1;
+    auto base = var(index);
     std::vector<Calc<int>> currentLevel;
     currentLevel.emplace_back(calc([&]() { return base(); }));
 
@@ -39,8 +40,7 @@ static void BM_TreeDeepDependency_Reaction(benchmark::State &state) {
     });
 
     for (auto _ : state) {
-        base.value(state.iterations());
-        benchmark::DoNotOptimize(sum.get());
+        base.value(++index);
     }
 }
 
@@ -126,8 +126,8 @@ static void BM_WideDependency_Reaction(benchmark::State &state) {
 //         .flat_map([](std::shared_ptr<subject<int>> subj) {
 //             return subj->get_observable();
 //         })
-//         .publish()  
-//         .ref_count(); 
+//         .publish()
+//         .ref_count();
 
 //     std::atomic<int> sum{0};
 //     auto sum_subscription = merged.scan(0, [](int acc, int x) {
@@ -148,17 +148,17 @@ static void BM_WideDependency_Reaction(benchmark::State &state) {
 
 static void BM_RepeatDependency(benchmark::State& state) {
     using namespace reaction;
-    
-    auto a = var(1);
-    
+    int index = 1;
+    auto a = var(index);
+
     std::vector<Calc<int>> level1;
     for (int i = 0; i < state.range(0); ++i) {
         level1.emplace_back(calc([=]() {return a() + i; }));
     }
-    
+
     std::vector<Calc<int>> level2;
     for (int i = 0; i < state.range(0); ++i) {
-        level2.emplace_back(calc([=, &level1]() { 
+        level2.emplace_back(calc([=, &level1]() {
             int result = a();
             for (const auto &node : level1) {
                 result += node();
@@ -176,8 +176,43 @@ static void BM_RepeatDependency(benchmark::State& state) {
     });
 
     for (auto _ : state) {
-        a.value(state.iterations());
-        benchmark::DoNotOptimize(finalNode.get());
+        a.value(++index);
+    }
+}
+
+static void BM_RepeatDependency_Batch(benchmark::State& state) {
+    using namespace reaction;
+    int index = 1;
+    auto a = var(index);
+
+    std::vector<Calc<int>> level1;
+    for (int i = 0; i < state.range(0); ++i) {
+        level1.emplace_back(calc([=]() {return a() + i; }));
+    }
+
+    std::vector<Calc<int>> level2;
+    for (int i = 0; i < state.range(0); ++i) {
+        level2.emplace_back(calc([=, &level1]() {
+            int result = a();
+            for (const auto &node : level1) {
+                result += node();
+            }
+            return result;
+        }));
+    }
+
+    auto finalNode = calc([&]() {
+        int sum = 0;
+        for (int i = 0; i < state.range(0); ++i) {
+            sum += level2[i % level2.size()]();
+        }
+        return sum + a();
+    });
+
+    auto ba = batch([&](){a.value(++index);});
+
+    for (auto _ : state) {
+        ba.execute();
     }
 }
 
@@ -186,5 +221,6 @@ BENCHMARK(BM_TreeDeepDependency_Reaction)->Arg(10);
 BENCHMARK(BM_WideDependency_Reaction)->Arg(10000);
 // BENCHMARK(BM_WideDependency_RxCpp)->Arg(10000);
 BENCHMARK(BM_RepeatDependency)->Arg(500);
+BENCHMARK(BM_RepeatDependency_Batch)->Arg(500);
 
 BENCHMARK_MAIN();

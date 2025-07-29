@@ -251,13 +251,22 @@ TEST(ReactionTest, TestRepeatDependency2) {
     auto C = reaction::calc([&]() { return 5; }).setName("C");
     auto ds = reaction::calc([&]() { ++triggerCount; return A() + B() + C(); }).setName("ds");
 
-    triggerCount = 0;
-
     auto ba = reaction::batch([&]() { a.value(2); });
-    ba.execute();
 
+    triggerCount = 0;
+    a.value(3);
+    EXPECT_EQ(triggerCount, 2);
+    EXPECT_EQ(ds.get(), 14);
+
+    triggerCount = 0;
+    ba.execute();
     EXPECT_EQ(triggerCount, 1);
     EXPECT_EQ(ds.get(), 12);
+
+    triggerCount = 0;
+    a.value(1);
+    EXPECT_EQ(triggerCount, 2);
+    EXPECT_EQ(ds.get(), 10);
 }
 
 // Test deep nested dependency scenarios

@@ -94,9 +94,6 @@ int main() {
         cout << "=====================================\n";
     });
 
-    // Initial print
-    printPortfolio();
-
     // Market opens - batch update all stock prices
     cout << "\n[Market Open: Updating All Stock Prices]\n";
     {

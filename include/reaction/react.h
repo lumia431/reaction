@@ -14,26 +14,6 @@
 namespace reaction {
 
 /**
- * @brief Global thread-local registration callback.
- * Used internally to track dependent nodes during expression evaluation.
- */
-inline thread_local std::function<void(NodePtr)> g_reg_fun = nullptr;
-
-/**
- * @brief Guard object for setting and resetting the registration callback.
- * Used to track dependency graph nodes during expression construction.
- */
-struct RegGuard {
-    explicit RegGuard(const std::function<void(NodePtr)> &f) {
-        g_reg_fun = f;
-    }
-
-    ~RegGuard() {
-        g_reg_fun = nullptr;
-    }
-};
-
-/**
  * @brief Internal implementation of the React wrapper.
  *
  * This class combines expression logic, invalidation strategy, and trigger mode handling.
@@ -44,7 +24,7 @@ struct RegGuard {
  * @tparam TM   Triggering mode.
  */
 template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
-class ReactImpl : public Expression<Expr, Type, TM>, public IS {
+class ReactImpl final : public Expression<Expr, Type, TM>, public IS {
 public:
     using Expression<Expr, Type, TM>::Expression;
 
@@ -58,12 +38,12 @@ public:
     }
 
     /// @brief Returns the current evaluated value.
-    decltype(auto) get() const {
+    [[nodiscard]] decltype(auto) get() const {
         return this->getValue();
     }
 
     /// @brief Returns raw pointer to the stored object (for pointer-based types).
-    auto getRaw() const {
+    [[nodiscard]] auto getRaw() const {
         return this->getRawPtr();
     }
 
@@ -85,7 +65,7 @@ public:
     template <typename F>
     void set(F &&f) {
         {
-            RegGuard g{[this](NodePtr node) {
+            RegFunGuard g{[this](const NodePtr &node) {
                 this->addObCb(node);
             }};
             this->setSource(std::forward<F>(f));
@@ -95,7 +75,7 @@ public:
 
     /// @brief Set a no-argument expression and auto-track dependencies.
     void set() {
-        RegGuard g{[this](NodePtr node) {
+        RegFunGuard g{[this](const NodePtr &node) {
             this->addObCb(node);
         }};
         this->setOpExpr();
@@ -121,12 +101,12 @@ public:
     }
 
     /// @brief Increases internal weak reference count.
-    void addWeakRef() {
+    void addWeakRef() noexcept {
         m_weakRefCount++;
     }
 
     /// @brief Decreases weak reference count and invalidates if reaching zero.
-    void releaseWeakRef() {
+    void releaseWeakRef() noexcept {
         if (--m_weakRefCount == 0) {
             this->handleInvalid(*this);
         }
@@ -153,21 +133,18 @@ public:
     using react_type = ReactImpl<Expr, Type, IS, TM>;
 
     /// @brief Construct a React from shared pointer (usually internal use).
-    explicit React(std::shared_ptr<react_type> ptr = nullptr) : m_weakPtr(ptr) {
-        if (auto p = m_weakPtr.lock())
-            p->addWeakRef();
+    explicit React(std::shared_ptr<react_type> ptr = nullptr) noexcept : m_weakPtr(ptr) {
+        safeAddRef();
     }
 
     /// @brief Destructor releases weak reference if still alive.
     ~React() {
-        if (auto p = m_weakPtr.lock())
-            p->releaseWeakRef();
+        safeReleaseRef();
     }
 
     /// @brief Copy constructor.
-    React(const React &other) : m_weakPtr(other.m_weakPtr) {
-        if (auto p = m_weakPtr.lock())
-            p->addWeakRef();
+    React(const React &other) noexcept : m_weakPtr(other.m_weakPtr) {
+        safeAddRef();
     }
 
     /// @brief Move constructor.
@@ -178,11 +155,9 @@ public:
     /// @brief Copy assignment with reference count handling.
     React &operator=(const React &other) noexcept {
         if (this != &other) {
-            if (auto p = m_weakPtr.lock())
-                p->releaseWeakRef();
+            safeReleaseRef();
             m_weakPtr = other.m_weakPtr;
-            if (auto p = m_weakPtr.lock())
-                p->addWeakRef();
+            safeAddRef();
         }
         return *this;
     }
@@ -190,8 +165,7 @@ public:
     /// @brief Move assignment.
     React &operator=(React &&other) noexcept {
         if (this != &other) {
-            if (auto p = m_weakPtr.lock())
-                p->releaseWeakRef();
+            safeReleaseRef();
             m_weakPtr = std::move(other.m_weakPtr);
             other.m_weakPtr.reset();
         }
@@ -209,12 +183,12 @@ public:
     }
 
     /// @brief Pointer-like access to raw value.
-    auto operator->() const {
+    [[nodiscard]] auto operator->() const {
         return getPtr()->getRaw();
     }
 
     /// @brief Checks if this React is valid (non-null).
-    explicit operator bool() const {
+    [[nodiscard]] explicit operator bool() const {
         return !m_weakPtr.expired();
     }
 
@@ -222,7 +196,7 @@ public:
      * @brief Value access operator.
      * If within a dependency registration scope, registers node.
      */
-    decltype(auto) operator()() const {
+    [[nodiscard]] decltype(auto) operator()() const {
         if (g_reg_fun) {
             std::invoke(g_reg_fun, getPtr());
         }
@@ -230,7 +204,7 @@ public:
     }
 
     /// @brief Returns the current value.
-    decltype(auto) get() const {
+    [[nodiscard]] decltype(auto) get() const {
         return getPtr()->get();
     }
 
@@ -272,25 +246,27 @@ public:
     }
 
     /// @brief Get the name assigned to this node.
-    std::string getName() const {
+    [[nodiscard]] std::string getName() const {
         return ObserverGraph::getInstance().getName(getPtr());
     }
 
 private:
     /// @brief Lock the weak pointer and get the shared instance. Throws on failure.
-    std::shared_ptr<react_type> getPtr() const {
-        if (m_weakPtr.expired()) {
+    [[nodiscard]] std::shared_ptr<react_type> getPtr() const {
+        if (m_weakPtr.expired()) [[likely]] {
             throw std::runtime_error("Null weak pointer access");
         }
         return m_weakPtr.lock();
     }
 
-    /// @brief Returns the underlying weak pointer (checked).
-    std::weak_ptr<react_type> getWeak() const {
-        if (m_weakPtr.expired()) {
-            throw std::runtime_error("Null weak pointer access");
-        }
-        return m_weakPtr;
+    void safeAddRef() noexcept {
+        if (auto p = m_weakPtr.lock()) [[likely]]
+            p->addWeakRef();
+    }
+
+    void safeReleaseRef() noexcept {
+        if (auto p = m_weakPtr.lock()) [[likely]]
+            p->releaseWeakRef();
     }
 
     std::weak_ptr<react_type> m_weakPtr; ///< Weak reference to the implementation node.
