@@ -515,3 +515,66 @@ We welcome all forms of contributions to make **Reaction** even better:
    cd reaction
    # Create a feature branch (feat/xxx or fix/xxx)
    # Submit PR against `dev` branch
+```
+
+---
+
+## 📚 **Documentation**
+
+Complete API documentation is automatically generated and available online:
+
+### **📖 Online Documentation**
+- **Live Docs**: https://lumia431.github.io/reaction/
+- **API Reference**: Complete class and function documentation
+- **Examples**: Interactive code examples with explanations
+- **Diagrams**: Class relationships and dependency graphs
+
+### **🔧 Generate Documentation Locally**
+
+```bash
+# Install prerequisites (Ubuntu/Debian)
+sudo apt-get install doxygen graphviz
+
+# Generate documentation
+./scripts/generate-docs.sh
+
+# Or manually
+doxygen Doxyfile
+```
+
+The documentation includes:
+- 📋 **Complete API Reference**: All classes, functions, and types
+- 🎯 **Usage Examples**: Real-world code examples from `example/` directory  
+- 📊 **Visual Diagrams**: Class inheritance and collaboration diagrams
+- 🔍 **Source Browser**: Browse source code with syntax highlighting
+- 🔗 **Cross-references**: Navigate between related components
+
+### **📝 Contributing to Documentation**
+
+Help improve the documentation by:
+1. Adding Doxygen comments to your code
+2. Including usage examples in comments
+3. Writing clear parameter descriptions
+4. Adding cross-references to related functions
+
+```cpp
+/**
+ * @brief Brief description of your function
+ * 
+ * Detailed explanation of what the function does and how to use it.
+ * 
+ * @param param1 Description of parameter 1
+ * @param param2 Description of parameter 2
+ * @return Description of return value
+ * 
+ * @code
+ * // Usage example
+ * auto result = myFunction(arg1, arg2);
+ * @endcode
+ * 
+ * @see RelatedFunction, RelatedClass
+ */
+ReturnType myFunction(Type1 param1, Type2 param2);
+```
+
+---

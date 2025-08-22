@@ -31,6 +31,23 @@
 *.out
 *.app
 
-.vs
-.vscode/
+# Build directories
 build/
+cmake-build-*/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation generated files
+docs/html/
+docs/latex/
+docs/xml/
+docs/rtf/
+docs/man/
+
+# Doxygen warnings log
+doxygen_warnings.log

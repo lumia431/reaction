@@ -1,0 +1,136 @@
+name: Generate and Deploy Documentation
+
+# Trigger the workflow on push to main/master branch and pull requests
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  # Allow manual trigger
+  workflow_dispatch:
+
+# Set permissions for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # Build documentation job
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # Fetch full history for better documentation generation
+        fetch-depth: 0
+    
+    - name: Install Doxygen and dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y doxygen graphviz
+        
+    - name: Verify Doxygen installation
+      run: |
+        doxygen --version
+        dot -V
+        
+    - name: Generate documentation
+      run: |
+        # Create output directory
+        mkdir -p docs
+        
+        # Generate documentation using Doxygen
+        doxygen Doxyfile
+        
+        # Check if documentation was generated successfully
+        if [ ! -d "docs/html" ]; then
+          echo "Error: Documentation generation failed!"
+          exit 1
+        fi
+        
+        # List generated files for debugging
+        echo "Generated documentation files:"
+        find docs/html -name "*.html" | head -10
+        
+    - name: Create .nojekyll file
+      run: |
+        # Prevent GitHub Pages from processing files with Jekyll
+        touch docs/html/.nojekyll
+        
+    - name: Setup Pages
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: actions/configure-pages@v4
+      
+    - name: Upload documentation artifacts
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./docs/html
+        
+    - name: Upload documentation as build artifact (for PRs)
+      if: github.event_name == 'pull_request'
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation-preview
+        path: ./docs/html
+        retention-days: 7
+
+  # Deploy job (only runs on main/master branch)
+  deploy:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+
+  # Comment on PR with documentation preview info
+  comment:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - name: Comment on PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { owner, repo, number } = context.issue;
+          const runId = context.runId;
+          
+          const comment = `## 📚 Documentation Preview
+          
+          The documentation has been generated for this PR. You can download the preview from the [workflow run artifacts](https://github.com/${owner}/${repo}/actions/runs/${runId}).
+          
+          ### What's included:
+          - 📖 API documentation generated from code comments
+          - 🔗 Cross-references between classes and functions  
+          - 📊 Class diagrams and dependency graphs
+          - 💡 Usage examples from the \`example/\` directory
+          
+          ### How to view:
+          1. Click the link above to go to the workflow run
+          2. Download the "documentation-preview" artifact
+          3. Extract the ZIP file and open \`index.html\` in your browser
+          
+          The live documentation will be automatically deployed to GitHub Pages when this PR is merged to the main branch.`;
+          
+          github.rest.issues.createComment({
+            owner,
+            repo,
+            issue_number: number,
+            body: comment
+          });
