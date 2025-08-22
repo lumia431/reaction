@@ -32,6 +32,11 @@ struct CalcExpr {};
  * @tparam R  Right-hand side expression type.
  */
 // TODO: Adapt to multiple operators
+// Implementation plan:
+// - Add support for unary operators (-, !, ~)
+// - Add comparison operators (==, !=, <, >, <=, >=)
+// - Add logical operators (&&, ||)
+// - Add bitwise operators (&, |, ^, <<, >>)
 template <typename Op, typename L, typename R>
 class BinaryOpExpr {
 public:
@@ -63,24 +68,46 @@ private:
 
 // === Operator Functors ===
 
+/**
+ * @brief Addition operator functor for reactive expressions.
+ * 
+ * Performs addition operation between two operands of potentially different types.
+ * The result type is determined by C++ type promotion rules.
+ */
 struct AddOp {
     auto operator()(auto &&l, auto &&r) const {
         return l + r;
     }
 };
 
+/**
+ * @brief Multiplication operator functor for reactive expressions.
+ * 
+ * Performs multiplication operation between two operands.
+ */
 struct MulOp {
     auto operator()(auto &&l, auto &&r) const {
         return l * r;
     }
 };
 
+/**
+ * @brief Subtraction operator functor for reactive expressions.
+ * 
+ * Performs subtraction operation between two operands.
+ */
 struct SubOp {
     auto operator()(auto &&l, auto &&r) const {
         return l - r;
     }
 };
 
+/**
+ * @brief Division operator functor for reactive expressions.
+ * 
+ * Performs division operation between two operands.
+ * Note: Division by zero behavior depends on the operand types.
+ */
 struct DivOp {
     auto operator()(auto &&l, auto &&r) const {
         return l / r;
@@ -189,6 +216,10 @@ private:
      * @brief Captures and wraps a function with weak references to arguments.
      */
     // TODO: Use move only function return
+    // Implementation plan:
+    // - Replace std::function with move-only function wrapper
+    // - Reduce heap allocations for better performance
+    // - Consider using std::unique_function when available
     template <typename F, typename... A>
     auto createFun(F &&f, A &&...args) {
         return [f = std::forward<F>(f), ... args = args.getPtr()]() {

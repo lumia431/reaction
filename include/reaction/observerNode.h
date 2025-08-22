@@ -219,8 +219,26 @@ public:
         this->notify(changed);
     }
 
+    /**
+     * @brief Handle value change without triggering downstream notifications.
+     * 
+     * This method is called when a node's value changes but we don't want
+     * to immediately propagate the change to observers. This is useful in
+     * batch operations where notifications are deferred until the end.
+     * 
+     * @param changed Whether the node's value has actually changed (default: true)
+     */
     virtual void changedNoNotify([[maybe_unused]] bool changed = true) {}
 
+    /**
+     * @brief Update the depth of this node in the reactive dependency graph.
+     * 
+     * The depth represents how many levels deep this node is in the dependency chain.
+     * This is used for ordering nodes during batch operations and cycle detection.
+     * The depth is set to the maximum of the current depth and the provided depth.
+     * 
+     * @param depth The new depth value to consider
+     */
     void updateDepth(uint8_t depth) noexcept {
         m_depth = std::max(depth, m_depth);
     }

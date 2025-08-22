@@ -22,7 +22,7 @@ template <NonReact SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig
 using Var = React<VarExpr, SrcType, IS, TM>;
 
 /**
- * @brief Alias template for a reactive expresstion (Expr) based on BinaryOpExpr expression type.
+ * @brief Alias template for a reactive expression (Expr) based on BinaryOpExpr expression type.
  *
  * @tparam SrcType The underlying data type produced by this reactive calculation.
  * @tparam IS Invalidation strategy, default is KeepStra.
