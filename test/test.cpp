@@ -16,7 +16,7 @@
 #include <vector>
 
 // Test basic calculation functionality with different types
-TEST(ReactionTest, TestCalac) {
+TEST(ReactionTest, TestCalc) {
     auto a = reaction::var(1);
     auto b = reaction::var(3.14);
     EXPECT_EQ(a.get(), 1);

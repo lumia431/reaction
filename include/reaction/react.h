@@ -251,7 +251,16 @@ public:
     }
 
 private:
-    /// @brief Lock the weak pointer and get the shared instance. Throws on failure.
+    /**
+     * @brief Lock the weak pointer and get the shared instance. 
+     * 
+     * This function converts the weak_ptr to shared_ptr safely.
+     * If the weak_ptr has expired (the object has been destroyed),
+     * throws a runtime_error to prevent undefined behavior.
+     * 
+     * @throws std::runtime_error if the weak pointer has expired
+     * @return std::shared_ptr<react_type> Locked shared pointer to the implementation
+     */
     [[nodiscard]] std::shared_ptr<react_type> getPtr() const {
         if (m_weakPtr.expired()) [[likely]] {
             throw std::runtime_error("Null weak pointer access");
@@ -259,11 +268,21 @@ private:
         return m_weakPtr.lock();
     }
 
+    /**
+     * @brief Safely increment the weak reference count.
+     * 
+     * Only increments if the weak pointer can be locked successfully.
+     */
     void safeAddRef() noexcept {
         if (auto p = m_weakPtr.lock()) [[likely]]
             p->addWeakRef();
     }
 
+    /**
+     * @brief Safely decrement the weak reference count.
+     * 
+     * Only decrements if the weak pointer can be locked successfully.
+     */
     void safeReleaseRef() noexcept {
         if (auto p = m_weakPtr.lock()) [[likely]]
             p->releaseWeakRef();
