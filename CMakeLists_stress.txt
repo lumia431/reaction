@@ -1,0 +1,100 @@
+# CMakeLists.txt for Reaction Framework Stress Tests
+cmake_minimum_required(VERSION 3.15)
+
+project(reaction_stress_tests)
+
+# Set C++20 standard
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Enable more warnings and optimizations
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 -fsanitize=address -fsanitize=undefined")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
+
+# Find required packages
+find_package(GTest REQUIRED)
+find_package(Threads REQUIRED)
+
+# Include directories
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Define stress test executables
+set(STRESS_TESTS
+    stress_tests
+    stress_tests_performance
+    stress_tests_complex_scenarios
+    stress_tests_type_system
+)
+
+# Create executables for each stress test
+foreach(TEST_NAME ${STRESS_TESTS})
+    add_executable(${TEST_NAME} ${TEST_NAME}.cpp)
+    
+    target_link_libraries(${TEST_NAME}
+        GTest::gtest
+        GTest::gtest_main
+        Threads::Threads
+    )
+    
+    # Add test to CTest
+    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+    
+    # Set test properties
+    set_tests_properties(${TEST_NAME} PROPERTIES
+        TIMEOUT 300  # 5 minutes timeout
+    )
+endforeach()
+
+# Enable testing
+enable_testing()
+
+# Add custom target to run all stress tests
+add_custom_target(run_stress_tests
+    COMMAND ${CMAKE_CTEST_COMMAND} --verbose --parallel 4
+    DEPENDS ${STRESS_TESTS}
+    COMMENT "Running all stress tests"
+)
+
+# Add custom target for memory testing with valgrind (if available)
+find_program(VALGRIND_PROGRAM valgrind)
+if(VALGRIND_PROGRAM)
+    add_custom_target(run_memory_tests
+        COMMAND ${VALGRIND_PROGRAM} --tool=memcheck --leak-check=full --show-leak-kinds=all --track-origins=yes ./stress_tests
+        DEPENDS stress_tests
+        COMMENT "Running memory leak tests with valgrind"
+    )
+endif()
+
+# Add custom target for thread sanitizer
+add_custom_target(run_thread_tests
+    COMMAND ${CMAKE_COMMAND} -E env TSAN_OPTIONS=halt_on_error=1 ./stress_tests
+    DEPENDS stress_tests
+    COMMENT "Running thread safety tests"
+)
+
+# Add benchmark target (requires google benchmark)
+find_package(benchmark QUIET)
+if(benchmark_FOUND)
+    add_executable(reaction_benchmarks benchmarks.cpp)
+    target_link_libraries(reaction_benchmarks benchmark::benchmark)
+    
+    add_custom_target(run_benchmarks
+        COMMAND ./reaction_benchmarks
+        DEPENDS reaction_benchmarks
+        COMMENT "Running performance benchmarks"
+    )
+endif()
+
+# Print configuration summary
+message(STATUS "Stress Tests Configuration:")
+message(STATUS "  C++ Standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "  Build Type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "  CXX Flags: ${CMAKE_CXX_FLAGS}")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS "  Debug Flags: ${CMAKE_CXX_FLAGS_DEBUG}")
+else()
+    message(STATUS "  Release Flags: ${CMAKE_CXX_FLAGS_RELEASE}")
+endif()
+message(STATUS "  Valgrind Available: ${VALGRIND_PROGRAM}")
+message(STATUS "  Google Benchmark Available: ${benchmark_FOUND}")
