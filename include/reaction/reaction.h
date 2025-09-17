@@ -124,14 +124,15 @@ auto var(SrcType &&t) {
  * @brief Create a reactive expression wrapping the given operator expression.
  *
  * Registers the node to ObserverGraph, then sets (evaluates) the expression immediately.
+ * Supports both binary and unary operator expressions.
  *
  * @tparam TM Trigger mode, default is ChangeTrig.
  * @tparam IS Invalidation strategy, default is KeepStra.
- * @tparam OpExpr The operator expression type.
+ * @tparam OpExpr The operator expression type (binary or unary).
  * @param opExpr The operator expression to wrap.
  * @return React<CalcExpr, std::remove_cvref_t<OpExpr>, IS, TM> Reactive calculation wrapper.
  */
-template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, IsBinaryOpExpr OpExpr>
+template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, IsOpExpr OpExpr>
 auto expr(OpExpr &&opExpr) {
     auto ptr = std::make_shared<ReactImpl<CalcExpr, std::remove_cvref_t<OpExpr>, IS, TM>>(std::forward<OpExpr>(opExpr));
     ObserverGraph::getInstance().addNode(ptr);

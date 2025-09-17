@@ -8,7 +8,7 @@
 #pragma once
 
 #include "reaction/batch.h"
-#include "reaction/expression.h"
+#include "reaction/expression/expression.h"
 #include "reaction/invalidStrategy.h"
 
 namespace reaction {

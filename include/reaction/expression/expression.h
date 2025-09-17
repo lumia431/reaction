@@ -7,6 +7,27 @@
 
 #pragma once
 
+/**
+ * @file expression.h
+ * @brief Unified entry point for reactive expression system
+ *
+ * This file serves as the main interface for the expression template system,
+ * providing all necessary components for creating and working with reactive
+ * expressions.
+ *
+ * The expression system is organized into modular components:
+ * - expression/operators.h: All operator functors (AddOp, MulOp, etc.)
+ * - expression/expression_types.h: Core expression classes (BinaryOpExpr, UnaryOpExpr, etc.)
+ * - expression/expression_builders.h: Helper functions and operator overloads
+ *
+ * This file contains expression specializations and the core reactive computation logic.
+ */
+
+#include <functional>
+#include "reaction/expression/operators.h"
+#include "reaction/expression/expression_types.h"
+#include "reaction/expression/expression_builders.h"
+#include "reaction/concept.h"
 #include "reaction/resource.h"
 #include "reaction/triggerMode.h"
 
@@ -23,167 +44,7 @@ struct VarExpr {};
 struct CalcExpr {};
 
 // === Forward Declarations ===
-struct DivOp;
-
-/**
- * @brief Binary operator wrapper for reactive expression trees.
- *
- * Encapsulates left and right operands with an operator to form an evaluatable expression.
- *
- * @tparam Op The binary operation (e.g., AddOp).
- * @tparam L  Left-hand side expression type.
- * @tparam R  Right-hand side expression type.
- */
-// TODO: Adapt to multiple operators
-// Implementation plan:
-// - Add support for unary operators (-, !, ~)
-// - Add comparison operators (==, !=, <, >, <=, >=)
-// - Add logical operators (&&, ||)
-// - Add bitwise operators (&, |, ^, <<, >>)
-template <typename Op, typename L, typename R>
-class BinaryOpExpr {
-public:
-    // Special type deduction for division: promote integral types to double for floating-point division
-    using value_type = typename std::conditional_t<
-        std::is_same_v<Op, DivOp> &&
-        std::is_integral_v<typename L::value_type> &&
-        std::is_integral_v<typename R::value_type>,
-        double,
-        std::remove_cvref_t<std::common_type_t<typename L::value_type, typename R::value_type>>
-    >;
-
-    template <typename Left, typename Right>
-    BinaryOpExpr(Left &&l, Right &&r, Op o = Op{})
-        : m_left(std::forward<Left>(l)), m_right(std::forward<Right>(r)), m_op(o) {}
-
-    /// @brief Evaluates the expression.
-    auto operator()() const noexcept {
-        return calculate();
-    }
-
-    /// @brief Implicit conversion to value type (evaluates expression).
-    operator value_type() {
-        return calculate();
-    }
-
-private:
-    auto calculate() const noexcept {
-        return m_op(m_left(), m_right());
-    }
-
-    L m_left;
-    R m_right;
-    [[no_unique_address]] Op m_op;
-};
-
-// === Operator Functors ===
-
-/**
- * @brief Addition operator functor for reactive expressions.
- * 
- * Performs addition operation between two operands of potentially different types.
- * The result type is determined by C++ type promotion rules.
- */
-struct AddOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l + r;
-    }
-};
-
-/**
- * @brief Multiplication operator functor for reactive expressions.
- * 
- * Performs multiplication operation between two operands.
- */
-struct MulOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l * r;
-    }
-};
-
-/**
- * @brief Subtraction operator functor for reactive expressions.
- * 
- * Performs subtraction operation between two operands.
- */
-struct SubOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l - r;
-    }
-};
-
-/**
- * @brief Division operator functor for reactive expressions.
- *
- * Performs division operation between two operands with floating-point precision.
- * For integer operands, promotes to double to ensure floating-point division.
- * Note: Division by zero behavior depends on the operand types.
- */
-struct DivOp {
-    auto operator()(auto &&l, auto &&r) const {
-        using L = std::remove_cvref_t<decltype(l)>;
-        using R = std::remove_cvref_t<decltype(r)>;
-
-        // If both operands are integral types, promote to double for floating-point division
-        if constexpr (std::is_integral_v<L> && std::is_integral_v<R>) {
-            return static_cast<double>(l) / static_cast<double>(r);
-        } else {
-            return l / r;
-        }
-    }
-};
-
-/**
- * @brief Wraps a literal value into a callable expression.
- *
- * @tparam T Value type.
- */
-template <typename T>
-struct ValueWrapper {
-    using value_type = std::remove_cvref_t<T>;
-    T m_value;
-
-    template <typename Type>
-    ValueWrapper(Type &&t) : m_value(std::forward<Type>(t)) {}
-
-    const T &operator()() const {
-        return m_value;
-    }
-};
-
-/**
- * @brief Creates a binary expression from two operands and an operator.
- */
-template <typename Op, typename L, typename R>
-auto make_binary_expr(L &&l, R &&r) {
-    return BinaryOpExpr<Op, ExprTraits<std::remove_cvref_t<L>>, ExprTraits<std::remove_cvref_t<R>>>(std::forward<L>(l), std::forward<R>(r));
-}
-
-// === Operator Overloads for Reactive Expressions ===
-
-template <typename L, typename R>
-    requires HasReactOp<L, R>
-auto operator+(L &&l, R &&r) {
-    return make_binary_expr<AddOp>(std::forward<L>(l), std::forward<R>(r));
-}
-
-template <typename L, typename R>
-    requires HasReactOp<L, R>
-auto operator*(L &&l, R &&r) {
-    return make_binary_expr<MulOp>(std::forward<L>(l), std::forward<R>(r));
-}
-
-template <typename L, typename R>
-    requires HasReactOp<L, R>
-auto operator-(L &&l, R &&r) {
-    return make_binary_expr<SubOp>(std::forward<L>(l), std::forward<R>(r));
-}
-
-template <typename L, typename R>
-    requires HasReactOp<L, R>
-auto operator/(L &&l, R &&r) {
-    return make_binary_expr<DivOp>(std::forward<L>(l), std::forward<R>(r));
-}
+template <typename Expr, typename Type, IsTrigMode TM> class Expression;
 
 /**
  * @brief Core reactive computation logic shared by all calculated expressions.
@@ -332,6 +193,30 @@ protected:
 
 private:
     BinaryOpExpr<Op, L, R> m_expr;
+};
+
+/**
+ * @brief Expression specialization for unary expressions.
+ */
+template <typename Op, typename T, IsTrigMode TM>
+class Expression<CalcExpr, UnaryOpExpr<Op, T>, TM>
+    : public CalcExprBase<typename UnaryOpExpr<Op, T>::value_type, TM> {
+public:
+    template <typename U>
+        requires(!std::is_same_v<std::remove_cvref_t<U>, Expression>)
+    Expression(U &&expr) : m_expr(std::forward<U>(expr)) {
+    }
+
+protected:
+    /// @brief Sets the unary operator expression as the current source.
+    void setOpExpr() {
+        this->setSource([this]() {
+            return m_expr();
+        });
+    }
+
+private:
+    UnaryOpExpr<Op, T> m_expr;
 };
 
 } // namespace reaction

@@ -23,6 +23,9 @@ struct ChangeTrig;
 template <typename Op, typename L, typename R>
 class BinaryOpExpr;
 
+template <typename Op, typename T>
+class UnaryOpExpr;
+
 template <typename T>
 struct ValueWrapper;
 
@@ -206,18 +209,42 @@ template <typename Op, typename L, typename R>
 struct BinaryOpExprTraits<BinaryOpExpr<Op, L, R>> : std::true_type {};
 
 /**
+ * @brief Fallback trait for identifying unary operation expressions.
+ */
+template <typename T>
+struct UnaryOpExprTraits : std::false_type {};
+
+/**
+ * @brief Specialization for UnaryOpExpr types.
+ */
+template <typename Op, typename T>
+struct UnaryOpExprTraits<UnaryOpExpr<Op, T>> : std::true_type {};
+
+/**
  * @brief Concept to check if a type is a binary operation expression.
  */
 template <typename T>
 concept IsBinaryOpExpr = BinaryOpExprTraits<T>::value;
 
 /**
+ * @brief Concept to check if a type is a unary operation expression.
+ */
+template <typename T>
+concept IsUnaryOpExpr = UnaryOpExprTraits<T>::value;
+
+/**
+ * @brief Concept to check if a type is either a binary or unary operation expression.
+ */
+template <typename T>
+concept IsOpExpr = IsBinaryOpExpr<T> || IsUnaryOpExpr<T>;
+
+/**
  * @brief Resolves the proper expression type.
- *        If it's already a React or BinaryOpExpr, return as-is.
+ *        If it's already a React, BinaryOpExpr, or UnaryOpExpr, return as-is.
  *        Otherwise, wrap it using ValueWrapper.
  */
 template <typename T>
-using ExprTraits = std::conditional_t<IsReact<T> || IsBinaryOpExpr<T>, T, ValueWrapper<T>>;
+using ExprTraits = std::conditional_t<IsReact<T> || IsBinaryOpExpr<T> || IsUnaryOpExpr<T>, T, ValueWrapper<T>>;
 
 /**
  * @brief Concept to determine if either operand is reactive or a binary expression.
