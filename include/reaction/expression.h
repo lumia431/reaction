@@ -22,6 +22,9 @@ struct VarExpr {};
  */
 struct CalcExpr {};
 
+// === Forward Declarations ===
+struct DivOp;
+
 /**
  * @brief Binary operator wrapper for reactive expression trees.
  *
@@ -40,7 +43,14 @@ struct CalcExpr {};
 template <typename Op, typename L, typename R>
 class BinaryOpExpr {
 public:
-    using value_type = typename std::remove_cvref_t<std::common_type_t<typename L::value_type, typename R::value_type>>;
+    // Special type deduction for division: promote integral types to double for floating-point division
+    using value_type = typename std::conditional_t<
+        std::is_same_v<Op, DivOp> &&
+        std::is_integral_v<typename L::value_type> &&
+        std::is_integral_v<typename R::value_type>,
+        double,
+        std::remove_cvref_t<std::common_type_t<typename L::value_type, typename R::value_type>>
+    >;
 
     template <typename Left, typename Right>
     BinaryOpExpr(Left &&l, Right &&r, Op o = Op{})
@@ -104,13 +114,22 @@ struct SubOp {
 
 /**
  * @brief Division operator functor for reactive expressions.
- * 
- * Performs division operation between two operands.
+ *
+ * Performs division operation between two operands with floating-point precision.
+ * For integer operands, promotes to double to ensure floating-point division.
  * Note: Division by zero behavior depends on the operand types.
  */
 struct DivOp {
     auto operator()(auto &&l, auto &&r) const {
-        return l / r;
+        using L = std::remove_cvref_t<decltype(l)>;
+        using R = std::remove_cvref_t<decltype(r)>;
+
+        // If both operands are integral types, promote to double for floating-point division
+        if constexpr (std::is_integral_v<L> && std::is_integral_v<R>) {
+            return static_cast<double>(l) / static_cast<double>(r);
+        } else {
+            return l / r;
+        }
     }
 };
 
@@ -296,7 +315,7 @@ public:
  */
 template <typename Op, typename L, typename R, IsTrigMode TM>
 class Expression<CalcExpr, BinaryOpExpr<Op, L, R>, TM>
-    : public CalcExprBase<std::common_type_t<typename L::value_type, typename R::value_type>, TM> {
+    : public CalcExprBase<typename BinaryOpExpr<Op, L, R>::value_type, TM> {
 public:
     template <typename T>
         requires(!std::is_same_v<std::remove_cvref_t<T>, Expression>)
