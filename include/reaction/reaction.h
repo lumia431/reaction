@@ -15,30 +15,30 @@ namespace reaction {
  * @brief Alias template for a reactive variable (Var) based on VarExpr expression type.
  *
  * @tparam SrcType The underlying data type held by this reactive variable.
- * @tparam IS Invalidation strategy, default is KeepStra.
- * @tparam TM Trigger mode, default is ChangeTrig.
+ * @tparam IV Invalidation strategy, default is KeepHandle.
+ * @tparam TR Trigger mode, default is ChangeTrig.
  */
-template <NonReact SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
-using Var = React<VarExpr, SrcType, IS, TM>;
+template <NonReact SrcType, IsInvalidation IV = KeepHandle, IsTrigger TR = ChangeTrig>
+using Var = React<VarExpr, SrcType, IV, TR>;
 
 /**
  * @brief Alias template for a reactive expression (Expr) based on BinaryOpExpr expression type.
  *
  * @tparam SrcType The underlying data type produced by this reactive calculation.
- * @tparam IS Invalidation strategy, default is KeepStra.
- * @tparam TM Trigger mode, default is ChangeTrig.
+ * @tparam IV Invalidation strategy, default is KeepHandle.
+ * @tparam TR Trigger mode, default is ChangeTrig.
  */
-template <NonReact SrcType, IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
-using Calc = React<CalcExpr, SrcType, IS, TM>;
+template <NonReact SrcType, IsInvalidation IV = KeepHandle, IsTrigger TR = ChangeTrig>
+using Calc = React<CalcExpr, SrcType, IV, TR>;
 
 /**
  * @brief Alias template for a reactive action (Action) based on CalcExpr expression type.
  *
- * @tparam IS Invalidation strategy, default is KeepStra.
- * @tparam TM Trigger mode, default is ChangeTrig.
+ * @tparam IV Invalidation strategy, default is KeepHandle.
+ * @tparam TR Trigger mode, default is ChangeTrig.
  */
-template <IsInvaStra IS = KeepStra, IsTrigMode TM = ChangeTrig>
-using Action = React<CalcExpr, Void, IS, TM>;
+template <IsInvalidation IV = KeepHandle, IsTrigger TR = ChangeTrig>
+using Action = React<CalcExpr, Void, IV, TR>;
 
 /**
  * @brief Base class representing a field container in the reactive graph.
@@ -52,15 +52,15 @@ public:
      * a variable expression holding the given value. It registers the node
      * to both the global ObserverGraph and FieldGraph using this FieldBase's ID.
      *
-     * @tparam TM Trigger mode, default is ChangeTrig.
-     * @tparam IS Invalidation strategy, default is KeepStra.
+     * @tparam TR Trigger mode, default is ChangeTrig.
+     * @tparam IV Invalidation strategy, default is KeepHandle.
      * @tparam T The type of the initial value (deduced).
      * @param t The initial value to store in the field.
-     * @return React<VarExpr, std::remove_cvref_t<T>, IS, TM> A reactive wrapper around the stored value.
+     * @return React<VarExpr, std::remove_cvref_t<T>, IV, TR> A reactive wrapper around the stored value.
      */
-    template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, NonReact T>
+    template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, NonReact T>
     auto field(T &&t) {
-        auto ptr = std::make_shared<ReactImpl<VarExpr, std::remove_cvref_t<T>, IS, TM>>(std::forward<T>(t));
+        auto ptr = std::make_shared<ReactImpl<VarExpr, std::remove_cvref_t<T>, IV, TR>>(std::forward<T>(t));
         ObserverGraph::getInstance().addNode(ptr->shared_from_this());
         FieldGraph::getInstance().addObj(m_id, ptr->shared_from_this());
         return React{ptr};
@@ -85,15 +85,15 @@ private:
  * This is similar to var(), but the wrapped value is const.
  * The reactive node is registered to the ObserverGraph.
  *
- * @tparam TM Trigger mode, default is ChangeTrig.
- * @tparam IS Invalidation strategy, default is KeepStra.
+ * @tparam TR Trigger mode, default is ChangeTrig.
+ * @tparam IV Invalidation strategy, default is KeepHandle.
  * @tparam SrcType The type of the source value.
  * @param t The value to wrap as a const reactive variable.
- * @return React<VarExpr, const std::remove_cvref_t<SrcType>, IS, TM> Reactive constant wrapper.
+ * @return React<VarExpr, const std::remove_cvref_t<SrcType>, IV, TR> Reactive constant wrapper.
  */
-template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, NonReact SrcType>
+template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, NonReact SrcType>
 auto constVar(SrcType &&t) {
-    auto ptr = std::make_shared<ReactImpl<VarExpr, const std::remove_cvref_t<SrcType>, IS, TM>>(std::forward<SrcType>(t));
+    auto ptr = std::make_shared<ReactImpl<VarExpr, const std::remove_cvref_t<SrcType>, IV, TR>>(std::forward<SrcType>(t));
     ObserverGraph::getInstance().addNode(ptr);
     return React{ptr};
 }
@@ -104,15 +104,15 @@ auto constVar(SrcType &&t) {
  * If the source type supports the Field concept, binds the field in the FieldGraph.
  * Registers the reactive node to the ObserverGraph.
  *
- * @tparam TM Trigger mode, default is ChangeTrig.
- * @tparam IS Invalidation strategy, default is KeepStra.
+ * @tparam TR Trigger mode, default is ChangeTrig.
+ * @tparam IV Invalidation strategy, default is KeepHandle.
  * @tparam SrcType The type of the source value.
  * @param t The value to wrap reactively.
- * @return React<VarExpr, std::remove_cvref_t<SrcType>, IS, TM> Reactive variable wrapper.
+ * @return React<VarExpr, std::remove_cvref_t<SrcType>, IV, TR> Reactive variable wrapper.
  */
-template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, NonReact SrcType>
+template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, NonReact SrcType>
 auto var(SrcType &&t) {
-    auto ptr = std::make_shared<ReactImpl<VarExpr, std::remove_cvref_t<SrcType>, IS, TM>>(std::forward<SrcType>(t));
+    auto ptr = std::make_shared<ReactImpl<VarExpr, std::remove_cvref_t<SrcType>, IV, TR>>(std::forward<SrcType>(t));
     ObserverGraph::getInstance().addNode(ptr);
     if constexpr (HasField<SrcType>) {
         FieldGraph::getInstance().bindField(t.getId(), ptr->shared_from_this());
@@ -126,15 +126,15 @@ auto var(SrcType &&t) {
  * Registers the node to ObserverGraph, then sets (evaluates) the expression immediately.
  * Supports both binary and unary operator expressions.
  *
- * @tparam TM Trigger mode, default is ChangeTrig.
- * @tparam IS Invalidation strategy, default is KeepStra.
+ * @tparam TR Trigger mode, default is ChangeTrig.
+ * @tparam IV Invalidation strategy, default is KeepHandle.
  * @tparam OpExpr The operator expression type (binary or unary).
  * @param opExpr The operator expression to wrap.
- * @return React<CalcExpr, std::remove_cvref_t<OpExpr>, IS, TM> Reactive calculation wrapper.
+ * @return React<CalcExpr, std::remove_cvref_t<OpExpr>, IV, TR> Reactive calculation wrapper.
  */
-template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, IsOpExpr OpExpr>
+template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, IsOpExpr OpExpr>
 auto expr(OpExpr &&opExpr) {
-    auto ptr = std::make_shared<ReactImpl<CalcExpr, std::remove_cvref_t<OpExpr>, IS, TM>>(std::forward<OpExpr>(opExpr));
+    auto ptr = std::make_shared<ReactImpl<CalcExpr, std::remove_cvref_t<OpExpr>, IV, TR>>(std::forward<OpExpr>(opExpr));
     ObserverGraph::getInstance().addNode(ptr);
     ptr->set();
     return React{ptr};
@@ -145,17 +145,17 @@ auto expr(OpExpr &&opExpr) {
  *
  * Registers the node to ObserverGraph and immediately sets (evaluates) the calculation.
  *
- * @tparam TM Trigger mode, default is ChangeTrig.
- * @tparam IS Invalidation strategy, default is KeepStra.
+ * @tparam TR Trigger mode, default is ChangeTrig.
+ * @tparam IV Invalidation strategy, default is KeepHandle.
  * @tparam Fun Callable type.
  * @tparam Args Argument types for the callable.
  * @param fun The callable to invoke reactively.
  * @param args Arguments to forward to the callable.
- * @return React<CalcExpr, ReturnType<Fun, Args...>, IS, TM> Reactive calculation wrapper.
+ * @return React<CalcExpr, ReturnType<Fun, Args...>, IV, TR> Reactive calculation wrapper.
  */
-template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, typename Fun, typename... Args>
+template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, typename Fun, typename... Args>
 auto calc(Fun &&fun, Args &&...args) {
-    auto ptr = std::make_shared<ReactImpl<CalcExpr, ReturnType<Fun, Args...>, IS, TM>>();
+    auto ptr = std::make_shared<ReactImpl<CalcExpr, ReturnType<Fun, Args...>, IV, TR>>();
     ObserverGraph::getInstance().addNode(ptr);
     ptr->set(std::forward<Fun>(fun), std::forward<Args>(args)...);
     return React{ptr};
@@ -164,17 +164,17 @@ auto calc(Fun &&fun, Args &&...args) {
 /**
  * @brief Alias for calc(), used to create a reactive action.
  *
- * @tparam TM Trigger mode, default is ChangeTrig.
- * @tparam IS Invalidation strategy, default is KeepStra.
+ * @tparam TR Trigger mode, default is ChangeTrig.
+ * @tparam IV Invalidation strategy, default is KeepHandle.
  * @tparam Fun Callable type.
  * @tparam Args Argument types.
  * @param fun The callable to invoke reactively.
  * @param args Arguments to forward to the callable.
  * @return The reactive action wrapper.
  */
-template <IsTrigMode TM = ChangeTrig, IsInvaStra IS = KeepStra, typename Fun, typename... Args>
+template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, typename Fun, typename... Args>
 auto action(Fun &&fun, Args &&...args) {
-    return calc<TM, IS>(std::forward<Fun>(fun), std::forward<Args>(args)...);
+    return calc<TR, IV>(std::forward<Fun>(fun), std::forward<Args>(args)...);
 }
 
 /**

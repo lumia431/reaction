@@ -335,7 +335,7 @@ auto a = var(1);
 auto b = expr<MyTrig>(a + 1);
 ```
 
-### 9. Invalid Strategies
+### 9. Invalid Handles
 
 In the `reaction` framework, all data sources **obtained by users are actually in the form of weak references**, and their actual memory is managed **in the observer map**.
 Users can manually call the **close** method, so that all dependent data sources will also be closed.
@@ -352,13 +352,13 @@ EXPECT_FALSE(static_cast<bool>(dsB));
 
 However, for scenarios where the lifecycle of a weak reference acquired by user ends, the `reaction` framework makes several strategy for different scenarios.
 
-- **DirectCloseStrategy:**
+- **CloseHandle:**
   The node is immediately closed (made invalid) when any of its dependencies become invalid.
 
-- **KeepCalcStrategy:**
+- **KeepHandle:**
   The node continues to recalculate, its dependencies work normally.
 
-- **LastValStrategy:**
+- **LastHandle:**
   The node retains the last valid, its dependencies use the value to calculate.
 
 Below is a concise example that illustrates all three strategies:
@@ -368,7 +368,7 @@ Below is a concise example that illustrates all three strategies:
     auto a = var(1);
     auto b = calc([]() { return a(); });
     {
-        auto temp = calc<AlwaysTrig, CloseStra>([]() { return a(); });
+        auto temp = calc<AlwaysTrig, CloseHandle>([]() { return a(); });
         b.set([](auto t) { return t; }, temp);
     }
     // temp lifecycle ends, b will end too.
@@ -378,7 +378,7 @@ Below is a concise example that illustrates all three strategies:
     auto a = var(1);
     auto b = calc([]() { return a(); });
     {
-        auto temp = calc<AlwaysTrig, KeepStra>([]() { return a(); }); // default is KeepStra
+        auto temp = calc<AlwaysTrig, KeepHandle>([]() { return a(); }); // default is KeepHandle
         b.set([](auto t) { return t; }, temp);
     }
     // temp lifecycle ends, b not be influenced.
@@ -391,7 +391,7 @@ Below is a concise example that illustrates all three strategies:
     auto a = var(1);
     auto b = calc([]() { return a(); });
     {
-        auto temp = calc<AlwaysTrig, LastStra>([]() { return a(); });
+        auto temp = calc<AlwaysTrig, LastHandle>([]() { return a(); });
         b.set([](auto t) { return t; }, temp);
     }
     // temp lifecycle ends, b use its last val to calculate.
@@ -405,13 +405,13 @@ Below is a concise example that illustrates all three strategies:
 Likewise, you can define a strategy yourself in your code, just include the **handleInvalid** method:
 
 ```cpp
-struct MyStra {
+struct MyHandle {
     void handleInvalid() {
         std::cout << "Invalid" << std::endl;
     }
 };
 auto a = var(1);
-auto b = expr<AlwaysTrig, MyStra>(a + 1);
+auto b = expr<AlwaysTrig, MyHandle>(a + 1);
 ```
 
 ### 10. Reactive Containers

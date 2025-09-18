@@ -368,7 +368,7 @@ EXPECT_FALSE(static_cast<bool>(dsB));
     auto a = var(1);
     auto b = calc([]() { return a(); });
     {
-        auto temp = calc<AlwaysTrig, CloseStra>([]() { return a(); });
+        auto temp = calc<AlwaysTrig, CloseHandle>([]() { return a(); });
         b.set([](auto t) { return t; }, temp);
     }
     // temp 生命周期结束，b 也会结束。
@@ -378,7 +378,7 @@ EXPECT_FALSE(static_cast<bool>(dsB));
     auto a = var(1);
     auto b = calc([]() { return a(); });
     {
-        auto temp = calc<AlwaysTrig, KeepStra>([]() { return a(); }); // 默认为 KeepStra
+        auto temp = calc<AlwaysTrig, KeepHandle>([]() { return a(); }); // 默认为 KeepHandle
         b.set([](auto t) { return t; }, temp);
     }
     // temp 生命周期结束，b 不受影响。
@@ -391,7 +391,7 @@ EXPECT_FALSE(static_cast<bool>(dsB));
     auto a = var(1);
     auto b = calc([]() { return a(); });
     {
-        auto temp = calc<AlwaysTrig, LastStra>([]() { return a(); });
+        auto temp = calc<AlwaysTrig, LastHandle>([]() { return a(); });
         b.set([](auto t) { return t; }, temp);
     }
     // temp 生命周期结束，b 使用其最后值计算。
@@ -405,13 +405,13 @@ EXPECT_FALSE(static_cast<bool>(dsB));
 同样，您可以在代码中自定义策略，只需包含 **handleInvalid** 方法:
 
 ```cpp
-struct MyStra {
+struct MyHandle {
     void handleInvalid() {
         std::cout << "无效" << std::endl;
     }
 };
 auto a = var(1);
-auto b = expr<AlwaysTrig, MyStra>(a + 1);
+auto b = expr<AlwaysTrig, MyHandle>(a + 1);
 ```
 
 ### 10. 响应式容器

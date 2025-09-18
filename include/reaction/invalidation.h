@@ -17,7 +17,7 @@ namespace reaction {
  * On invalidation, this strategy closes the reactive source,
  * cutting off its output from the dependency graph.
  */
-struct CloseStra {
+struct CloseHandle {
     template <typename Source>
     void handleInvalid(Source &&source) {
         if constexpr (IsReactSource<std::remove_cvref_t<Source>>) {
@@ -32,7 +32,7 @@ struct CloseStra {
  * On invalidation, this strategy performs no action.
  * The value remains unchanged and stays in the graph.
  */
-struct KeepStra {
+struct KeepHandle {
     template <typename Source>
     void handleInvalid([[maybe_unused]] Source &&source) {
         // Do nothing
@@ -45,7 +45,7 @@ struct KeepStra {
  * On invalidation, this strategy captures the last known value
  * and replaces the expression with a constant returning that value.
  */
-struct LastStra {
+struct LastHandle {
     template <typename Source>
     void handleInvalid(Source &&source) {
         if constexpr (IsReactSource<std::remove_cvref_t<Source>>) {

@@ -78,10 +78,6 @@ private:
  * @tparam L  Left-hand side expression type.
  * @tparam R  Right-hand side expression type.
  */
-// TODO: Add bitwise operators
-// Implementation plan:
-// - Add bitwise operators (&, |, ^, <<, >>)
-// - Add modulo operator (%)
 template <typename Op, typename L, typename R>
 class BinaryOpExpr {
 public:

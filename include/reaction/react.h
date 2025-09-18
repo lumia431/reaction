@@ -9,7 +9,7 @@
 
 #include "reaction/batch.h"
 #include "reaction/expression/expression.h"
-#include "reaction/invalidStrategy.h"
+#include "reaction/invalidation.h"
 
 namespace reaction {
 
@@ -20,13 +20,13 @@ namespace reaction {
  *
  * @tparam Expr Expression type.
  * @tparam Type Result value type.
- * @tparam IS   Invalidation strategy.
- * @tparam TM   Triggering mode.
+ * @tparam IV   Invalidation strategy.
+ * @tparam TR   Triggering mode.
  */
-template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
-class ReactImpl final : public Expression<Expr, Type, TM>, public IS {
+template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR>
+class ReactImpl final : public Expression<Expr, Type, TR>, public IV {
 public:
-    using Expression<Expr, Type, TM>::Expression;
+    using Expression<Expr, Type, TR>::Expression;
 
     /**
      * @brief Assign a new value directly to the reactive variable.
@@ -123,14 +123,14 @@ private:
  *
  * @tparam Expr Expression type.
  * @tparam Type Final value type.
- * @tparam IS   Invalidation strategy.
- * @tparam TM   Trigger mode type.
+ * @tparam IV   Invalidation strategy.
+ * @tparam TR   Trigger mode type.
  */
-template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
+template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR>
 class React {
 public:
     using value_type = Type;
-    using react_type = ReactImpl<Expr, Type, IS, TM>;
+    using react_type = ReactImpl<Expr, Type, IV, TR>;
 
     /// @brief Construct a React from shared pointer (usually internal use).
     explicit React(std::shared_ptr<react_type> ptr = nullptr) noexcept : m_weakPtr(ptr) {
@@ -252,12 +252,12 @@ public:
 
 private:
     /**
-     * @brief Lock the weak pointer and get the shared instance. 
-     * 
+     * @brief Lock the weak pointer and get the shared instance.
+     *
      * This function converts the weak_ptr to shared_ptr safely.
      * If the weak_ptr has expired (the object has been destroyed),
      * throws a runtime_error to prevent undefined behavior.
-     * 
+     *
      * @throws std::runtime_error if the weak pointer has expired
      * @return std::shared_ptr<react_type> Locked shared pointer to the implementation
      */
@@ -270,7 +270,7 @@ private:
 
     /**
      * @brief Safely increment the weak reference count.
-     * 
+     *
      * Only increments if the weak pointer can be locked successfully.
      */
     void safeAddRef() noexcept {
@@ -280,7 +280,7 @@ private:
 
     /**
      * @brief Safely decrement the weak reference count.
-     * 
+     *
      * Only decrements if the weak pointer can be locked successfully.
      */
     void safeReleaseRef() noexcept {
@@ -290,11 +290,11 @@ private:
 
     std::weak_ptr<react_type> m_weakPtr; ///< Weak reference to the implementation node.
 
-    template <typename T, IsTrigMode M>
+    template <typename T, IsTrigger M>
     friend class CalcExprBase;
 
     friend struct FilterTrig;
-    friend struct std::hash<React<Expr, Type, IS, TM>>;
+    friend struct std::hash<React<Expr, Type, IV, TR>>;
 };
 
 } // namespace reaction
@@ -303,9 +303,9 @@ private:
 namespace std {
 
 using namespace reaction;
-template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
-struct hash<React<Expr, Type, IS, TM>> {
-    std::size_t operator()(const React<Expr, Type, IS, TM> &react) const noexcept {
+template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR>
+struct hash<React<Expr, Type, IV, TR>> {
+    std::size_t operator()(const React<Expr, Type, IV, TR> &react) const noexcept {
         return std::hash<ObserverNode *>{}(react.getPtr().get());
     }
 };

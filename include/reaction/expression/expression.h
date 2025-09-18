@@ -29,7 +29,7 @@
 #include "reaction/expression/expression_builders.h"
 #include "reaction/concept.h"
 #include "reaction/resource.h"
-#include "reaction/triggerMode.h"
+#include "reaction/trigger.h"
 
 namespace reaction {
 
@@ -44,7 +44,7 @@ struct VarExpr {};
 struct CalcExpr {};
 
 // === Forward Declarations ===
-template <typename Expr, typename Type, IsTrigMode TM> class Expression;
+template <typename Expr, typename Type, IsTrigger TR> class Expression;
 
 /**
  * @brief Core reactive computation logic shared by all calculated expressions.
@@ -52,10 +52,10 @@ template <typename Expr, typename Type, IsTrigMode TM> class Expression;
  * Handles dependency registration, invalidation, and value recomputation.
  *
  * @tparam Type Computed value type.
- * @tparam TM   Triggering mode.
+ * @tparam TR   Triggering mode.
  */
-template <typename Type, IsTrigMode TM>
-class CalcExprBase : public Resource<Type>, public TM {
+template <typename Type, IsTrigger TR>
+class CalcExprBase : public Resource<Type>, public TR {
 public:
     /**
      * @brief Sets the function source and its dependencies.
@@ -114,11 +114,11 @@ private:
 
     template <bool Notify>
     void handleChange(bool changed) {
-        if constexpr (IsChangeTrig<TM>) {
+        if constexpr (IsChangeTrig<TR>) {
             this->setChanged(changed);
         }
 
-        if (TM::checkTrig()) {
+        if (TR::checkTrig()) {
             bool change = true;
             if constexpr (!VoidType<Type>) {
                 change = this->updateValue(evaluate());
@@ -148,8 +148,8 @@ private:
  *
  * Specialized by expression type and content.
  */
-template <typename Expr, typename Type, IsTrigMode TM>
-class Expression : public CalcExprBase<Type, TM> {
+template <typename Expr, typename Type, IsTrigger TR>
+class Expression : public CalcExprBase<Type, TR> {
 };
 
 /**
@@ -157,8 +157,8 @@ class Expression : public CalcExprBase<Type, TM> {
  *
  * Allows manual setting and change detection.
  */
-template <typename Type, IsTrigMode TM>
-class Expression<VarExpr, Type, TM> : public Resource<Type> {
+template <typename Type, IsTrigger TR>
+class Expression<VarExpr, Type, TR> : public Resource<Type> {
 public:
     using Resource<Type>::Resource;
 
@@ -174,9 +174,9 @@ public:
 /**
  * @brief Expression specialization for binary expressions.
  */
-template <typename Op, typename L, typename R, IsTrigMode TM>
-class Expression<CalcExpr, BinaryOpExpr<Op, L, R>, TM>
-    : public CalcExprBase<typename BinaryOpExpr<Op, L, R>::value_type, TM> {
+template <typename Op, typename L, typename R, IsTrigger TR>
+class Expression<CalcExpr, BinaryOpExpr<Op, L, R>, TR>
+    : public CalcExprBase<typename BinaryOpExpr<Op, L, R>::value_type, TR> {
 public:
     template <typename T>
         requires(!std::is_same_v<std::remove_cvref_t<T>, Expression>)
@@ -198,9 +198,9 @@ private:
 /**
  * @brief Expression specialization for unary expressions.
  */
-template <typename Op, typename T, IsTrigMode TM>
-class Expression<CalcExpr, UnaryOpExpr<Op, T>, TM>
-    : public CalcExprBase<typename UnaryOpExpr<Op, T>::value_type, TM> {
+template <typename Op, typename T, IsTrigger TR>
+class Expression<CalcExpr, UnaryOpExpr<Op, T>, TR>
+    : public CalcExprBase<typename UnaryOpExpr<Op, T>::value_type, TR> {
 public:
     template <typename U>
         requires(!std::is_same_v<std::remove_cvref_t<U>, Expression>)

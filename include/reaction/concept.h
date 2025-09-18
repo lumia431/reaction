@@ -108,7 +108,7 @@ concept HasField = requires(T t) {
  * @brief Checks if a type satisfies the trigger mode interface.
  */
 template <typename T>
-concept IsTrigMode = requires(T t) {
+concept IsTrigger = requires(T t) {
     { t.checkTrig() } -> std::same_as<bool>;
 };
 
@@ -116,7 +116,7 @@ concept IsTrigMode = requires(T t) {
  * @brief Checks if a type satisfies the invalidation strategy interface.
  */
 template <typename T>
-concept IsInvaStra = requires(T t, AnyTp ds) {
+concept IsInvalidation = requires(T t, AnyTp ds) {
     { t.handleInvalid(ds) } -> std::same_as<void>;
 };
 
@@ -134,10 +134,10 @@ concept IsReactSource = requires(T t) {
  *
  * @tparam Expr  Expression type.
  * @tparam Type  Evaluated result type of the reactive node.
- * @tparam IS    Invalidation strategy type.
- * @tparam TM    Triggering mode type.
+ * @tparam IV    Invalidation strategy type.
+ * @tparam TR    Triggering mode type.
  */
-template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
+template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR>
 class ReactImpl;
 
 /**
@@ -145,10 +145,10 @@ class ReactImpl;
  *
  * @tparam Expr  Expression type.
  * @tparam Type  Final result type.
- * @tparam IS    Invalidation strategy.
- * @tparam TM    Triggering mode.
+ * @tparam IV    Invalidation strategy.
+ * @tparam TR    Triggering mode.
  */
-template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
+template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR>
 class React;
 
 // ==================== Type Traits =======================
@@ -164,8 +164,8 @@ struct ReactTraits : std::false_type {
 /**
  * @brief Specialization of ReactTraits for React types.
  */
-template <typename Expr, typename Type, IsInvaStra IS, IsTrigMode TM>
-struct ReactTraits<React<Expr, Type, IS, TM>> : std::true_type {
+template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR>
+struct ReactTraits<React<Expr, Type, IV, TR>> : std::true_type {
     using type = Type;
 };
 

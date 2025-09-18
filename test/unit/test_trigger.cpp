@@ -8,8 +8,8 @@
 #include "../common/test_fixtures.h"
 #include "../common/test_helpers.h"
 
-// Test different trigger strategies (AlwaysTrig vs default)
-TEST(TriggerStrategiesTest, TestChangeTrig) {
+// Test different trigger (AlwaysTrig vs default)
+TEST(TriggerTest, TestChangeTrig) {
     auto a = reaction::var(1);
     auto b = reaction::var(2);
     auto c = reaction::var(3);
@@ -28,8 +28,8 @@ TEST(TriggerStrategiesTest, TestChangeTrig) {
     EXPECT_EQ(triggerCountB, 2);
 }
 
-// Test filter-based triggering
-TEST(TriggerStrategiesTest, TestFilterTrig) {
+// Test filter-based trigge
+TEST(TriggerTest, TestFilterTrig) {
     auto a = reaction::var(1);
     auto b = reaction::var(2);
     auto c = reaction::var(3);

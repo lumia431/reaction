@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "reaction/observerNode.h"
+#include "reaction/observer.h"
 #include <set>
 
 namespace reaction {

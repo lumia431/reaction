@@ -8,8 +8,8 @@
 #include "../common/test_fixtures.h"
 #include "../common/test_helpers.h"
 
-// Test close strategy for reactive graph cleanup
-TEST(InvalidationStrategiesTest, TestCloseStra) {
+// Test close handle for reactive graph cleanup
+TEST(InvalidationTest, TestCloseHandle) {
     auto a = reaction::var(1).setName("a");
     auto b = reaction::var(2).setName("b");
 
@@ -21,7 +21,7 @@ TEST(InvalidationStrategiesTest, TestCloseStra) {
     auto dsG = reaction::calc([](auto aa) { return aa; }, a).setName("dsG");
 
     {
-        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::CloseStra>([](int aa) { return aa; }, a).setName("dsA");
+        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::CloseHandle>([](int aa) { return aa; }, a).setName("dsA");
         dsB.reset([&]() { return a() + dsA(); });
         dsC.reset([&]() { return a() + dsA() + dsB(); });
         dsD.reset([&]() { return dsA() + dsB() + dsC(); });
@@ -38,8 +38,8 @@ TEST(InvalidationStrategiesTest, TestCloseStra) {
     EXPECT_FALSE(static_cast<bool>(dsG));
 }
 
-// Test keep strategy for maintaining dependencies
-TEST(InvalidationStrategiesTest, TestKeepStra) {
+// Test keep handle for maintaining dependencies
+TEST(InvalidationTest, TestKeepHandle) {
     auto a = reaction::var(1).setName("a");
 
     auto dsB = reaction::calc([](auto aa) { return aa; }, a).setName("dsB");
@@ -60,15 +60,15 @@ TEST(InvalidationStrategiesTest, TestKeepStra) {
     EXPECT_EQ(dsC.get(), 40);
 }
 
-// Test last strategy for maintaining only the last value
-TEST(InvalidationStrategiesTest, TestLastStra) {
+// Test last handle for maintaining only the last value
+TEST(InvalidationTest, TestLastHandle) {
     auto a = reaction::var(1).setName("a");
 
     auto dsB = reaction::calc([](auto aa) { return aa; }, a).setName("dsB");
     auto dsC = reaction::calc([](auto aa) { return aa; }, a).setName("dsC");
 
     {
-        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::LastStra>([](int aa) { return aa; }, a).setName("dsA");
+        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::LastHandle>([](int aa) { return aa; }, a).setName("dsA");
 
         dsB.reset([](int aa, int AA) { return aa + AA; }, a, dsA);
         dsC.reset([](int aa, int AA, int BB) { return aa + AA + BB; }, a, dsA, dsB);
