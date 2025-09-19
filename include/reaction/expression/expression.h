@@ -24,6 +24,8 @@
  */
 
 #include <functional>
+#include <optional>
+#include <vector>
 #include "reaction/expression/operators.h"
 #include "reaction/expression/expression_types.h"
 #include "reaction/expression/expression_builders.h"
@@ -58,18 +60,70 @@ template <typename Type, IsTrigger TR>
 class CalcExprBase : public Resource<Type>, public TR {
 public:
     /**
-     * @brief Sets the function source and its dependencies.
+     * @brief Sets the function source and its dependencies transactionally.
+     *
+     * This method ensures atomicity: either all changes succeed,
+     * or the node is restored to its original consistent state.
      */
     template <typename F, typename... A>
     void setSource(F &&f, A &&...args) {
         if constexpr (std::convertible_to<ReturnType<F, A...>, Type>) {
-            this->updateObservers(args.getPtr()...);
-            m_fun = createFun(std::forward<F>(f), std::forward<A>(args)...);
+            // Check if node is involved in any active batch operations
+            auto shared_this = std::static_pointer_cast<CalcExprBase<Type, TR>>(this->shared_from_this());
+            if (ObserverGraph::getInstance().isNodeInActiveBatch(shared_this)) {
+                std::ostringstream oss;
+                oss << "Cannot reset node while it is involved in active batch operations. "
+                    << "Reset operations must be performed outside of batch contexts.";
+                throw std::runtime_error(oss.str());
+            }
 
-            if constexpr (!VoidType<Type>) {
-                this->updateValue(evaluate());
-            } else {
-                evaluate();
+            // Step 1: Save current state for rollback
+            auto originalFun = m_fun;
+            auto originalValue = [this]() -> std::optional<Type> {
+                if constexpr (!VoidType<Type>) {
+                    // Safely get value without throwing if not initialized
+                    try {
+                        return this->getValue();
+                    } catch (const std::runtime_error &) {
+                        return std::nullopt;
+                    }
+                } else {
+                    return std::nullopt;
+                }
+            }();
+
+            // Step 2: Get rollback function for observer state
+            auto observerRollback = ObserverGraph::getInstance().saveNodeStateForRollback(shared_this);
+
+            try {
+                // Step 3: Update observers transactionally
+                this->updateObservers(args.getPtr()...);
+
+                // Step 4: Set new function
+                m_fun = createFun(std::forward<F>(f), std::forward<A>(args)...);
+
+                // Step 5: Evaluate and update value
+                if constexpr (!VoidType<Type>) {
+                    this->updateValue(evaluate());
+                } else {
+                    evaluate();
+                }
+
+            } catch (const std::exception &) {
+                // Step 6: Rollback on failure
+                m_fun = std::move(originalFun);
+
+                // Restore original value if it exists
+                if constexpr (!VoidType<Type>) {
+                    if (originalValue.has_value()) {
+                        this->updateValue(*originalValue);
+                    }
+                }
+
+                // Restore original observer state
+                observerRollback();
+
+                throw; // Re-throw the original exception
             }
         } else {
             throw std::runtime_error("return type cannot reset another!");

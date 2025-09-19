@@ -10,6 +10,7 @@
 #include "reaction/batch.h"
 #include "reaction/expression/expression.h"
 #include "reaction/invalidation.h"
+#include "reaction/thread_safety.h"
 
 namespace reaction {
 
@@ -65,9 +66,9 @@ public:
     template <typename F>
     void set(F &&f) {
         {
-            RegFunGuard g{[this](const NodePtr &node) {
+            auto g = makeRegFunGuard([this](const NodePtr &node) {
                 this->addObCb(node);
-            }};
+            });
             this->setSource(std::forward<F>(f));
         }
         this->notify();
@@ -75,9 +76,9 @@ public:
 
     /// @brief Set a no-argument expression and auto-track dependencies.
     void set() {
-        RegFunGuard g{[this](const NodePtr &node) {
+        auto g = makeRegFunGuard([this](const NodePtr &node) {
             this->addObCb(node);
-        }};
+        });
         this->setOpExpr();
     }
 
@@ -254,7 +255,7 @@ private:
     /**
      * @brief Lock the weak pointer and get the shared instance.
      *
-     * This function converts the weak_ptr to shared_ptr safely.
+     * This function converts the weak_ptr to shared_ptr safely with thread safety.
      * If the weak_ptr has expired (the object has been destroyed),
      * throws a runtime_error to prevent undefined behavior.
      *
@@ -262,10 +263,18 @@ private:
      * @return std::shared_ptr<react_type> Locked shared pointer to the implementation
      */
     [[nodiscard]] std::shared_ptr<react_type> getPtr() const {
+        // Thread-safe access to weak_ptr using conditional mutex
+        ConditionalSharedLock lock(m_ptrMutex);
         if (m_weakPtr.expired()) [[likely]] {
             throw std::runtime_error("Null weak pointer access");
         }
-        return m_weakPtr.lock();
+
+        auto ptr = m_weakPtr.lock();
+        if (!ptr) {
+            throw std::runtime_error("Failed to lock weak pointer");
+        }
+
+        return ptr;
     }
 
     /**
@@ -289,6 +298,7 @@ private:
     }
 
     std::weak_ptr<react_type> m_weakPtr; ///< Weak reference to the implementation node.
+    mutable ConditionalSharedMutex m_ptrMutex; ///< Mutex for thread-safe weak_ptr access.
 
     template <typename T, IsTrigger M>
     friend class CalcExprBase;

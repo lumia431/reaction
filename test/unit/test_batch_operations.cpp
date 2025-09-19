@@ -231,6 +231,186 @@ TEST(BatchOperationsTest, TestComplexDependenciesWithMultipleAssignments) {
 }
 
 /**
+ * @brief Test batch reset protection mechanism
+ *
+ * This test verifies that reset operations are prevented when nodes
+ * are involved in active batch operations.
+ */
+TEST(BatchOperationsTest, TestBatchResetProtection) {
+    auto var1 = reaction::var(5).setName("var1");
+    auto calc1 = reaction::calc([&]() { return var1() * 2; }).setName("calc1");
+
+    // Create a batch that keeps the nodes active
+    std::cout << "Creating batch..." << std::endl;
+    auto batch = reaction::batch([&]() {
+        var1.value(10);
+    });
+
+    std::cout << "Batch created." << std::endl;
+
+    // While batch is active, reset operations should be prevented
+    try {
+        calc1.reset([&]() { return var1() + 100; });
+        std::cout << "Reset succeeded (unexpected)" << std::endl;
+        FAIL() << "Expected reset to throw exception";
+    } catch (const std::runtime_error& e) {
+        std::cout << "Reset threw exception as expected: " << e.what() << std::endl;
+        SUCCEED();
+    }
+
+    // Verify nodes still have original values
+    EXPECT_EQ(var1.get(), 5);  // Constructor didn't change value due to BatchFunGuard
+    EXPECT_EQ(calc1.get(), 10);
+}
+
+/**
+ * @brief Test manual batch close functionality
+ */
+TEST(BatchOperationsTest, TestManualBatchClose) {
+    auto var1 = reaction::var(5).setName("var1");
+    auto calc1 = reaction::calc([&]() { return var1() * 2; }).setName("calc1");
+
+    // Create batch
+    auto batch = reaction::batch([&]() {
+        var1.value(10);
+    });
+
+    // Batch should be active initially
+    EXPECT_FALSE(batch.isClosed());
+
+    // While batch is active, reset should be prevented
+    EXPECT_THROW(calc1.reset([&]() { return var1() + 100; }), std::runtime_error);
+
+    // Manually close the batch
+    batch.close();
+
+    // Batch should now be closed
+    EXPECT_TRUE(batch.isClosed());
+
+    // After manual close, reset should work
+    EXPECT_NO_THROW(calc1.reset([&]() { return var1() + 100; }));
+    EXPECT_EQ(calc1.get(), 105);  // 5 + 100 (var1 wasn't changed by batch constructor)
+
+    // Calling close multiple times should be safe
+    EXPECT_NO_THROW(batch.close());
+    EXPECT_TRUE(batch.isClosed());
+}
+
+/**
+ * @brief Test complex dependency scenario with batch reset protection
+ *
+ * This test creates a complex dependency graph and verifies that
+ * reset operations are properly prevented during active batch operations.
+ */
+TEST(BatchOperationsTest, TestComplexDependencyBatchResetProtection) {
+    // Create a complex dependency graph:
+    // var1 -> calc1 -> calc2 -> calc3
+    // var2 -> calc1
+    //       -> calc4 -> calc5
+    // var3 -> calc4
+    //       -> calc6 -> calc7
+    // var4 -> calc6
+    //       -> calc8 -> calc9 -> calc10
+
+    auto var1 = reaction::var(1).setName("var1");
+    auto var2 = reaction::var(2).setName("var2");
+    auto var3 = reaction::var(3).setName("var3");
+    auto var4 = reaction::var(4).setName("var4");
+
+    auto calc1 = reaction::calc([&]() { return var1() + var2(); }).setName("calc1");
+    auto calc2 = reaction::calc([&]() { return calc1() * 2; }).setName("calc2");
+    auto calc3 = reaction::calc([&]() { return calc2() + 1; }).setName("calc3");
+
+    auto calc4 = reaction::calc([&]() { return var2() + var3(); }).setName("calc4");
+    auto calc5 = reaction::calc([&]() { return calc4() * 3; }).setName("calc5");
+
+    auto calc6 = reaction::calc([&]() { return var3() + var4(); }).setName("calc6");
+    auto calc7 = reaction::calc([&]() { return calc6() * 4; }).setName("calc7");
+
+    auto calc8 = reaction::calc([&]() { return var4() * 2; }).setName("calc8");
+    auto calc9 = reaction::calc([&]() { return calc8() + 5; }).setName("calc9");
+    auto calc10 = reaction::calc([&]() { return calc9() * 2; }).setName("calc10");
+
+    // Initial values check
+    EXPECT_EQ(calc1.get(), 3);   // 1 + 2
+    EXPECT_EQ(calc2.get(), 6);   // 3 * 2
+    EXPECT_EQ(calc3.get(), 7);   // 6 + 1
+    EXPECT_EQ(calc4.get(), 5);   // 2 + 3
+    EXPECT_EQ(calc5.get(), 15);  // 5 * 3
+    EXPECT_EQ(calc6.get(), 7);   // 3 + 4
+    EXPECT_EQ(calc7.get(), 28);  // 7 * 4
+    EXPECT_EQ(calc8.get(), 8);   // 4 * 2
+    EXPECT_EQ(calc9.get(), 13);  // 8 + 5
+    EXPECT_EQ(calc10.get(), 26); // 13 * 2
+
+    // Create a batch that affects multiple parts of the dependency graph
+    auto batch = reaction::batch([&]() {
+        var1.value(10);  // Affects calc1, calc2, calc3
+        var2.value(20);  // Affects calc1, calc4, calc5
+        var3.value(30);  // Affects calc4, calc6, calc7
+        var4.value(40);  // Affects calc6, calc8, calc9, calc10
+    });
+
+    // While batch is active, all reset operations should be prevented
+    EXPECT_THROW(calc1.reset([&]() { return var1() * 2; }), std::runtime_error);
+    EXPECT_THROW(calc2.reset([&]() { return calc1() + 10; }), std::runtime_error);
+    EXPECT_THROW(calc3.reset([&]() { return calc2() * 2; }), std::runtime_error);
+    EXPECT_THROW(calc4.reset([&]() { return var2() + var3(); }), std::runtime_error);
+    EXPECT_THROW(calc5.reset([&]() { return calc4() * 5; }), std::runtime_error);
+    EXPECT_THROW(calc6.reset([&]() { return var3() * var4(); }), std::runtime_error);
+    EXPECT_THROW(calc7.reset([&]() { return calc6() + 100; }), std::runtime_error);
+    EXPECT_THROW(calc8.reset([&]() { return var4() + 10; }), std::runtime_error);
+    EXPECT_THROW(calc9.reset([&]() { return calc8() * 3; }), std::runtime_error);
+    EXPECT_THROW(calc10.reset([&]() { return calc9() + 50; }), std::runtime_error);
+
+    // Verify values haven't changed (batch constructor doesn't execute the function)
+    EXPECT_EQ(calc1.get(), 3);
+    EXPECT_EQ(calc2.get(), 6);
+    EXPECT_EQ(calc3.get(), 7);
+
+    // Execute the batch
+    batch.execute();
+
+    // Now values should be updated
+    EXPECT_EQ(var1.get(), 10);
+    EXPECT_EQ(var2.get(), 20);
+    EXPECT_EQ(var3.get(), 30);
+    EXPECT_EQ(var4.get(), 40);
+
+    EXPECT_EQ(calc1.get(), 30);   // 10 + 20
+    EXPECT_EQ(calc2.get(), 60);   // 30 * 2
+    EXPECT_EQ(calc3.get(), 61);   // 60 + 1
+    EXPECT_EQ(calc4.get(), 50);   // 20 + 30
+    EXPECT_EQ(calc5.get(), 150);  // 50 * 3
+    EXPECT_EQ(calc6.get(), 70);   // 30 + 40
+    EXPECT_EQ(calc7.get(), 280);  // 70 * 4
+    EXPECT_EQ(calc8.get(), 80);   // 40 * 2
+    EXPECT_EQ(calc9.get(), 85);   // 80 + 5
+    EXPECT_EQ(calc10.get(), 170); // 85 * 2
+
+    // After batch execution, it's still active, so reset should still be prevented
+    EXPECT_THROW(calc1.reset([&]() { return var1() * 2; }), std::runtime_error);
+
+    // Manually close the batch
+    batch.close();
+
+    // Now reset operations should work
+    EXPECT_NO_THROW(calc1.reset([&]() { return var1() * 2; }));
+    EXPECT_EQ(calc1.get(), 20);  // 10 * 2
+
+    // This should propagate through the dependency chain
+    EXPECT_EQ(calc2.get(), 40);  // 20 * 2
+    EXPECT_EQ(calc3.get(), 41);  // 40 + 1
+
+    // Test that other nodes can also be reset
+    EXPECT_NO_THROW(calc5.reset([&]() { return calc4() + 1000; }));
+    EXPECT_EQ(calc5.get(), 1050);  // 50 + 1000
+
+    // Test that batch is indeed closed
+    EXPECT_TRUE(batch.isClosed());
+}
+
+/**
  * @brief Test multiple batches with overlapping data sources and complex dependencies
  *
  * This test verifies:

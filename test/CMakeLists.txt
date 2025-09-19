@@ -17,8 +17,44 @@ if(GTest_FOUND)
     # Link libraries
     target_link_libraries(runTests PRIVATE GTest::GTest GTest::Main ${PROJECT_NAME})
 
+    # Add threading support for thread safety tests
+    find_package(Threads REQUIRED)
+    target_link_libraries(runTests PRIVATE Threads::Threads)
+
+    # Add compiler flags for thread safety and optimization
+    target_compile_options(runTests PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang>:-pthread>
+        $<$<CXX_COMPILER_ID:GNU,Clang>:-O2>
+        $<$<CXX_COMPILER_ID:MSVC>:/O2>
+    )
+
     # Discover and register tests
     gtest_discover_tests(runTests
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+
+    # Add a separate executable for thread safety tests only
+    add_executable(runThreadSafetyTests
+        ${CMAKE_CURRENT_SOURCE_DIR}/unit/test_thread_safety.cpp
+    )
+
+    target_include_directories(runThreadSafetyTests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/common
+    )
+
+    target_link_libraries(runThreadSafetyTests PRIVATE
+        GTest::GTest GTest::Main ${PROJECT_NAME} Threads::Threads
+    )
+
+    target_compile_options(runThreadSafetyTests PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang>:-pthread>
+        $<$<CXX_COMPILER_ID:GNU,Clang>:-O2>
+        $<$<CXX_COMPILER_ID:MSVC>:/O2>
+    )
+
+    # Add test discovery for thread safety tests
+    gtest_discover_tests(runThreadSafetyTests
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     )
 

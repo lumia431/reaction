@@ -8,6 +8,7 @@
 #pragma once
 
 #include "reaction/observer.h"
+#include "reaction/thread_safety.h"
 
 namespace reaction {
 
@@ -53,6 +54,8 @@ public:
      * @return Type& Reference to the managed resource.
      */
     [[nodiscard]] Type &getValue() const {
+        REACTION_REGISTER_THREAD();
+        ConditionalSharedLock lock(m_valueMutex);
         if (!m_ptr) {
             throw std::runtime_error("Resource is not initialized");
         }
@@ -71,14 +74,18 @@ public:
      */
     template <typename T>
     bool updateValue(T &&t) noexcept {
+        REACTION_REGISTER_THREAD();
+        ConditionalUniqueLock lock(m_valueMutex);
         bool changed = true;
         if (!m_ptr) {
             m_ptr = std::make_unique<Type>(std::forward<T>(t));
         } else {
             if constexpr (ComparableType<Type>) {
-                changed = *m_ptr != t;
+                // Create a local copy to avoid data tearing during comparison
+                Type newValue(std::forward<T>(t));
+                changed = *m_ptr != newValue;
+                *m_ptr = std::move(newValue);
             }
-            *m_ptr = std::forward<T>(t);
         }
         return changed;
     }
@@ -91,6 +98,8 @@ public:
      * @return Type* Raw pointer to the resource.
      */
     [[nodiscard]] Type *getRawPtr() const {
+        REACTION_REGISTER_THREAD();
+        ConditionalSharedLock lock(m_valueMutex);
         if (!this->m_ptr) {
             throw std::runtime_error("Attempt to get a null pointer");
         }
@@ -99,6 +108,7 @@ public:
 
 protected:
     std::unique_ptr<Type> m_ptr; ///< Unique pointer managing the resource.
+    mutable ConditionalSharedMutex m_valueMutex; ///< Mutex for thread-safe value access.
 };
 
 /**

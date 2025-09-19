@@ -8,7 +8,10 @@
 #pragma once
 
 #include "reaction/observer.h"
+#include "reaction/thread_safety.h"
+#include <iostream>
 #include <set>
+#include <atomic>
 
 namespace reaction {
 
@@ -49,15 +52,37 @@ public:
      * 1. Sets up a BatchFunGuard to collect accessed observer nodes
      * 2. Executes the function
      * 3. Collects all observer nodes that were accessed
+     * 4. Registers this batch as active to prevent reset operations
      */
     template <InvocableType F>
-    Batch(F &&f) : m_fun(std::forward<F>(f)) {
-        BatchFunGuard g{[this](const NodePtr &node) {
+    Batch(F &&f) : m_fun(std::forward<F>(f)), m_batchId(this) {
+        REACTION_REGISTER_THREAD();
+        auto g = makeBatchFunGuard([this](const NodePtr &node) {
+            ConditionalUniqueLock lock(m_batchMutex);
             ObserverGraph::getInstance().collectObservers(node, m_observers);
-        }};
+        });
         std::invoke(f);
-        for (auto &node : m_observers) {
-            m_batchNodes.insert(node);
+        {
+            ConditionalSharedLock lock(m_batchMutex);
+            for (auto &node : m_observers) {
+                m_batchNodes.insert(node);
+            }
+        }
+
+        // Register this batch as active to protect nodes from reset operations
+        ObserverGraph::getInstance().registerActiveBatch(m_batchId, m_observers);
+    }
+
+    /**
+     * @brief Destroy the Batch object.
+     *
+     * Unregisters this batch from active tracking if not already closed,
+     * allowing reset operations on previously protected nodes.
+     */
+    ~Batch() {
+        if (!m_isClosed.exchange(true)) {
+            // Only unregister if we haven't already closed
+            ObserverGraph::getInstance().unregisterActiveBatch(m_batchId);
         }
     }
 
@@ -66,14 +91,42 @@ public:
     Batch(Batch &&) = delete;
 
     /**
+     * @brief Manually close the batch operation.
+     *
+     * This unregisters the batch from active tracking, allowing reset operations
+     * on previously protected nodes. After calling close(), the batch is no longer
+     * active and will not prevent reset operations.
+     *
+     * Calling close() multiple times is safe and has no effect after the first call.
+     */
+    void close() {
+        if (!m_isClosed.exchange(true)) {
+            // Only unregister if we haven't already closed
+            ObserverGraph::getInstance().unregisterActiveBatch(m_batchId);
+        }
+    }
+
+    /**
+     * @brief Check if the batch has been closed.
+     *
+     * @return true if the batch has been closed, false otherwise
+     */
+    [[nodiscard]] bool isClosed() const noexcept {
+        return m_isClosed.load();
+    }
+
+    /**
      * @brief Execute the batch operation.
      *
      * 1. Invokes the stored function
      * 2. Triggers valueChanged() on all collected observer nodes
      */
     void execute() {
-        BatchExeGuard g{true};
+        REACTION_REGISTER_THREAD();
+        auto g = makeBatchExeGuard(true);
         std::invoke(m_fun);
+
+        ConditionalSharedLock lock(m_batchMutex);
         for (auto &node : m_batchNodes) {
             if (auto wp = node.lock()) [[likely]] wp->changedNoNotify();
         }
@@ -83,6 +136,9 @@ private:
     NodeSet m_observers;                                ///< Collection of observer nodes accessed during batch
     std::multiset<NodeWeak, BatchCompare> m_batchNodes; ///< Nodes tracked by this batch, ordered by depth
     std::function<void()> m_fun;                        ///< The function to execute for this batch
+    const void* m_batchId;                              ///< Unique identifier for this batch instance
+    std::atomic<bool> m_isClosed{false};                ///< Whether the batch has been manually closed
+    mutable ConditionalSharedMutex m_batchMutex;        ///< Mutex for thread-safe batch operations
 };
 
 } // namespace reaction
