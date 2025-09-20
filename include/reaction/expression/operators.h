@@ -11,41 +11,57 @@
 
 namespace reaction {
 
+// === Base Templates for Operator Categories ===
+
+/**
+ * @brief Base template for binary operators with automatic forwarding.
+ * 
+ * @tparam Derived The derived operator type (CRTP)
+ */
+template <typename Derived>
+struct BinaryOperatorBase {
+    template <typename L, typename R>
+    constexpr auto operator()(L&& l, R&& r) const noexcept(noexcept(static_cast<const Derived*>(this)->apply(std::forward<L>(l), std::forward<R>(r)))) {
+        return static_cast<const Derived*>(this)->apply(std::forward<L>(l), std::forward<R>(r));
+    }
+};
+
+/**
+ * @brief Base template for unary operators with automatic forwarding.
+ * 
+ * @tparam Derived The derived operator type (CRTP)
+ */
+template <typename Derived>
+struct UnaryOperatorBase {
+    template <typename T>
+    constexpr auto operator()(T&& operand) const noexcept(noexcept(static_cast<const Derived*>(this)->apply(std::forward<T>(operand)))) {
+        return static_cast<const Derived*>(this)->apply(std::forward<T>(operand));
+    }
+};
+
+// === Operator Generation Macro ===
+
+/**
+ * @brief Macro to generate simple binary operators with automatic noexcept deduction.
+ *
+ * @param OpName The operator class name
+ * @param symbol The C++ operator symbol
+ * @param description Human-readable description
+ */
+#define REACTION_DEFINE_BINARY_OP(OpName, symbol, description) \
+    /** @brief description */ \
+    struct OpName : BinaryOperatorBase<OpName> { \
+        template <typename L, typename R> \
+        constexpr auto apply(L&& l, R&& r) const noexcept(noexcept(l symbol r)) { \
+            return l symbol r; \
+        } \
+    }
+
 // === Arithmetic Operators ===
 
-/**
- * @brief Addition operator functor for reactive expressions.
- *
- * Performs addition operation between two operands of potentially different types.
- * The result type is determined by C++ type promotion rules.
- */
-struct AddOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l + r;
-    }
-};
-
-/**
- * @brief Multiplication operator functor for reactive expressions.
- *
- * Performs multiplication operation between two operands.
- */
-struct MulOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l * r;
-    }
-};
-
-/**
- * @brief Subtraction operator functor for reactive expressions.
- *
- * Performs subtraction operation between two operands.
- */
-struct SubOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l - r;
-    }
-};
+REACTION_DEFINE_BINARY_OP(AddOp, +, Addition operator functor for reactive expressions);
+REACTION_DEFINE_BINARY_OP(MulOp, *, Multiplication operator functor for reactive expressions);
+REACTION_DEFINE_BINARY_OP(SubOp, -, Subtraction operator functor for reactive expressions);
 
 /**
  * @brief Division operator functor for reactive expressions.
@@ -54,13 +70,14 @@ struct SubOp {
  * For integer operands, promotes to double to ensure floating-point division.
  * Note: Division by zero behavior depends on the operand types.
  */
-struct DivOp {
-    auto operator()(auto &&l, auto &&r) const {
-        using L = std::remove_cvref_t<decltype(l)>;
-        using R = std::remove_cvref_t<decltype(r)>;
+struct DivOp : BinaryOperatorBase<DivOp> {
+    template <typename L, typename R>
+    constexpr auto apply(L&& l, R&& r) const {
+        using L_t = std::remove_cvref_t<L>;
+        using R_t = std::remove_cvref_t<R>;
 
         // If both operands are integral types, promote to double for floating-point division
-        if constexpr (std::is_integral_v<L> && std::is_integral_v<R>) {
+        if constexpr (std::is_integral_v<L_t> && std::is_integral_v<R_t>) {
             return static_cast<double>(l) / static_cast<double>(r);
         } else {
             return l / r;
@@ -70,129 +87,44 @@ struct DivOp {
 
 // === Comparison Operators ===
 
-/**
- * @brief Equality comparison operator functor for reactive expressions.
- *
- * Performs equality comparison between two operands.
- */
-struct EqOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l == r;
-    }
-};
-
-/**
- * @brief Inequality comparison operator functor for reactive expressions.
- *
- * Performs inequality comparison between two operands.
- */
-struct NeOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l != r;
-    }
-};
-
-/**
- * @brief Less than comparison operator functor for reactive expressions.
- *
- * Performs less than comparison between two operands.
- */
-struct LtOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l < r;
-    }
-};
-
-/**
- * @brief Greater than comparison operator functor for reactive expressions.
- *
- * Performs greater than comparison between two operands.
- */
-struct GtOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l > r;
-    }
-};
-
-/**
- * @brief Less than or equal comparison operator functor for reactive expressions.
- *
- * Performs less than or equal comparison between two operands.
- */
-struct LeOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l <= r;
-    }
-};
-
-/**
- * @brief Greater than or equal comparison operator functor for reactive expressions.
- *
- * Performs greater than or equal comparison between two operands.
- */
-struct GeOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l >= r;
-    }
-};
+REACTION_DEFINE_BINARY_OP(EqOp, ==, Equality comparison operator functor for reactive expressions);
+REACTION_DEFINE_BINARY_OP(NeOp, !=, Inequality comparison operator functor for reactive expressions);
+REACTION_DEFINE_BINARY_OP(LtOp, <, Less than comparison operator functor for reactive expressions);
+REACTION_DEFINE_BINARY_OP(GtOp, >, Greater than comparison operator functor for reactive expressions);
+REACTION_DEFINE_BINARY_OP(LeOp, <=, Less than or equal comparison operator functor for reactive expressions);
+REACTION_DEFINE_BINARY_OP(GeOp, >=, Greater than or equal comparison operator functor for reactive expressions);
 
 // === Logical Operators ===
 
-/**
- * @brief Logical AND operator functor for reactive expressions.
- *
- * Performs logical AND operation between two operands.
- */
-struct AndOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l && r;
-    }
-};
+REACTION_DEFINE_BINARY_OP(AndOp, &&, Logical AND operator functor for reactive expressions);
+REACTION_DEFINE_BINARY_OP(OrOp, ||, Logical OR operator functor for reactive expressions);
+
+// === Unary Operator Generation Macro ===
 
 /**
- * @brief Logical OR operator functor for reactive expressions.
+ * @brief Macro to generate simple unary operators with automatic noexcept deduction.
  *
- * Performs logical OR operation between two operands.
+ * @param OpName The operator class name
+ * @param symbol The C++ operator symbol
+ * @param description Human-readable description
  */
-struct OrOp {
-    auto operator()(auto &&l, auto &&r) const {
-        return l || r;
+#define REACTION_DEFINE_UNARY_OP(OpName, symbol, description) \
+    /** @brief description */ \
+    struct OpName : UnaryOperatorBase<OpName> { \
+        template <typename T> \
+        constexpr auto apply(T&& operand) const noexcept(noexcept(symbol operand)) { \
+            return symbol operand; \
+        } \
     }
-};
 
 // === Unary Operators ===
 
-/**
- * @brief Unary negation operator functor for reactive expressions.
- *
- * Performs unary negation operation on operand.
- */
-struct NegOp {
-    auto operator()(auto &&operand) const {
-        return -operand;
-    }
-};
+REACTION_DEFINE_UNARY_OP(NegOp, -, Unary negation operator functor for reactive expressions);
+REACTION_DEFINE_UNARY_OP(NotOp, !, Logical NOT operator functor for reactive expressions);
+REACTION_DEFINE_UNARY_OP(BitNotOp, ~, Bitwise NOT operator functor for reactive expressions);
 
-/**
- * @brief Logical NOT operator functor for reactive expressions.
- *
- * Performs logical NOT operation on operand.
- */
-struct NotOp {
-    auto operator()(auto &&operand) const {
-        return !operand;
-    }
-};
-
-/**
- * @brief Bitwise NOT operator functor for reactive expressions.
- *
- * Performs bitwise NOT operation on operand.
- */
-struct BitNotOp {
-    auto operator()(auto &&operand) const {
-        return ~operand;
-    }
-};
+// Cleanup macros to avoid pollution
+#undef REACTION_DEFINE_BINARY_OP
+#undef REACTION_DEFINE_UNARY_OP
 
 } // namespace reaction

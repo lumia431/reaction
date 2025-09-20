@@ -7,8 +7,9 @@
 
 #pragma once
 
-#include "reaction/observer.h"
-#include "reaction/thread_safety.h"
+#include "reaction/core/observer_node.h"
+#include "reaction/concurrency/thread_safety.h"
+#include "reaction/core/exception.h"
 
 namespace reaction {
 
@@ -55,9 +56,9 @@ public:
      */
     [[nodiscard]] Type &getValue() const {
         REACTION_REGISTER_THREAD();
-        ConditionalSharedLock lock(m_valueMutex);
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_valueMutex);
         if (!m_ptr) {
-            throw std::runtime_error("Resource is not initialized");
+            REACTION_THROW_RESOURCE_NOT_INITIALIZED("Resource");
         }
         return *m_ptr;
     }
@@ -75,7 +76,7 @@ public:
     template <typename T>
     bool updateValue(T &&t) noexcept {
         REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock lock(m_valueMutex);
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_valueMutex);
         bool changed = true;
         if (!m_ptr) {
             m_ptr = std::make_unique<Type>(std::forward<T>(t));
@@ -99,9 +100,9 @@ public:
      */
     [[nodiscard]] Type *getRawPtr() const {
         REACTION_REGISTER_THREAD();
-        ConditionalSharedLock lock(m_valueMutex);
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_valueMutex);
         if (!this->m_ptr) {
-            throw std::runtime_error("Attempt to get a null pointer");
+            REACTION_THROW_NULL_POINTER("resource pointer access");
         }
         return this->m_ptr.get();
     }

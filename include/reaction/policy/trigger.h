@@ -12,33 +12,44 @@
 namespace reaction {
 
 /**
- * @brief Trigger policy that always triggers.
+ * @brief Base template for trigger policies with CRTP optimization.
  *
- * The checkTrig() function always returns true,
- * indicating the reactive node should always trigger.
+ * @tparam Derived The derived trigger type
  */
-struct AlwaysTrig {
+template<typename Derived>
+struct TriggerBase {
+    [[nodiscard]] constexpr bool checkTrig() const noexcept {
+        return static_cast<const Derived*>(this)->checkTrigImpl();
+    }
+};
+
+/**
+ * @brief Optimized trigger policy that always triggers.
+ *
+ * Uses compile-time constant for maximum optimization.
+ */
+struct AlwaysTrig : TriggerBase<AlwaysTrig> {
     /**
-     * @brief Always returns true to trigger.
+     * @brief Always returns true to trigger (compile-time constant).
      * @return true
      */
-    [[nodiscard]] bool checkTrig() const noexcept {
+    [[nodiscard]] static constexpr bool checkTrigImpl() noexcept {
         return true;
     }
 };
 
 /**
- * @brief Trigger policy that triggers only if a change flag is set.
+ * @brief Enhanced trigger policy that triggers only if a change flag is set.
  *
- * The flag can be controlled by setChanged().
+ * Optimized for performance with better memory layout.
  */
-struct ChangeTrig {
+struct ChangeTrig : TriggerBase<ChangeTrig> {
 public:
     /**
      * @brief Check if the trigger condition is met.
      * @return true if the change flag is set, false otherwise.
      */
-    [[nodiscard]] bool checkTrig() noexcept {
+    [[nodiscard]] constexpr bool checkTrigImpl() const noexcept {
         return m_changed;
     }
 
@@ -46,7 +57,7 @@ public:
      * @brief Set the internal change flag.
      * @param changed New value of the change flag.
      */
-    void setChanged(bool changed) noexcept {
+    constexpr void setChanged(bool changed) noexcept {
         m_changed = changed;
     }
 

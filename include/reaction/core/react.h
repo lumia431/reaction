@@ -7,10 +7,13 @@
 
 #pragma once
 
-#include "reaction/batch.h"
+#include "reaction/graph/batch.h"
 #include "reaction/expression/expression.h"
-#include "reaction/invalidation.h"
-#include "reaction/thread_safety.h"
+#include "reaction/policy/invalidation.h"
+#include "reaction/concurrency/thread_safety.h"
+#include "reaction/core/exception.h"
+#include "reaction/concurrency/global_state.h"
+#include "reaction/core/raii_guards.h"
 
 namespace reaction {
 
@@ -251,32 +254,23 @@ public:
         return ObserverGraph::getInstance().getName(getPtr());
     }
 
-private:
-    /**
-     * @brief Lock the weak pointer and get the shared instance.
-     *
-     * This function converts the weak_ptr to shared_ptr safely with thread safety.
-     * If the weak_ptr has expired (the object has been destroyed),
-     * throws a runtime_error to prevent undefined behavior.
-     *
-     * @throws std::runtime_error if the weak pointer has expired
-     * @return std::shared_ptr<react_type> Locked shared pointer to the implementation
-     */
+    /// @brief Get the internal shared pointer for advanced operations.
     [[nodiscard]] std::shared_ptr<react_type> getPtr() const {
         // Thread-safe access to weak_ptr using conditional mutex
-        ConditionalSharedLock lock(m_ptrMutex);
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_ptrMutex);
         if (m_weakPtr.expired()) [[likely]] {
-            throw std::runtime_error("Null weak pointer access");
+            REACTION_THROW_NULL_POINTER("weak pointer access");
         }
 
         auto ptr = m_weakPtr.lock();
         if (!ptr) {
-            throw std::runtime_error("Failed to lock weak pointer");
+            REACTION_THROW_NULL_POINTER("weak pointer lock failed");
         }
 
         return ptr;
     }
 
+private:
     /**
      * @brief Safely increment the weak reference count.
      *

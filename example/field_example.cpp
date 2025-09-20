@@ -5,7 +5,7 @@
  * See the LICENSE file in the project root for full details.
  */
 
-#include "reaction/reaction.h"
+#include <reaction.h>
 #include <iostream>
 
 // Person class with reactive fields for name and age

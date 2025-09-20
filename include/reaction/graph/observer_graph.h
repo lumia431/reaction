@@ -7,8 +7,9 @@
 
 #pragma once
 
-#include "reaction/utility.h"
-#include "reaction/thread_safety.h"
+#include "reaction/core/types.h"
+#include "reaction/concurrency/thread_safety.h"
+#include "reaction/core/exception.h"
 #include <functional>
 #include <set>
 #include <sstream>
@@ -17,6 +18,10 @@
 #include <vector>
 
 namespace reaction {
+
+// Forward declarations
+class ObserverNode;
+using NodePtr = std::shared_ptr<ObserverNode>;
 
 /**
  * @brief Manages the graph structure of reactive observers and dependencies.
@@ -52,12 +57,10 @@ public:
      */
     void addObserver(const NodePtr &source, const NodePtr &target) {
         REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock lock(m_graphMutex);
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
 
         if (source == target) {
-            std::ostringstream oss;
-            oss << "detect observe self, node name = " << getNameInternal(source);
-            throw std::runtime_error(oss.str());
+            REACTION_THROW_SELF_OBSERVATION(getNameInternal(source));
         }
 
         // Check if both nodes exist in the graph first
@@ -72,10 +75,7 @@ public:
         }
 
         if (hasCycle(source, target)) {
-            std::ostringstream oss;
-            oss << "detect cycle dependency, source name = " << getNameInternal(source)
-                << " target name = " << getNameInternal(target);
-            throw std::runtime_error(oss.str());
+            REACTION_THROW_DEPENDENCY_CYCLE(getNameInternal(source), getNameInternal(target));
         }
 
         m_dependentList.at(source).insert(target);
@@ -92,7 +92,7 @@ public:
      * @param nodes Set of nodes affected by this batch
      */
     void registerActiveBatch(const void* batchId, const NodeSet& nodes) {
-        ConditionalUniqueLock lock(m_graphMutex);
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
         for (const auto& nodeWeak : nodes) {
             if (auto node = nodeWeak.lock()) {
                 m_activeBatchNodes[node].insert(batchId);
@@ -110,7 +110,7 @@ public:
      * @param batchId Unique identifier for the batch operation
      */
     void unregisterActiveBatch(const void* batchId) {
-        ConditionalUniqueLock lock(m_graphMutex);
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
         m_activeBatchIds.erase(batchId);
 
         // Remove this batch from all node tracking
@@ -131,7 +131,7 @@ public:
      * @return true if the node is in an active batch, false otherwise
      */
     bool isNodeInActiveBatch(const NodePtr& node) const {
-        ConditionalSharedLock lock(m_graphMutex);
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_graphMutex);
         auto it = m_activeBatchNodes.find(node);
         return it != m_activeBatchNodes.end() && !it->second.empty();
     }
@@ -145,7 +145,7 @@ public:
      */
     void resetNode(const NodePtr &node) {
         REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock lock(m_graphMutex);
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
 
         // Check if node exists in dependent list first
         if (m_dependentList.contains(node)) {
@@ -175,7 +175,7 @@ public:
         if (!node) return;
 
         REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock lock(m_graphMutex);
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
 
         // Step 1: Save current state for rollback
         NodeSet originalDependents;
@@ -224,7 +224,7 @@ public:
         if (!node) return []() {};
 
         REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock lock(m_graphMutex);
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
 
         // Save current state
         NodeSet originalDependents;
@@ -235,7 +235,7 @@ public:
         // Return rollback function
         return [this, node, originalDependents = std::move(originalDependents)]() mutable {
             REACTION_REGISTER_THREAD();
-            ConditionalUniqueLock lock(m_graphMutex);
+            ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
 
             // Reset current dependencies
             resetNodeInternal(node);
@@ -262,7 +262,7 @@ public:
     void closeNode(const NodePtr &node) {
         if (!node) return;
         REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock lock(m_graphMutex);
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
 
         NodeSet closedNodes;
         cascadeCloseDependents(node, closedNodes);
@@ -279,7 +279,7 @@ public:
      */
     void setName(const NodePtr &node, const std::string &name) noexcept {
         REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock lock(m_graphMutex);
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
         m_nameList.insert({node, name});
     }
 
@@ -290,7 +290,7 @@ public:
      */
     [[nodiscard]] std::string getName(const NodePtr &node) noexcept {
         REACTION_REGISTER_THREAD();
-        ConditionalSharedLock lock(m_graphMutex);
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_graphMutex);
         return getNameInternal(node);
     }
 
@@ -460,9 +460,7 @@ private:
      */
     void addObserverInternal(const NodePtr &source, const NodePtr &target) {
         if (source == target) {
-            std::ostringstream oss;
-            oss << "detect observe self, node name = " << getNameInternal(source);
-            throw std::runtime_error(oss.str());
+            REACTION_THROW_SELF_OBSERVATION(getNameInternal(source));
         }
 
         // Ensure both nodes exist in the graph
@@ -474,10 +472,7 @@ private:
         }
 
         if (hasCycle(source, target)) {
-            std::ostringstream oss;
-            oss << "detect cycle dependency, source name = " << getNameInternal(source)
-                << " target name = " << getNameInternal(target);
-            throw std::runtime_error(oss.str());
+            REACTION_THROW_DEPENDENCY_CYCLE(getNameInternal(source), getNameInternal(target));
         }
 
         m_dependentList.at(source).insert(target);
@@ -493,155 +488,6 @@ private:
 };
 
 /**
- * @brief Reactive graph node base class.
- *
- * All reactive nodes should inherit from this base.
- * It manages notification propagation and observer lists.
- */
-class ObserverNode : public std::enable_shared_from_this<ObserverNode> {
-public:
-    virtual ~ObserverNode() = default;
-
-    /**
-     * @brief Trigger downstream notifications.
-     *
-     * By default, triggers notify().
-     * @param changed Whether the node's value has changed.
-     */
-    virtual void valueChanged(bool changed = true) {
-        this->notify(changed);
-    }
-
-    /**
-     * @brief Handle value change without triggering downstream notifications.
-     *
-     * This method is called when a node's value changes but we don't want
-     * to immediately propagate the change to observers. This is useful in
-     * batch operations where notifications are deferred until the end.
-     *
-     * @param changed Whether the node's value has actually changed (default: true)
-     */
-    virtual void changedNoNotify([[maybe_unused]] bool changed = true) {}
-
-    /**
-     * @brief Update the depth of this node in the reactive dependency graph.
-     *
-     * The depth represents how many levels deep this node is in the dependency chain.
-     * This is used for ordering nodes during batch operations and cycle detection.
-     * The depth is set to the maximum of the current depth and the provided depth.
-     *
-     * @param depth The new depth value to consider
-     */
-    void updateDepth(uint8_t depth) noexcept {
-        m_depth = std::max(depth, m_depth);
-    }
-
-    /**
-     * @brief Update all observer dependencies at once.
-     *
-     * Resets current observers, then adds given nodes as new observers.
-     * @tparam Args Parameter pack for node pointers.
-     * @param args Nodes to observe.
-     */
-    void updateObservers(auto &&...args) {
-        auto shared_this = shared_from_this();
-        ObserverGraph::getInstance().updateObserversTransactional(shared_this, args...);
-    }
-
-    /**
-     * @brief Add a single observer node.
-     * @param node Observer node to add.
-     */
-    void addOneObserver(const NodePtr &node) {
-        ObserverGraph::getInstance().addObserver(shared_from_this(), node);
-    }
-
-    /**
-     * @brief Notify observers and delayed repeat nodes.
-     * @param changed Whether the node's value has changed.
-     */
-    void notify(bool changed = true) {
-        for (auto &observer : m_observers) {
-            if (auto wp = observer.lock()) [[likely]]
-                wp->valueChanged(changed);
-        }
-    }
-
-private:
-    uint8_t m_depth = 0; ///< Depth of the node in reactive chain.
-    NodeSet m_observers; ///< Direct observers of this node.
-    friend class ObserverGraph;
-    friend struct BatchCompare;
-};
-
-/**
- * @brief Manages object field bindings in the reactive graph.
- *
- * Used to track field-depth reactive nodes for specific object IDs.
- */
-class FieldGraph {
-public:
-    /**
-     * @brief Get singleton instance.
-     * @return FieldGraph& singleton reference.
-     */
-    [[nodiscard]] static FieldGraph &getInstance() noexcept {
-        static FieldGraph instance;
-        return instance;
-    }
-
-    /**
-     * @brief Register a node under an object ID.
-     * @param id Object ID.
-     * @param node Node pointer.
-     */
-    void addObj(uint64_t id, const NodePtr &node) noexcept {
-        REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock lock(m_fieldMutex);
-        m_fieldMap[id].insert(node);
-    }
-
-    /**
-     * @brief Remove all fields for an object.
-     * @param id Object ID.
-     */
-    void deleteObj(uint64_t id) noexcept {
-        REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock lock(m_fieldMutex);
-        m_fieldMap.erase(id);
-    }
-
-    /**
-     * @brief Bind all field nodes of an object to an input node.
-     *
-     * Adds observer edges from objPtr to each field node under the object ID.
-     * @param id Object ID.
-     * @param objPtr Source node.
-     */
-    void bindField(uint64_t id, const NodePtr &objPtr) {
-        REACTION_REGISTER_THREAD();
-        NodeSet nodesToBind;
-        {
-            ConditionalSharedLock lock(m_fieldMutex);
-            if (!m_fieldMap.contains(id)) {
-                return;
-            }
-            nodesToBind = m_fieldMap[id]; // Copy the set
-        }
-
-        // Bind nodes without holding the field mutex to avoid deadlock with ObserverGraph
-        for (auto &node : nodesToBind) {
-            ObserverGraph::getInstance().addObserver(objPtr, node.lock());
-        }
-    }
-
-private:
-    FieldGraph() {}
-    std::unordered_map<uint64_t, NodeSet> m_fieldMap; ///< Map from object ID to its field nodes.
-    mutable ConditionalSharedMutex m_fieldMutex;       ///< Mutex for thread-safe field operations.
-};
-
-/**
  * @brief Implementation of ObserverGraph::addNode.
  *
  * Initializes internal data structures for the given node.
@@ -649,7 +495,7 @@ private:
  */
 inline void ObserverGraph::addNode(const NodePtr &node) noexcept {
     REACTION_REGISTER_THREAD();
-    ConditionalUniqueLock lock(m_graphMutex);
+    ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
     m_observerList.insert({node, std::ref(node->m_observers)});
     m_dependentList[node] = NodeSet{};
 }
@@ -679,7 +525,7 @@ inline void ObserverGraph::collectObservers(const NodePtr &node, NodeSet &observ
     // We collect current observers first, then process them
     NodeSet currentObservers;
     {
-        ConditionalSharedLock lock(m_graphMutex);
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_graphMutex);
         for (auto &ob : m_observerList.at(node).get()) {
             if (auto wp = ob.lock()) [[likely]] {
                 wp->updateDepth(depth);

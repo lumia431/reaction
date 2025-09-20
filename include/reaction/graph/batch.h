@@ -7,8 +7,12 @@
 
 #pragma once
 
-#include "reaction/observer.h"
-#include "reaction/thread_safety.h"
+#include "reaction/core/observer_node.h"
+#include "reaction/graph/observer_graph.h"
+#include "reaction/concurrency/thread_safety.h"
+#include "reaction/core/types.h"
+#include "reaction/concurrency/global_state.h"
+#include "reaction/core/raii_guards.h"
 #include <iostream>
 #include <set>
 #include <atomic>
@@ -16,10 +20,9 @@
 namespace reaction {
 
 /**
- * @brief Comparison functor for ordering weak pointers to ObserverNodes by their depth.
+ * @brief Enhanced comparison functor for ordering weak pointers to ObserverNodes by their depth.
  *
- * Used to maintain nodes in a multiset ordered by their depth value.
- * The comparison is performed on locked shared_ptr instances.
+ * Provides safe comparison with null pointer checks and compile-time optimization.
  */
 struct BatchCompare {
     /**
@@ -28,8 +31,16 @@ struct BatchCompare {
      * @param rhs Right-hand side weak pointer
      * @return true if lhs's depth is less than rhs's depth
      */
-    bool operator()(const NodeWeak &lhs, const NodeWeak &rhs) const {
-        return lhs.lock()->m_depth < rhs.lock()->m_depth;
+    bool operator()(const NodeWeak& lhs, const NodeWeak& rhs) const noexcept {
+        auto left = lhs.lock();
+        auto right = rhs.lock();
+
+        // Handle null pointers safely
+        if (!left && !right) return false;
+        if (!left) return true;  // null comes first
+        if (!right) return false;
+
+        return left->m_depth < right->m_depth;
     }
 };
 
@@ -58,12 +69,12 @@ public:
     Batch(F &&f) : m_fun(std::forward<F>(f)), m_batchId(this) {
         REACTION_REGISTER_THREAD();
         auto g = makeBatchFunGuard([this](const NodePtr &node) {
-            ConditionalUniqueLock lock(m_batchMutex);
+            ConditionalUniqueLock<ConditionalSharedMutex> lock(m_batchMutex);
             ObserverGraph::getInstance().collectObservers(node, m_observers);
         });
         std::invoke(f);
         {
-            ConditionalSharedLock lock(m_batchMutex);
+            ConditionalSharedLock<ConditionalSharedMutex> lock(m_batchMutex);
             for (auto &node : m_observers) {
                 m_batchNodes.insert(node);
             }
@@ -126,7 +137,7 @@ public:
         auto g = makeBatchExeGuard(true);
         std::invoke(m_fun);
 
-        ConditionalSharedLock lock(m_batchMutex);
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_batchMutex);
         for (auto &node : m_batchNodes) {
             if (auto wp = node.lock()) [[likely]] wp->changedNoNotify();
         }

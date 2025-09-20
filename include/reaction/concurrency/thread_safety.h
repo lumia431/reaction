@@ -122,67 +122,62 @@ public:
     }
 };
 
-// === Conditional Mutex Abstractions ===
+// === Conditional Mutex Abstractions with Template Optimization ===
 
 /**
- * @brief Generic conditional mutex wrapper that provides no-op when thread safety is disabled.
+ * @brief Unified conditional mutex wrapper with template specialization.
  *
  * This template automatically adapts between thread-safe and single-threaded modes
- * based on the ThreadSafetyManager state, providing zero overhead for single-threaded
- * applications.
+ * with compile-time optimization for better performance.
  *
  * @tparam MutexType The underlying mutex type (std::mutex, std::shared_mutex, etc.)
  */
 template<typename MutexType>
 class ConditionalMutexWrapper {
 public:
-    /**
-     * @brief Acquire lock if thread safety is enabled.
-     */
-    void lock() {
-        if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) {
+    /// @brief Acquire lock if thread safety is enabled.
+    void lock() noexcept(noexcept(std::declval<MutexType>().lock())) {
+        if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) [[likely]] {
             m_mutex.lock();
         }
     }
 
-    /**
-     * @brief Release lock if thread safety is enabled.
-     */
-    void unlock() {
-        if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) {
+    /// @brief Release lock if thread safety is enabled.
+    void unlock() noexcept(noexcept(std::declval<MutexType>().unlock())) {
+        if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) [[likely]] {
             m_mutex.unlock();
         }
     }
 
-    /**
-     * @brief Try to acquire lock if thread safety is enabled.
-     * @return true if lock was acquired or thread safety is disabled, false otherwise.
-     */
-    bool try_lock() {
-        if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) {
+    /// @brief Try to acquire lock if thread safety is enabled.
+    [[nodiscard]] bool try_lock() noexcept(noexcept(std::declval<MutexType>().try_lock())) {
+        if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) [[likely]] {
             return m_mutex.try_lock();
         }
         return true; // Always succeed when thread safety is disabled
     }
 
-    // Shared mutex operations (only available if MutexType supports them)
+    // Shared mutex operations (SFINAE-enabled for types that support them)
     template<typename T = MutexType>
-    auto lock_shared() -> decltype(std::declval<T>().lock_shared(), void()) {
-        if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) {
+    auto lock_shared() noexcept(noexcept(std::declval<T>().lock_shared()))
+        -> decltype(std::declval<T>().lock_shared(), void()) {
+        if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) [[likely]] {
             m_mutex.lock_shared();
         }
     }
 
     template<typename T = MutexType>
-    auto unlock_shared() -> decltype(std::declval<T>().unlock_shared(), void()) {
-        if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) {
+    auto unlock_shared() noexcept(noexcept(std::declval<T>().unlock_shared()))
+        -> decltype(std::declval<T>().unlock_shared(), void()) {
+        if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) [[likely]] {
             m_mutex.unlock_shared();
         }
     }
 
     template<typename T = MutexType>
-    auto try_lock_shared() -> decltype(std::declval<T>().try_lock_shared()) {
-        if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) {
+    auto try_lock_shared() noexcept(noexcept(std::declval<T>().try_lock_shared()))
+        -> decltype(std::declval<T>().try_lock_shared()) {
+        if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) [[likely]] {
             return m_mutex.try_lock_shared();
         }
         return true; // Always succeed when thread safety is disabled
@@ -202,58 +197,40 @@ using ConditionalSharedMutex = ConditionalMutexWrapper<std::shared_mutex>;
  */
 using ConditionalMutex = ConditionalMutexWrapper<std::mutex>;
 
-// === Lock Guard Abstractions ===
+// === Optimized Lock Guard Abstractions ===
 
 /**
- * @brief Generic RAII lock guard for conditional mutexes.
+ * @brief Template-based RAII lock guard generator.
  *
- * This template provides a unified interface for different lock types,
- * automatically calling the appropriate lock/unlock methods.
- *
- * @tparam Mutex The mutex type to lock
+ * @param GuardName The name of the guard class
+ * @param LockMethod The locking method name
+ * @param UnlockMethod The unlocking method name
  */
-template<typename Mutex>
-class ConditionalLockGuard {
-public:
-    explicit ConditionalLockGuard(Mutex& mutex) : m_mutex(mutex) {
-        m_mutex.lock();
+#define REACTION_DEFINE_LOCK_GUARD(GuardName, LockMethod, UnlockMethod) \
+    template<typename Mutex> \
+    class GuardName { \
+    public: \
+        explicit GuardName(Mutex& mutex) noexcept(noexcept(mutex.LockMethod())) \
+            : m_mutex(mutex) { \
+            m_mutex.LockMethod(); \
+        } \
+        \
+        ~GuardName() noexcept(noexcept(m_mutex.UnlockMethod())) { \
+            m_mutex.UnlockMethod(); \
+        } \
+        \
+        GuardName(const GuardName&) = delete; \
+        GuardName& operator=(const GuardName&) = delete; \
+        GuardName(GuardName&&) = delete; \
+        GuardName& operator=(GuardName&&) = delete; \
+        \
+    private: \
+        Mutex& m_mutex; \
     }
 
-    ~ConditionalLockGuard() {
-        m_mutex.unlock();
-    }
-
-    ConditionalLockGuard(const ConditionalLockGuard&) = delete;
-    ConditionalLockGuard& operator=(const ConditionalLockGuard&) = delete;
-    ConditionalLockGuard(ConditionalLockGuard&&) = delete;
-    ConditionalLockGuard& operator=(ConditionalLockGuard&&) = delete;
-
-private:
-    Mutex& m_mutex;
-};
-
-/**
- * @brief Shared lock guard for conditional shared mutex.
- */
-template<typename Mutex>
-class ConditionalSharedLockGuard {
-public:
-    explicit ConditionalSharedLockGuard(Mutex& mutex) : m_mutex(mutex) {
-        m_mutex.lock_shared();
-    }
-
-    ~ConditionalSharedLockGuard() {
-        m_mutex.unlock_shared();
-    }
-
-    ConditionalSharedLockGuard(const ConditionalSharedLockGuard&) = delete;
-    ConditionalSharedLockGuard& operator=(const ConditionalSharedLockGuard&) = delete;
-    ConditionalSharedLockGuard(ConditionalSharedLockGuard&&) = delete;
-    ConditionalSharedLockGuard& operator=(ConditionalSharedLockGuard&&) = delete;
-
-private:
-    Mutex& m_mutex;
-};
+// Generate optimized lock guards
+REACTION_DEFINE_LOCK_GUARD(ConditionalLockGuard, lock, unlock);
+REACTION_DEFINE_LOCK_GUARD(ConditionalSharedLockGuard, lock_shared, unlock_shared);
 
 /**
  * @brief RAII shared lock guard for conditional shared mutex.
@@ -267,8 +244,14 @@ using ConditionalSharedLock = ConditionalSharedLockGuard<Mutex>;
 template<typename Mutex>
 using ConditionalUniqueLock = ConditionalLockGuard<Mutex>;
 
-// Helper macros for thread registration
+// Helper macros for thread registration with better performance
 #define REACTION_REGISTER_THREAD() \
-    static thread_local reaction::ThreadRegistrationGuard thread_guard_##__LINE__
+    do { \
+        static thread_local reaction::ThreadRegistrationGuard thread_guard_##__COUNTER__; \
+        (void)thread_guard_##__COUNTER__; \
+    } while(0)
+
+// Cleanup macro to avoid pollution
+#undef REACTION_DEFINE_LOCK_GUARD
 
 } // namespace reaction

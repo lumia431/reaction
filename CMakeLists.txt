@@ -37,8 +37,9 @@ target_include_directories(${PROJECT_NAME} INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-file(GLOB HEADERS_LIST "${CMAKE_CURRENT_SOURCE_DIR}/include/reaction/*.h")
-foreach(header_file ${HEADERS_LIST})
+file(GLOB_RECURSE HEADERS_LIST "${CMAKE_CURRENT_SOURCE_DIR}/include/reaction/*.h")
+file(GLOB MAIN_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/include/reaction.h")
+foreach(header_file ${HEADERS_LIST} ${MAIN_HEADER})
     target_sources(${PROJECT_NAME} INTERFACE
         $<BUILD_INTERFACE:${header_file}>
     )

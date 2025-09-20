@@ -29,9 +29,14 @@
 #include "reaction/expression/operators.h"
 #include "reaction/expression/expression_types.h"
 #include "reaction/expression/expression_builders.h"
-#include "reaction/concept.h"
-#include "reaction/resource.h"
-#include "reaction/trigger.h"
+#include "reaction/core/concept.h"
+#include "reaction/core/resource.h"
+#include "reaction/policy/trigger.h"
+#include "reaction/core/exception.h"
+#include "reaction/graph/observer_graph.h"
+#include "reaction/graph/field_graph.h"
+#include "reaction/concurrency/global_state.h"
+#include "reaction/core/raii_guards.h"
 
 namespace reaction {
 
@@ -71,10 +76,7 @@ public:
             // Check if node is involved in any active batch operations
             auto shared_this = std::static_pointer_cast<CalcExprBase<Type, TR>>(this->shared_from_this());
             if (ObserverGraph::getInstance().isNodeInActiveBatch(shared_this)) {
-                std::ostringstream oss;
-                oss << "Cannot reset node while it is involved in active batch operations. "
-                    << "Reset operations must be performed outside of batch contexts.";
-                throw std::runtime_error(oss.str());
+                REACTION_THROW_BATCH_CONFLICT("Reset operations must be performed outside of batch contexts");
             }
 
             // Step 1: Save current state for rollback
@@ -126,7 +128,7 @@ public:
                 throw; // Re-throw the original exception
             }
         } else {
-            throw std::runtime_error("return type cannot reset another!");
+            REACTION_THROW_TYPE_MISMATCH(typeid(Type).name(), typeid(ReturnType<F, A...>).name());
         }
     }
 

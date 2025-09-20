@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "reaction/reaction.h"
+#include <reaction.h>
 #include <chrono>
 #include <iostream>
 #include <list>

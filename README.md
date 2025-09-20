@@ -112,7 +112,7 @@ cmake --build build/
 ## 🚀 Quick Start
 
 ```cpp
-#include <reaction/reaction.h>
+#include <reaction.h>
 #include <iostream>
 #include <iomanip>
 #include <cmath>
