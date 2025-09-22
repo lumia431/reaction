@@ -58,12 +58,12 @@ Reaction is a blazing-fast, modern C++20 header-only reactive framework that bri
 
 Comparative performance results against rxcpp (tested on 2025-06-14):
 
-### Deep Dependency Test (Tree Structure, Depth=10)
+### Deep Dependency Test (Tree Structure, Depth=13)
 
 | Framework          | Avg. Time (ns) | Iterations   | Relative Speed |
 |--------------------|---------------:|-------------:|---------------:|
-| reaction       |          68.3  |    9,803,835 | **1,663x** faster |
-| rxcpp              |     113,571    |        6,290 | (baseline)     |
+| reaction       |          765100  |    901 | **2.17x** faster |
+| rxcpp              |     1664103    |        412 | (baseline)     |
 
 ### Wide Dependency Test (10,000 Nodes)
 
@@ -73,7 +73,7 @@ Comparative performance results against rxcpp (tested on 2025-06-14):
 | rxcpp              |     721,404    |          960 | (baseline)     |
 
 ### Key Findings:
-1. **Deep dependency scenarios**: ~1,663x faster than rxcpp
+1. **Deep dependency scenarios**: ~2.17x faster than rxcpp
 2. **Wide dependency scenarios**: ~2.76x faster than rxcpp
 3. **Test Environment**:
    - 8-core CPU @ 2.8GHz

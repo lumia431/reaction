@@ -10,6 +10,7 @@
 #include "reaction/core/types.h"
 #include "reaction/concurrency/thread_safety.h"
 #include "reaction/core/exception.h"
+#include "reaction/cache/graph_cache.h"
 #include <functional>
 #include <set>
 #include <sstream>
@@ -80,6 +81,11 @@ public:
 
         m_dependentList.at(source).insert(target);
         m_observerList.at(target).get().insert({source});
+
+        // Invalidate all caches due to graph structure change
+        m_graphCache.invalidateAll();
+        m_cycleCache.invalidateAll();
+        m_metricsCache.invalidateAll();
     }
 
     /**
@@ -158,6 +164,11 @@ public:
             }
             m_dependentList.at(node).clear();
         }
+
+        // Invalidate all caches due to graph structure change
+        m_graphCache.invalidateAll();
+        m_cycleCache.invalidateAll();
+        m_metricsCache.invalidateAll();
     }
 
     /**
@@ -294,6 +305,39 @@ public:
         return getNameInternal(node);
     }
 
+    /**
+     * @brief Trigger cleanup of all cache subsystems.
+     *
+     * This method is called by the cache manager to perform periodic
+     * cleanup of expired cache entries across all caches.
+     */
+    void triggerCacheCleanup() noexcept {
+        m_graphCache.triggerCleanup();
+        m_cycleCache.triggerCleanup();
+        m_metricsCache.triggerCleanup();
+    }
+
+    /**
+     * @brief Get cache statistics from all subsystems.
+     */
+    struct CacheStats {
+        GraphTraversalCache::Stats graphStats;
+        CycleDetectionCache::Stats cycleStats;
+        NodeMetricsCache::Stats metricsStats;
+
+        CacheStats(const GraphTraversalCache::Stats& gStats,
+                  const CycleDetectionCache::Stats& cStats,
+                  const NodeMetricsCache::Stats& mStats)
+            : graphStats(gStats), cycleStats(cStats), metricsStats(mStats) {}
+    };
+
+    CacheStats getCacheStats() const noexcept {
+        auto graphStats = m_graphCache.getStats();
+        auto cycleStats = m_cycleCache.getStats();
+        auto metricsStats = m_metricsCache.getStats();
+        return CacheStats{graphStats, cycleStats, metricsStats};
+    }
+
 private:
     ObserverGraph() {}
 
@@ -379,7 +423,7 @@ private:
     /**
      * @brief Detect whether adding an observer relationship would cause a cycle.
      *
-     * Temporarily inserts the edge, performs DFS cycle detection, then removes edge.
+     * Uses caching to avoid expensive DFS traversals for previously checked node pairs.
      * @param source The observing node.
      * @param target The node being observed.
      * @return true if a cycle would be created, false otherwise.
@@ -390,17 +434,27 @@ private:
             return false; // Nodes don't exist, no cycle possible
         }
 
+        // Try to get cached result first
+        const bool* cachedResult = m_cycleCache.getCachedCycleResult(source, target);
+        if (cachedResult) {
+            return *cachedResult;
+        }
+
+        // Cache miss - perform DFS and cache the result
         m_dependentList.at(source).insert(target);
         m_observerList.at(target).get().insert(source);
 
         NodeSet visited;
         NodeSet recursionStack;
-        bool hasCycle = dfs(source, visited, recursionStack);
+        bool hasCycleResult = dfs(source, visited, recursionStack);
 
         m_dependentList.at(source).erase(target);
         m_observerList.at(target).get().erase(source);
 
-        return hasCycle;
+        // Cache the result for future use
+        m_cycleCache.cacheCycleResult(source, target, hasCycleResult);
+
+        return hasCycleResult;
     }
 
     /**
@@ -485,6 +539,11 @@ private:
     std::unordered_map<NodePtr, std::set<const void*>> m_activeBatchNodes; ///< Map from node to active batch IDs.
     std::set<const void*> m_activeBatchIds;                ///< Set of all active batch IDs.
     mutable ConditionalSharedMutex m_graphMutex;            ///< Mutex for thread-safe graph operations.
+
+    // Cache subsystems
+    mutable GraphTraversalCache m_graphCache;               ///< Cache for graph traversal results.
+    mutable CycleDetectionCache m_cycleCache;               ///< Cache for cycle detection results.
+    mutable NodeMetricsCache m_metricsCache;                ///< Cache for node metrics and existence checks.
 };
 
 /**
@@ -521,17 +580,32 @@ inline void ObserverGraph::collectObservers(const NodePtr &node, NodeSet &observ
     if (!node) return;
     REACTION_REGISTER_THREAD();
 
-    // Use a lock-free approach for observer collection to avoid recursive locking
-    // We collect current observers first, then process them
+    // Try to get cached immediate observers first
+    const NodeSet* cachedObservers = m_graphCache.getCachedImmediateObservers(node);
     NodeSet currentObservers;
-    {
-        ConditionalSharedLock<ConditionalSharedMutex> lock(m_graphMutex);
-        for (auto &ob : m_observerList.at(node).get()) {
+
+    if (cachedObservers) {
+        // Use cached data - still need to update depth and collect recursively
+        currentObservers = *cachedObservers;
+        for (auto &ob : currentObservers) {
             if (auto wp = ob.lock()) [[likely]] {
                 wp->updateDepth(depth);
                 observers.insert(ob);
-                currentObservers.insert(ob);
             }
+        }
+    } else {
+        // Cache miss - collect from graph and cache the result
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_graphMutex);
+        if (m_observerList.contains(node)) {
+            for (auto &ob : m_observerList.at(node).get()) {
+                if (auto wp = ob.lock()) [[likely]] {
+                    wp->updateDepth(depth);
+                    observers.insert(ob);
+                    currentObservers.insert(ob);
+                }
+            }
+            // Cache the immediate observers for future use
+            m_graphCache.cacheImmediateObservers(node, currentObservers);
         }
     }
 

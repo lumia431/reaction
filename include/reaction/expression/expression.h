@@ -80,7 +80,7 @@ public:
             }
 
             // Step 1: Save current state for rollback
-            auto originalFun = m_fun;
+            auto originalFun = std::move(m_fun);
             auto originalValue = [this]() -> std::optional<Type> {
                 if constexpr (!VoidType<Type>) {
                     // Safely get value without throwing if not initialized
