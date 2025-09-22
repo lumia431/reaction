@@ -36,6 +36,11 @@ namespace reaction {
  * This singleton class manages thread safety behavior throughout the reactive system.
  * It automatically detects multi-threading scenarios and enables thread safety measures
  * only when needed, providing zero-overhead for single-threaded applications.
+ *
+ * Performance optimizations:
+ * - Thread-local caching of safety status
+ * - Minimal atomic operations with relaxed ordering where safe
+ * - Fast-path optimization for common single-threaded scenarios
  */
 class ThreadSafetyManager {
 public:
@@ -49,11 +54,22 @@ public:
     }
 
     /**
-     * @brief Check if thread safety is currently enabled.
+     * @brief Check if thread safety is currently enabled (optimized version).
+     * Uses thread-local caching to avoid repeated atomic loads.
      * @return true if thread safety is enabled, false otherwise.
      */
     bool isThreadSafetyEnabled() const noexcept {
-        return m_threadSafetyEnabled.load(std::memory_order_acquire);
+        // Use thread-local cache to avoid repeated atomic loads
+        static thread_local bool cached_enabled = false;
+        static thread_local uint32_t cached_version = 0;
+
+        uint32_t current_version = m_safetyVersion.load(std::memory_order_relaxed);
+        if (cached_version != current_version) [[unlikely]] {
+            cached_enabled = m_threadSafetyEnabled.load(std::memory_order_acquire);
+            cached_version = current_version;
+        }
+
+        return cached_enabled;
     }
 
     /**
@@ -63,31 +79,59 @@ public:
     void enableThreadSafety() noexcept {
         bool expected = false;
         if (m_threadSafetyEnabled.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
-            // First time enabling - log or perform any initialization
+            // Increment version to invalidate thread-local caches
+            m_safetyVersion.fetch_add(1, std::memory_order_release);
         }
     }
 
     /**
-     * @brief Register the current thread as active.
+     * @brief Reset thread safety state (for testing only).
+     * WARNING: This method should only be used in test environments.
+     */
+    void resetForTesting() noexcept {
+        m_threadSafetyEnabled.store(REACTION_THREAD_SAFETY_MODE, std::memory_order_release);
+        m_firstThreadId.store(std::thread::id{}, std::memory_order_release);
+        m_safetyVersion.fetch_add(1, std::memory_order_release);
+    }
+
+    /**
+     * @brief Register the current thread as active (optimized version).
      * Automatically enables thread safety if multiple threads are detected.
+     * Uses thread-local state to minimize repeated registration overhead.
      */
     void registerThread() noexcept {
+        // Thread-local flag to avoid repeated registration
+        static thread_local bool thread_registered = false;
+        if (thread_registered) [[likely]] {
+            return;
+        }
+
         std::thread::id currentId = std::this_thread::get_id();
 
-        // Fast path for already known single thread
-        if (!m_threadSafetyEnabled.load(std::memory_order_acquire)) {
-            std::thread::id expected = std::thread::id{};
-            if (m_firstThreadId.compare_exchange_strong(expected, currentId, std::memory_order_acq_rel)) {
-                // First thread registered
-                return;
-            } else if (expected == currentId) {
-                // Same thread as before
-                return;
-            } else {
-                // Different thread detected - enable thread safety
-                enableThreadSafety();
-            }
+        // Fast path for already enabled thread safety
+        if (m_threadSafetyEnabled.load(std::memory_order_relaxed)) [[unlikely]] {
+            thread_registered = true;
+            return;
         }
+
+        // Try to register as the first thread
+        std::thread::id expected = std::thread::id{};
+        if (m_firstThreadId.compare_exchange_strong(expected, currentId, std::memory_order_acq_rel)) {
+            // First thread registered successfully
+            thread_registered = true;
+            return;
+        }
+
+        // Check if it's the same thread as the first one
+        if (expected == currentId) [[likely]] {
+            // Same thread as before
+            thread_registered = true;
+            return;
+        }
+
+        // Different thread detected - enable thread safety
+        enableThreadSafety();
+        thread_registered = true;
     }
 
     /**
@@ -109,6 +153,7 @@ private:
 
     std::atomic<bool> m_threadSafetyEnabled{REACTION_THREAD_SAFETY_MODE};
     std::atomic<std::thread::id> m_firstThreadId{};
+    std::atomic<uint32_t> m_safetyVersion{1};  // Version counter for cache invalidation
 };
 
 /**

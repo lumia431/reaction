@@ -62,17 +62,21 @@ public:
      * During construction:
      * 1. Sets up a BatchFunGuard to collect accessed observer nodes
      * 2. Executes the function
-     * 3. Collects all observer nodes that were accessed
+     * 3. Collects all observer nodes that were accessed (with caching)
      * 4. Registers this batch as active to prevent reset operations
      */
     template <InvocableType F>
     Batch(F &&f) : m_fun(std::forward<F>(f)), m_batchId(this) {
         REACTION_REGISTER_THREAD();
+
+        // Use enhanced graph traversal caching for observer collection
         auto g = makeBatchFunGuard([this](const NodePtr &node) {
             ConditionalUniqueLock<ConditionalSharedMutex> lock(m_batchMutex);
+            // collectObservers now uses caching internally
             ObserverGraph::getInstance().collectObservers(node, m_observers);
         });
         std::invoke(f);
+
         {
             ConditionalSharedLock<ConditionalSharedMutex> lock(m_batchMutex);
             for (auto &node : m_observers) {

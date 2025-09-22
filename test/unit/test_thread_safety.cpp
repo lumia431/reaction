@@ -19,8 +19,9 @@
 TEST(ThreadSafetyTest, SingleThreadAutoDisable) {
     std::cout << "=== 单线程自动禁用测试 ===" << std::endl;
 
-    // 重置线程安全管理器状态（通过创建新实例）
+    // 重置线程安全管理器状态（用于测试）
     auto& manager = reaction::ThreadSafetyManager::getInstance();
+    manager.resetForTesting();
 
     // 创建变量前检查初始状态
     bool initialState = manager.isThreadSafetyEnabled();
