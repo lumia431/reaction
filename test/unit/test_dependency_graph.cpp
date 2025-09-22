@@ -24,7 +24,7 @@ TEST(DependencyGraphTest, TestReset) {
 
 // Test detection of self-dependency cycles
 TEST(DependencyGraphTest, TestSelfDependency) {
-    auto a = reaction::var(1);
+    auto a   = reaction::var(1);
     auto dsA = reaction::calc([](int aa) { return aa; }, a);
 
     EXPECT_THROW(dsA.reset([&]() { return a() + dsA(); }), std::runtime_error);

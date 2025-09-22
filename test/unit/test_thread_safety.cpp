@@ -5,13 +5,14 @@
  * See the LICENSE file in the project root for full details.
  */
 
-#include "../common/test_fixtures.h"
-#include "../common/test_helpers.h"
-#include <thread>
-#include <vector>
 #include <atomic>
 #include <chrono>
 #include <iostream>
+#include <thread>
+#include <vector>
+
+#include "../common/test_fixtures.h"
+#include "../common/test_helpers.h"
 
 /**
  * @brief Test automatic disabling of thread safety in single-threaded mode
@@ -25,17 +26,19 @@ TEST(ThreadSafetyTest, SingleThreadAutoDisable) {
 
     // Check initial state before creating variables
     bool initialState = manager.isThreadSafetyEnabled();
-    std::cout << "Thread safety state at test start: " << (initialState ? "Enabled" : "Disabled") << std::endl;
+    std::cout << "Thread safety state at test start: " << (initialState ? "Enabled" : "Disabled")
+              << std::endl;
 
     // Create variable and perform operations
-    auto var = reaction::var(42);
-    int value1 = var.get();  // This triggers REACTION_REGISTER_THREAD
+    auto var   = reaction::var(42);
+    int value1 = var.get(); // This triggers REACTION_REGISTER_THREAD
     var.value(100);
     int value2 = var.get();
 
     // Check thread safety state
     bool afterSingleThread = manager.isThreadSafetyEnabled();
-    std::cout << "Thread safety state after single-thread operations: " << (afterSingleThread ? "Enabled" : "Disabled") << std::endl;
+    std::cout << "Thread safety state after single-thread operations: "
+              << (afterSingleThread ? "Enabled" : "Disabled") << std::endl;
 
     // Verify results
     EXPECT_EQ(value1, 42);
@@ -63,7 +66,7 @@ TEST(ThreadSafetyTest, MultiThreadAutoEnable) {
     // Thread 1
     std::thread thread1([&]() {
         for (int i = 0; i < 100; ++i) {
-            sharedVar.value(i);  // This triggers REACTION_REGISTER_THREAD
+            sharedVar.value(i); // This triggers REACTION_REGISTER_THREAD
             thread1Operations++;
             std::this_thread::sleep_for(std::chrono::microseconds(10));
         }
@@ -73,7 +76,7 @@ TEST(ThreadSafetyTest, MultiThreadAutoEnable) {
     std::thread thread2([&]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(1)); // Let thread1 start first
         for (int i = 0; i < 100; ++i) {
-            int value = sharedVar.get();  // This triggers REACTION_REGISTER_THREAD
+            int value = sharedVar.get(); // This triggers REACTION_REGISTER_THREAD
             (void)value;
             thread2Operations++;
             std::this_thread::sleep_for(std::chrono::microseconds(10));
@@ -85,7 +88,8 @@ TEST(ThreadSafetyTest, MultiThreadAutoEnable) {
 
     // Check thread safety state after multi-threading
     bool afterMultiThread = manager.isThreadSafetyEnabled();
-    std::cout << "Thread safety state after multi-thread operations: " << (afterMultiThread ? "Enabled" : "Disabled") << std::endl;
+    std::cout << "Thread safety state after multi-thread operations: "
+              << (afterMultiThread ? "Enabled" : "Disabled") << std::endl;
 
     EXPECT_TRUE(afterMultiThread) << "Thread safety should be enabled in multi-thread mode";
     EXPECT_EQ(thread1Operations.load(), 100);
@@ -119,7 +123,7 @@ TEST(ThreadSafetyTest, SingleToMultiThreadTransition) {
 
     std::thread multiThread([&]() {
         sharedVar.value(100);
-        threadValue = sharedVar.get();
+        threadValue           = sharedVar.get();
         multiThreadOperations = true;
     });
 
@@ -151,7 +155,7 @@ TEST(ThreadSafetyTest, ThreadRegistrationMechanism) {
     std::cout << "Initial thread count: " << initialCount << std::endl;
 
     auto var = reaction::var(42);
-    var.get();  // triggers registration
+    var.get(); // triggers registration
 
     size_t afterOperationCount = manager.getThreadCount();
     std::cout << "Thread count after operation: " << afterOperationCount << std::endl;
@@ -169,7 +173,8 @@ TEST(ThreadSafetyTest, ThreadRegistrationMechanism) {
 
     // Test 3: check state change
     bool initialSafetyState = manager.isThreadSafetyEnabled();
-    std::cout << "Initial thread safety state: " << (initialSafetyState ? "Enabled" : "Disabled") << std::endl;
+    std::cout << "Initial thread safety state: " << (initialSafetyState ? "Enabled" : "Disabled")
+              << std::endl;
 
     std::cout << "✅ REACTION_REGISTER_THREAD mechanism test passed" << std::endl;
 }
@@ -216,7 +221,8 @@ TEST(ThreadSafetyTest, ThreadSafetyVerification) {
                 TestData data = sharedVar.get();
                 readCount++;
                 if (!data.isValid() && !(data.a == 0 && data.b == 0)) {
-                    std::cout << "Data tearing detected! a=" << data.a << ", b=" << data.b << std::endl;
+                    std::cout << "Data tearing detected! a=" << data.a << ", b=" << data.b
+                              << std::endl;
                     tearingCount++;
                     raceDetected = true;
                 }
@@ -243,7 +249,8 @@ TEST(ThreadSafetyTest, ThreadSafetyVerification) {
     std::cout << "Tearing detected: " << tearingCount.load() << std::endl;
 
     if (raceDetected.load()) {
-        FAIL() << "Thread safety protection failed! Tearing detected " << tearingCount.load() << " times";
+        FAIL() << "Thread safety protection failed! Tearing detected " << tearingCount.load()
+               << " times";
     }
 
     EXPECT_EQ(readCount.load(), 20000);  // 2 readers * 10000

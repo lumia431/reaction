@@ -1,12 +1,13 @@
-#include "reaction.h"
 #include <chrono>
-#include <iostream>
-#include <vector>
+#include <functional>
 #include <iomanip>
+#include <iostream>
 #include <memory>
 #include <random>
-#include <functional>
 #include <thread>
+#include <vector>
+
+#include "reaction.h"
 
 using namespace reaction;
 
@@ -21,9 +22,7 @@ public:
         }
     }
 
-    static auto getCacheStats() {
-        return ObserverGraph::getInstance().getCacheStats();
-    }
+    static auto getCacheStats() { return ObserverGraph::getInstance().getCacheStats(); }
 };
 
 // Simple timing class
@@ -43,13 +42,13 @@ private:
 // Benchmark result structure
 struct BenchmarkResult {
     std::string name;
-    double time_with_cache_ms = 0.0;
+    double time_with_cache_ms    = 0.0;
     double time_without_cache_ms = 0.0;
-    size_t iterations = 0;
+    size_t iterations            = 0;
 
     void print() const {
-        double speedup = time_without_cache_ms / time_with_cache_ms;
-        double throughput_with = iterations / (time_with_cache_ms / 1000.0);
+        double speedup            = time_without_cache_ms / time_with_cache_ms;
+        double throughput_with    = iterations / (time_with_cache_ms / 1000.0);
         double throughput_without = iterations / (time_without_cache_ms / 1000.0);
 
         std::cout << std::string(80, '=') << std::endl;
@@ -64,7 +63,8 @@ struct BenchmarkResult {
         std::cout << "Throughput (cached):     " << throughput_with << " ops/sec" << std::endl;
         std::cout << "Throughput (uncached):   " << throughput_without << " ops/sec" << std::endl;
         std::cout << std::setprecision(2);
-        std::cout << "📈 Throughput improvement: " << (throughput_with / throughput_without) << "x higher" << std::endl;
+        std::cout << "📈 Throughput improvement: " << (throughput_with / throughput_without)
+                  << "x higher" << std::endl;
         std::cout << "Cache efficiency: " << ((speedup - 1) / speedup * 100) << "%" << std::endl;
         std::cout << std::endl;
     }
@@ -79,7 +79,7 @@ BenchmarkResult benchmark_cycle_detection(size_t iterations = 20000) {
     std::vector<Calc<int>> calcs_level1;
     std::vector<Calc<int>> calcs_level2;
 
-    const size_t var_count = 80;
+    const size_t var_count  = 80;
     const size_t calc_count = 60;
 
     for (size_t i = 0; i < var_count; ++i) {
@@ -89,21 +89,19 @@ BenchmarkResult benchmark_cycle_detection(size_t iterations = 20000) {
     for (size_t i = 0; i < calc_count; ++i) {
         size_t idx1 = i % var_count;
         size_t idx2 = (i + 1) % var_count;
-        calcs_level1.push_back(create([&vars, idx1, idx2]() {
-            return vars[idx1]() + vars[idx2]();
-        }));
+        calcs_level1.push_back(
+            create([&vars, idx1, idx2]() { return vars[idx1]() + vars[idx2](); }));
     }
 
     for (size_t i = 0; i < calc_count / 2; ++i) {
         size_t idx1 = i % calc_count;
         size_t idx2 = (i + 1) % calc_count;
-        calcs_level2.push_back(create([&calcs_level1, idx1, idx2]() {
-            return calcs_level1[idx1]() + calcs_level1[idx2]();
-        }));
+        calcs_level2.push_back(create(
+            [&calcs_level1, idx1, idx2]() { return calcs_level1[idx1]() + calcs_level1[idx2](); }));
     }
 
     BenchmarkResult result;
-    result.name = "Cycle Detection Cache";
+    result.name       = "Cycle Detection Cache";
     result.iterations = iterations;
 
     // Test WITH cache
@@ -174,9 +172,9 @@ BenchmarkResult benchmark_observer_collection(size_t iterations = 15000) {
     std::vector<Calc<double>> branches;
     std::vector<Calc<double>> roots;
 
-    const size_t leaf_count = 100;
+    const size_t leaf_count   = 100;
     const size_t branch_count = 50;
-    const size_t root_count = 10;
+    const size_t root_count   = 10;
 
     for (size_t i = 0; i < leaf_count; ++i) {
         leaves.push_back(create(static_cast<double>(i) * 0.5));
@@ -186,9 +184,8 @@ BenchmarkResult benchmark_observer_collection(size_t iterations = 15000) {
         size_t l1 = i % leaf_count;
         size_t l2 = (i + 1) % leaf_count;
         size_t l3 = (i + 2) % leaf_count;
-        branches.push_back(create([&leaves, l1, l2, l3]() {
-            return leaves[l1]() + leaves[l2]() + leaves[l3]();
-        }));
+        branches.push_back(
+            create([&leaves, l1, l2, l3]() { return leaves[l1]() + leaves[l2]() + leaves[l3](); }));
     }
 
     for (size_t i = 0; i < root_count; ++i) {
@@ -198,12 +195,13 @@ BenchmarkResult benchmark_observer_collection(size_t iterations = 15000) {
         size_t b4 = (i + 3) % branch_count;
         size_t b5 = (i + 4) % branch_count;
         roots.push_back(create([&branches, b1, b2, b3, b4, b5]() {
-            return branches[b1]() + branches[b2]() + branches[b3]() + branches[b4]() + branches[b5]();
+            return branches[b1]() + branches[b2]() + branches[b3]() + branches[b4]() +
+                   branches[b5]();
         }));
     }
 
     BenchmarkResult result;
-    result.name = "Observer Collection Cache";
+    result.name       = "Observer Collection Cache";
     result.iterations = iterations;
 
     // Test WITH cache
@@ -213,7 +211,7 @@ BenchmarkResult benchmark_observer_collection(size_t iterations = 15000) {
 
         for (size_t iter = 0; iter < iterations; ++iter) {
             size_t leaf_idx = iter % leaf_count;
-            double new_val = static_cast<double>(iter) * 0.1;
+            double new_val  = static_cast<double>(iter) * 0.1;
 
             leaves[leaf_idx].value(new_val);
 
@@ -240,7 +238,7 @@ BenchmarkResult benchmark_observer_collection(size_t iterations = 15000) {
             }
 
             size_t leaf_idx = iter % leaf_count;
-            double new_val = static_cast<double>(iter) * 0.1;
+            double new_val  = static_cast<double>(iter) * 0.1;
 
             leaves[leaf_idx].value(new_val);
 
@@ -273,9 +271,7 @@ BenchmarkResult benchmark_mixed_workload(size_t iterations = 10000) {
 
     for (size_t i = 0; i < var_count; ++i) {
         size_t idx = i % var_count;
-        simple_calcs.push_back(create([&vars, idx]() {
-            return vars[idx]() * 2;
-        }));
+        simple_calcs.push_back(create([&vars, idx]() { return vars[idx]() * 2; }));
     }
 
     for (size_t i = 0; i < var_count / 2; ++i) {
@@ -288,7 +284,7 @@ BenchmarkResult benchmark_mixed_workload(size_t iterations = 10000) {
     }
 
     BenchmarkResult result;
-    result.name = "Mixed Workload Cache";
+    result.name       = "Mixed Workload Cache";
     result.iterations = iterations;
 
     // Test WITH cache
@@ -302,10 +298,10 @@ BenchmarkResult benchmark_mixed_workload(size_t iterations = 10000) {
             vars[var_idx].value(static_cast<int>(iter % 1000));
 
             // Evaluation of calculations
-            size_t simple_idx = iter % simple_calcs.size();
+            size_t simple_idx  = iter % simple_calcs.size();
             size_t complex_idx = iter % complex_calcs.size();
 
-            volatile auto simple_val = simple_calcs[simple_idx].get();
+            volatile auto simple_val  = simple_calcs[simple_idx].get();
             volatile auto complex_val = complex_calcs[complex_idx].get();
             (void)simple_val;
             (void)complex_val;
@@ -313,7 +309,7 @@ BenchmarkResult benchmark_mixed_workload(size_t iterations = 10000) {
             // Occasionally create new temporary calculations (cycle detection)
             if (iter % 100 == 0) {
                 try {
-                    auto temp = create([&complex_calcs, complex_idx]() {
+                    auto temp              = create([&complex_calcs, complex_idx]() {
                         return complex_calcs[complex_idx]() * 2;
                     });
                     volatile auto temp_val = temp.get();
@@ -340,17 +336,17 @@ BenchmarkResult benchmark_mixed_workload(size_t iterations = 10000) {
             size_t var_idx = iter % var_count;
             vars[var_idx].value(static_cast<int>(iter % 1000));
 
-            size_t simple_idx = iter % simple_calcs.size();
+            size_t simple_idx  = iter % simple_calcs.size();
             size_t complex_idx = iter % complex_calcs.size();
 
-            volatile auto simple_val = simple_calcs[simple_idx].get();
+            volatile auto simple_val  = simple_calcs[simple_idx].get();
             volatile auto complex_val = complex_calcs[complex_idx].get();
             (void)simple_val;
             (void)complex_val;
 
             if (iter % 100 == 0) {
                 try {
-                    auto temp = create([&complex_calcs, complex_idx]() {
+                    auto temp              = create([&complex_calcs, complex_idx]() {
                         return complex_calcs[complex_idx]() * 2;
                     });
                     volatile auto temp_val = temp.get();
@@ -386,25 +382,35 @@ int main() {
     std::cout << "📊 COMPREHENSIVE CACHE PERFORMANCE SUMMARY 📊" << std::endl;
     std::cout << std::string(80, '=') << std::endl;
 
-    double avg_speedup = (cycle_result.time_without_cache_ms / cycle_result.time_with_cache_ms +
-                         observer_result.time_without_cache_ms / observer_result.time_with_cache_ms +
-                         mixed_result.time_without_cache_ms / mixed_result.time_with_cache_ms) / 3.0;
+    double avg_speedup =
+        (cycle_result.time_without_cache_ms / cycle_result.time_with_cache_ms +
+         observer_result.time_without_cache_ms / observer_result.time_with_cache_ms +
+         mixed_result.time_without_cache_ms / mixed_result.time_with_cache_ms) /
+        3.0;
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "🎯 Average Speedup: " << avg_speedup << "x faster with caching" << std::endl;
-    std::cout << "💪 Overall Cache Efficiency: " << ((avg_speedup - 1) / avg_speedup * 100) << "%" << std::endl;
+    std::cout << "💪 Overall Cache Efficiency: " << ((avg_speedup - 1) / avg_speedup * 100) << "%"
+              << std::endl;
 
     std::cout << "\n📈 Individual Test Results:" << std::endl;
-    std::cout << "  • Cycle Detection: " << (cycle_result.time_without_cache_ms / cycle_result.time_with_cache_ms) << "x speedup" << std::endl;
-    std::cout << "  • Observer Collection: " << (observer_result.time_without_cache_ms / observer_result.time_with_cache_ms) << "x speedup" << std::endl;
-    std::cout << "  • Mixed Workload: " << (mixed_result.time_without_cache_ms / mixed_result.time_with_cache_ms) << "x speedup" << std::endl;
+    std::cout << "  • Cycle Detection: "
+              << (cycle_result.time_without_cache_ms / cycle_result.time_with_cache_ms)
+              << "x speedup" << std::endl;
+    std::cout << "  • Observer Collection: "
+              << (observer_result.time_without_cache_ms / observer_result.time_with_cache_ms)
+              << "x speedup" << std::endl;
+    std::cout << "  • Mixed Workload: "
+              << (mixed_result.time_without_cache_ms / mixed_result.time_with_cache_ms)
+              << "x speedup" << std::endl;
 
     // Display final cache statistics
     auto cache_stats = BenchmarkObserverGraph::getCacheStats();
     std::cout << "\n🗂️ Final Cache State:" << std::endl;
     std::cout << "  • Graph Cache Version: " << cache_stats.graphStats.currentVersion << std::endl;
     std::cout << "  • Cycle Cache Version: " << cache_stats.cycleStats.currentVersion << std::endl;
-    std::cout << "  • Metrics Cache Version: " << cache_stats.metricsStats.currentVersion << std::endl;
+    std::cout << "  • Metrics Cache Version: " << cache_stats.metricsStats.currentVersion
+              << std::endl;
 
     std::cout << "\n✅ Cache performance benchmarking completed!" << std::endl;
     return 0;

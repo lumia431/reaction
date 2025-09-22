@@ -5,9 +5,10 @@
  * See the LICENSE file in the project root for full details.
  */
 
+#include <gtest/gtest.h>
+
 #include "../common/test_fixtures.h"
 #include "../common/test_helpers.h"
-#include <gtest/gtest.h>
 
 // Test reset consistency guarantees
 TEST(ResetConsistencyTest, ResetCycleDependencyRollback) {
@@ -89,7 +90,8 @@ TEST(ResetConsistencyTest, ResetWithExceptionInEvaluationRollback) {
             throw std::runtime_error("Test exception during evaluation");
         }
         return a() * 3;
-    }), std::runtime_error);
+    }),
+                 std::runtime_error);
 
     // Verify the node is still in a consistent state
     EXPECT_EQ(calc.get(), 2);

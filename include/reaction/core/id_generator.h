@@ -24,51 +24,40 @@ public:
     /**
      * @brief Constructs a UniqueID by generating a unique value.
      */
-    UniqueID() : m_id(generate()) {
-    }
+    UniqueID() : m_id(generate()) {}
 
     /**
      * @brief Implicit conversion operator to uint64_t.
      * @return The unique ID as uint64_t.
      */
-    constexpr operator uint64_t() const noexcept {
-        return m_id;
-    }
+    constexpr operator uint64_t() const noexcept { return m_id; }
 
     /**
      * @brief Equality comparison operator.
      * @param other Another UniqueID instance.
      * @return True if IDs are equal, false otherwise.
      */
-    constexpr bool operator==(const UniqueID &other) const noexcept {
-        return m_id == other.m_id;
-    }
+    constexpr bool operator==(const UniqueID& other) const noexcept { return m_id == other.m_id; }
 
     /**
      * @brief Inequality comparison operator.
      * @param other Another UniqueID instance.
      * @return True if IDs are not equal, false otherwise.
      */
-    constexpr bool operator!=(const UniqueID &other) const noexcept {
-        return m_id != other.m_id;
-    }
+    constexpr bool operator!=(const UniqueID& other) const noexcept { return m_id != other.m_id; }
 
     /**
      * @brief Less-than comparison operator for ordering.
      * @param other Another UniqueID instance.
      * @return True if this ID is less than other ID.
      */
-    constexpr bool operator<(const UniqueID &other) const noexcept {
-        return m_id < other.m_id;
-    }
+    constexpr bool operator<(const UniqueID& other) const noexcept { return m_id < other.m_id; }
 
     /**
      * @brief Get the raw ID value.
      * @return The unique ID as uint64_t.
      */
-    constexpr uint64_t value() const noexcept {
-        return m_id;
-    }
+    constexpr uint64_t value() const noexcept { return m_id; }
 
 private:
     uint64_t m_id; ///< Internal unique identifier.
@@ -97,9 +86,8 @@ namespace std {
  * @brief Specialization of std::hash for reaction::UniqueID.
  * Hashes the internal 64-bit ID.
  */
-template <>
-struct hash<reaction::UniqueID> {
-    size_t operator()(const reaction::UniqueID &uid) const noexcept {
+template <> struct hash<reaction::UniqueID> {
+    size_t operator()(const reaction::UniqueID& uid) const noexcept {
         return std::hash<uint64_t>{}(uid.m_id);
     }
 };

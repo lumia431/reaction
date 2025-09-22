@@ -7,8 +7,9 @@
 
 #pragma once
 
-#include "reaction/core/types.h"
 #include <functional>
+
+#include "reaction/core/types.h"
 
 namespace reaction {
 
@@ -21,7 +22,7 @@ namespace reaction {
  * allowing automatic dependency tracking during expression evaluation.
  * Thread-local to ensure isolation between threads for reactive computations.
  */
-inline thread_local std::function<void(const NodePtr &)> g_reg_fun = nullptr;
+inline thread_local std::function<void(const NodePtr&)> g_reg_fun = nullptr;
 
 /**
  * @brief Thread-local function pointer for batch operation tracking.
@@ -30,7 +31,7 @@ inline thread_local std::function<void(const NodePtr &)> g_reg_fun = nullptr;
  * during batch operations, allowing deferred notification handling.
  * Thread-local to enable per-thread batch operations.
  */
-inline thread_local std::function<void(const NodePtr &)> g_batch_fun = nullptr;
+inline thread_local std::function<void(const NodePtr&)> g_batch_fun = nullptr;
 
 /**
  * @brief Thread-local flag indicating whether a batch operation is currently executing.
@@ -68,12 +69,12 @@ inline bool isBatchFunctionActive() noexcept {
 
 /**
  * @brief Reset all global state to default values.
- * 
+ *
  * Useful for cleanup or testing scenarios.
  */
 inline void resetGlobalState() noexcept {
-    g_reg_fun = nullptr;
-    g_batch_fun = nullptr;
+    g_reg_fun       = nullptr;
+    g_batch_fun     = nullptr;
     g_batch_execute = false;
 }
 

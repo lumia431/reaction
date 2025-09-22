@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "reaction/core/types.h"
 #include "reaction/cache/cache_base.h"
+#include "reaction/core/types.h"
 
 namespace reaction {
 
@@ -25,8 +25,7 @@ class ObserverNode;
  */
 class GraphTraversalCache : public PtrCacheBase<NodePtr, NodeSet> {
 public:
-    GraphTraversalCache()
-        : PtrCacheBase(MAX_CACHE_SIZE, CACHE_TTL) {}
+    GraphTraversalCache() : PtrCacheBase(MAX_CACHE_SIZE, CACHE_TTL) {}
 
     /**
      * @brief Try to get cached immediate observers for a node.
@@ -54,27 +53,21 @@ public:
     /**
      * @brief Invalidate all cache entries due to graph structure change.
      */
-    void invalidateAll() noexcept {
-        invalidateAllEntries();
-    }
+    void invalidateAll() noexcept { invalidateAllEntries(); }
 
     /**
      * @brief Get cache statistics.
      */
-    Stats getStats() const noexcept {
-        return getStatsInternal();
-    }
+    Stats getStats() const noexcept { return getStatsInternal(); }
 
     /**
      * @brief Trigger cleanup of expired cache entries.
      */
-    void triggerCleanup() noexcept {
-        triggerCleanupInternal();
-    }
+    void triggerCleanup() noexcept { triggerCleanupInternal(); }
 
 private:
-    static constexpr size_t MAX_CACHE_SIZE = 500;  // Smaller cache for immediate observers only
-    static constexpr std::chrono::minutes CACHE_TTL{5};  // Shorter TTL
+    static constexpr size_t MAX_CACHE_SIZE = 500; // Smaller cache for immediate observers only
+    static constexpr std::chrono::minutes CACHE_TTL{5}; // Shorter TTL
 };
 
 /**
@@ -85,8 +78,7 @@ private:
  */
 class CycleDetectionCache : public PairCacheBase<NodePtr, NodePtr, bool> {
 public:
-    CycleDetectionCache()
-        : PairCacheBase(MAX_CYCLE_CACHE_SIZE, CACHE_TTL) {}
+    CycleDetectionCache() : PairCacheBase(MAX_CYCLE_CACHE_SIZE, CACHE_TTL) {}
 
     /**
      * @brief Try to get cached cycle detection result for a node pair.
@@ -113,23 +105,17 @@ public:
     /**
      * @brief Invalidate all cache entries due to graph structure change.
      */
-    void invalidateAll() noexcept {
-        invalidateAllEntries();
-    }
+    void invalidateAll() noexcept { invalidateAllEntries(); }
 
     /**
      * @brief Get cache statistics.
      */
-    Stats getStats() const noexcept {
-        return getStatsInternal();
-    }
+    Stats getStats() const noexcept { return getStatsInternal(); }
 
     /**
      * @brief Trigger cleanup of expired cache entries.
      */
-    void triggerCleanup() noexcept {
-        triggerCleanupInternal();
-    }
+    void triggerCleanup() noexcept { triggerCleanupInternal(); }
 
 private:
     static constexpr size_t MAX_CYCLE_CACHE_SIZE = 1000;
@@ -140,16 +126,13 @@ private:
  * @brief Cached metrics for a node.
  */
 struct NodeMetrics {
-    bool exists;                  ///< Whether the node exists in the graph
-    size_t observerCount;         ///< Number of direct observers
-    size_t dependentCount;        ///< Number of direct dependencies
-    uint8_t maxDepth;             ///< Maximum depth in the dependency tree
+    bool exists;           ///< Whether the node exists in the graph
+    size_t observerCount;  ///< Number of direct observers
+    size_t dependentCount; ///< Number of direct dependencies
+    uint8_t maxDepth;      ///< Maximum depth in the dependency tree
 
     NodeMetrics(bool exists, size_t obsCount, size_t depCount, uint8_t depth)
-        : exists(exists)
-        , observerCount(obsCount)
-        , dependentCount(depCount)
-        , maxDepth(depth) {}
+        : exists(exists), observerCount(obsCount), dependentCount(depCount), maxDepth(depth) {}
 };
 
 /**
@@ -162,8 +145,7 @@ class NodeMetricsCache : public PtrCacheBase<NodePtr, NodeMetrics> {
 public:
     using Base = PtrCacheBase<NodePtr, NodeMetrics>;
 
-    NodeMetricsCache()
-        : Base(MAX_METRICS_CACHE_SIZE, CACHE_TTL) {}
+    NodeMetricsCache() : Base(MAX_METRICS_CACHE_SIZE, CACHE_TTL) {}
 
     /**
      * @brief Try to get cached node existence result.
@@ -197,31 +179,28 @@ public:
      * @param dependentCount Number of direct dependencies
      * @param maxDepth Maximum depth in the dependency tree
      */
-    void cacheNodeMetrics(const NodePtr& node, bool exists, size_t observerCount,
-                         size_t dependentCount, uint8_t maxDepth) noexcept {
+    void cacheNodeMetrics(const NodePtr& node,
+                          bool exists,
+                          size_t observerCount,
+                          size_t dependentCount,
+                          uint8_t maxDepth) noexcept {
         this->cacheValue(node, NodeMetrics{exists, observerCount, dependentCount, maxDepth});
     }
 
     /**
      * @brief Invalidate all cache entries due to graph structure change.
      */
-    void invalidateAll() noexcept {
-        this->invalidateAllEntries();
-    }
+    void invalidateAll() noexcept { this->invalidateAllEntries(); }
 
     /**
      * @brief Get cache statistics.
      */
-    typename Base::Stats getStats() const noexcept {
-        return this->getStatsInternal();
-    }
+    typename Base::Stats getStats() const noexcept { return this->getStatsInternal(); }
 
     /**
      * @brief Trigger cleanup of expired cache entries.
      */
-    void triggerCleanup() noexcept {
-        this->triggerCleanupInternal();
-    }
+    void triggerCleanup() noexcept { this->triggerCleanupInternal(); }
 
 private:
     static constexpr size_t MAX_METRICS_CACHE_SIZE = 800;

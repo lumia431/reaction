@@ -8,6 +8,7 @@
 #pragma once
 
 #include <reaction.h>
+
 #include <chrono>
 #include <iostream>
 #include <list>
@@ -25,8 +26,7 @@ namespace reaction_test {
 /**
  * @brief Helper function to measure execution time.
  */
-template<typename Func>
-auto measureTime(Func&& func) {
+template <typename Func> auto measureTime(Func&& func) {
     auto start = std::chrono::high_resolution_clock::now();
     func();
     auto end = std::chrono::high_resolution_clock::now();
@@ -36,7 +36,7 @@ auto measureTime(Func&& func) {
 /**
  * @brief Helper to create a vector of reactive variables.
  */
-template<typename T>
+template <typename T>
 std::vector<reaction::Var<T>> createReactiveVector(int size, T initial_value = T{}) {
     std::vector<reaction::Var<T>> result;
     for (int i = 0; i < size; ++i) {

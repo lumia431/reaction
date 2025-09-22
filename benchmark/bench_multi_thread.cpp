@@ -1,12 +1,14 @@
-#include "reaction.h"
-#include <benchmark/benchmark.h>
-#include <thread>
-#include <vector>
 #include <atomic>
 #include <barrier>
 #include <chrono>
-#include <random>
 #include <functional>
+#include <random>
+#include <thread>
+#include <vector>
+
+#include <benchmark/benchmark.h>
+
+#include "reaction.h"
 
 using namespace reaction;
 
@@ -24,7 +26,7 @@ using namespace reaction;
 // ============================================================================
 
 static void BM_MultiThread_IndependentRead(benchmark::State& state) {
-    const int num_threads = state.range(0);
+    const int num_threads           = state.range(0);
     const int operations_per_thread = 1000;
 
     // Each thread has its own data source and computation chain to avoid contention
@@ -37,14 +39,12 @@ static void BM_MultiThread_IndependentRead(benchmark::State& state) {
         // Each thread creates its own independent computation chain
         for (int i = 0; i < 10; ++i) {
             if (i == 0) {
-                thread_calcs[t].emplace_back(calc([&thread_sources, t]() {
-                    return thread_sources[t]() + 1;
-                }));
+                thread_calcs[t].emplace_back(
+                    calc([&thread_sources, t]() { return thread_sources[t]() + 1; }));
             } else {
                 const int prev_idx = i - 1;
-                thread_calcs[t].emplace_back(calc([&thread_calcs, t, prev_idx]() {
-                    return thread_calcs[t][prev_idx]() + 1;
-                }));
+                thread_calcs[t].emplace_back(calc(
+                    [&thread_calcs, t, prev_idx]() { return thread_calcs[t][prev_idx]() + 1; }));
             }
         }
     }
@@ -78,8 +78,8 @@ static void BM_MultiThread_IndependentRead(benchmark::State& state) {
 
     state.SetItemsProcessed(total_operations.load());
     state.counters["ThreadCount"] = num_threads;
-    state.counters["OpsPerSecond"] = benchmark::Counter(
-        total_operations.load(), benchmark::Counter::kIsRate);
+    state.counters["OpsPerSecond"] =
+        benchmark::Counter(total_operations.load(), benchmark::Counter::kIsRate);
 }
 
 // ============================================================================
@@ -87,7 +87,7 @@ static void BM_MultiThread_IndependentRead(benchmark::State& state) {
 // ============================================================================
 
 static void BM_MultiThread_IndependentWrite(benchmark::State& state) {
-    const int num_threads = state.range(0);
+    const int num_threads           = state.range(0);
     const int operations_per_thread = 100;
 
     // Each thread has its own data source and computation node
@@ -96,9 +96,7 @@ static void BM_MultiThread_IndependentWrite(benchmark::State& state) {
 
     for (int t = 0; t < num_threads; ++t) {
         thread_sources.emplace_back(var(t));
-        thread_calcs.emplace_back(calc([&thread_sources, t]() {
-            return thread_sources[t]() * 2;
-        }));
+        thread_calcs.emplace_back(calc([&thread_sources, t]() { return thread_sources[t]() * 2; }));
     }
 
     std::atomic<long long> total_operations{0};
@@ -131,8 +129,8 @@ static void BM_MultiThread_IndependentWrite(benchmark::State& state) {
 
     state.SetItemsProcessed(total_operations.load());
     state.counters["ThreadCount"] = num_threads;
-    state.counters["OpsPerSecond"] = benchmark::Counter(
-        total_operations.load(), benchmark::Counter::kIsRate);
+    state.counters["OpsPerSecond"] =
+        benchmark::Counter(total_operations.load(), benchmark::Counter::kIsRate);
 }
 
 // ============================================================================
@@ -140,7 +138,7 @@ static void BM_MultiThread_IndependentWrite(benchmark::State& state) {
 // ============================================================================
 
 static void BM_MultiThread_ProducerConsumer(benchmark::State& state) {
-    const int num_threads = state.range(0);
+    const int num_threads           = state.range(0);
     const int operations_per_thread = 100;
 
     // Number of producer threads = num_threads / 2, consumers = the rest
@@ -153,9 +151,7 @@ static void BM_MultiThread_ProducerConsumer(benchmark::State& state) {
 
     for (int i = 0; i < num_producers; ++i) {
         data_sources.emplace_back(var(i));
-        data_calcs.emplace_back(calc([&data_sources, i]() {
-            return data_sources[i]() + 100;
-        }));
+        data_calcs.emplace_back(calc([&data_sources, i]() { return data_sources[i]() + 100; }));
     }
 
     std::atomic<long long> total_operations{0};
@@ -185,7 +181,7 @@ static void BM_MultiThread_ProducerConsumer(benchmark::State& state) {
                 for (int op = 0; op < operations_per_thread; ++op) {
                     // Consumers poll different data sources
                     int source_idx = (c + op) % data_calcs.size();
-                    int result = data_calcs[source_idx].get();
+                    int result     = data_calcs[source_idx].get();
                     benchmark::DoNotOptimize(result);
                 }
 
@@ -202,10 +198,10 @@ static void BM_MultiThread_ProducerConsumer(benchmark::State& state) {
 
     state.SetItemsProcessed(total_operations.load());
     state.counters["ThreadCount"] = num_threads;
-    state.counters["Producers"] = num_producers;
-    state.counters["Consumers"] = num_consumers;
-    state.counters["OpsPerSecond"] = benchmark::Counter(
-        total_operations.load(), benchmark::Counter::kIsRate);
+    state.counters["Producers"]   = num_producers;
+    state.counters["Consumers"]   = num_consumers;
+    state.counters["OpsPerSecond"] =
+        benchmark::Counter(total_operations.load(), benchmark::Counter::kIsRate);
 }
 
 // ============================================================================

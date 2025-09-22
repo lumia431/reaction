@@ -109,10 +109,10 @@ TEST(ExpressionOperatorsTest, TestLogicalOperators) {
 TEST(ExpressionOperatorsTest, TestUnaryOperators) {
     using namespace reaction;
 
-    auto a = var(5).setName("a");
-    auto b = var(-3).setName("b");
+    auto a        = var(5).setName("a");
+    auto b        = var(-3).setName("b");
     auto bool_var = var(true).setName("bool_var");
-    auto int_var = var(0b1010).setName("int_var"); // 10 in binary
+    auto int_var  = var(0b1010).setName("int_var"); // 10 in binary
 
     // Test unary negation
     auto neg_expr1 = expr(-a).setName("neg_expr1");
@@ -168,7 +168,7 @@ TEST(ExpressionOperatorsTest, TestComplexOperatorCombinations) {
 
     // Update values and verify recalculation
     x.value(8);
-    EXPECT_TRUE(complex1.get()); // (8+2) > 6 is true
+    EXPECT_TRUE(complex1.get());   // (8+2) > 6 is true
     EXPECT_EQ(complex2.get(), -6); // -(8-2) = -6
 }
 
@@ -178,9 +178,9 @@ TEST(ExpressionOperatorsTest, TestComplexOperatorCombinations) {
 TEST(ExpressionOperatorsTest, TestOperatorsWithDifferentTypes) {
     using namespace reaction;
 
-    auto int_var = var(5).setName("int_var");
+    auto int_var   = var(5).setName("int_var");
     auto float_var = var(3.14).setName("float_var");
-    auto bool_var = var(true).setName("bool_var");
+    auto bool_var  = var(true).setName("bool_var");
 
     // Test mixed arithmetic and comparison
     auto mixed_expr1 = expr(int_var > float_var).setName("mixed_expr1");
@@ -233,15 +233,17 @@ TEST(ExpressionOperatorsTest, TestOperatorPrecedence) {
 TEST(ExpressionOperatorsTest, TestOperatorsInBatchOperations) {
     using namespace reaction;
 
-    auto x = var(10).setName("x");
-    auto y = var(5).setName("y");
+    auto x      = var(10).setName("x");
+    auto y      = var(5).setName("y");
     auto result = expr((x > y) && (x / y == 2)).setName("result");
 
     int triggerCount = 0;
-    auto observer = action([&](bool value) {
-        triggerCount++;
-        EXPECT_TRUE(value); // Should be true for both original and updated values
-    }, result);
+    auto observer    = action(
+        [&](bool value) {
+            triggerCount++;
+            EXPECT_TRUE(value); // Should be true for both original and updated values
+        },
+        result);
 
     triggerCount = 0;
 
@@ -252,5 +254,5 @@ TEST(ExpressionOperatorsTest, TestOperatorsInBatchOperations) {
     });
 
     EXPECT_EQ(triggerCount, 1); // Should trigger only once
-    EXPECT_TRUE(result.get()); // (20>10) && (20/10==2) is true
+    EXPECT_TRUE(result.get());  // (20>10) && (20/10==2) is true
 }

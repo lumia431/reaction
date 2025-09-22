@@ -1,9 +1,11 @@
-#include "reaction.h"
-#include "rxcpp/rx.hpp"
-#include <benchmark/benchmark.h>
 #include <chrono>
 #include <numeric>
 #include <vector>
+
+#include <benchmark/benchmark.h>
+
+#include "reaction.h"
+#include "rxcpp/rx.hpp"
 
 using namespace rxcpp;
 using namespace rxcpp::sources;
@@ -11,7 +13,7 @@ using namespace rxcpp::subjects;
 using namespace rxcpp::operators;
 using namespace reaction;
 
-static void BM_TreeDeepDependency_Reaction(benchmark::State &state) {
+static void BM_TreeDeepDependency_Reaction(benchmark::State& state) {
     int index = 1;
     auto base = var(index);
     std::vector<Calc<int>> currentLevel;
@@ -20,8 +22,8 @@ static void BM_TreeDeepDependency_Reaction(benchmark::State &state) {
     for (int depth = 0; depth < state.range(0); depth++) {
         std::vector<Calc<int>> nextLevel;
 
-        for (auto &parent : currentLevel) {
-            auto left = calc([=]() { return parent() + 1; });
+        for (auto& parent : currentLevel) {
+            auto left  = calc([=]() { return parent() + 1; });
             auto right = calc([=]() { return parent() - 1; });
 
             nextLevel.emplace_back(left);
@@ -33,7 +35,7 @@ static void BM_TreeDeepDependency_Reaction(benchmark::State &state) {
 
     auto sum = calc([&]() {
         int total = 0;
-        for (auto &node : currentLevel) {
+        for (auto& node : currentLevel) {
             total += node();
         }
         return total;
@@ -46,7 +48,7 @@ static void BM_TreeDeepDependency_Reaction(benchmark::State &state) {
     }
 }
 
-static void BM_TreeDeepDependency_RxCpp(benchmark::State &state) {
+static void BM_TreeDeepDependency_RxCpp(benchmark::State& state) {
     subject<int> base;
 
     struct TreeNode {
@@ -61,7 +63,7 @@ static void BM_TreeDeepDependency_RxCpp(benchmark::State &state) {
     for (int depth = 0; depth < state.range(0); depth++) {
         std::vector<std::shared_ptr<TreeNode>> nextLevel;
 
-        for (auto &parent : currentLevel) {
+        for (auto& parent : currentLevel) {
             auto left = std::make_shared<TreeNode>();
             left->obs = parent->obs.map([](int x) { return x + 1; });
 
@@ -79,9 +81,8 @@ static void BM_TreeDeepDependency_RxCpp(benchmark::State &state) {
     int sum = 0;
     std::vector<rxcpp::subscription> subscriptions;
 
-    for (auto &leaf : currentLevel) {
-        subscriptions.push_back(
-            leaf->obs.subscribe([&](int x) { sum += x; }));
+    for (auto& leaf : currentLevel) {
+        subscriptions.push_back(leaf->obs.subscribe([&](int x) { sum += x; }));
     }
 
     for (auto _ : state) {
@@ -90,12 +91,12 @@ static void BM_TreeDeepDependency_RxCpp(benchmark::State &state) {
         benchmark::DoNotOptimize(sum);
     }
 
-    for (auto &sub : subscriptions) {
+    for (auto& sub : subscriptions) {
         sub.unsubscribe();
     }
 }
 
-static void BM_WideDependency_Reaction(benchmark::State &state) {
+static void BM_WideDependency_Reaction(benchmark::State& state) {
     std::vector<Var<int>> vars;
 
     for (int i = 0; i < state.range(0); i++) {
@@ -104,7 +105,7 @@ static void BM_WideDependency_Reaction(benchmark::State &state) {
 
     auto finalNode = calc([&]() {
         int sum = 0;
-        for (auto &node : vars) {
+        for (auto& node : vars) {
             sum += node();
         }
         return sum;
@@ -118,26 +119,23 @@ static void BM_WideDependency_Reaction(benchmark::State &state) {
     }
 }
 
-static void BM_WideDependency_RxCpp(benchmark::State &state) {
+static void BM_WideDependency_RxCpp(benchmark::State& state) {
     std::vector<std::shared_ptr<subject<int>>> vars;
     for (int i = 0; i < state.range(0); i++) {
         vars.push_back(std::make_shared<subject<int>>());
     }
 
-    auto merged = rxcpp::observable<>::iterate(vars)
-                      .flat_map([](std::shared_ptr<subject<int>> subj) {
-                          return subj->get_observable();
-                      })
-                      .publish()
-                      .ref_count();
+    auto merged =
+        rxcpp::observable<>::iterate(vars)
+            .flat_map([](std::shared_ptr<subject<int>> subj) { return subj->get_observable(); })
+            .publish()
+            .ref_count();
 
     std::atomic<int> sum{0};
-    auto sum_subscription = merged.scan(0, [](int acc, int x) {
-                                      return acc + x;
-                                  })
-                                .subscribe([&](int current_sum) {
-                                    sum.store(current_sum, std::memory_order_relaxed);
-                                });
+    auto sum_subscription =
+        merged.scan(0, [](int acc, int x) { return acc + x; }).subscribe([&](int current_sum) {
+            sum.store(current_sum, std::memory_order_relaxed);
+        });
 
     for (auto _ : state) {
         for (int i = 0; i < state.range(0); i++) {

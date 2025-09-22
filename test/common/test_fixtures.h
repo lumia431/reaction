@@ -8,6 +8,7 @@
 #pragma once
 
 #include <reaction.h>
+
 #include "gtest/gtest.h"
 
 /**
@@ -18,24 +19,15 @@
  */
 class Person : public reaction::FieldBase {
 public:
-    Person(std::string name, int age) : m_name(field(name)), m_age(field(age)) {
-    }
+    Person(std::string name, int age) : m_name(field(name)), m_age(field(age)) {}
 
-    std::string getName() const {
-        return m_name.get();
-    }
+    std::string getName() const { return m_name.get(); }
 
-    void setName(const std::string &name) {
-        m_name.value(name);
-    }
+    void setName(const std::string& name) { m_name.value(name); }
 
-    int getAge() const {
-        return m_age.get();
-    }
+    int getAge() const { return m_age.get(); }
 
-    void setAge(int age) {
-        m_age.value(age);
-    }
+    void setAge(int age) { m_age.value(age); }
 
 private:
     reaction::Var<std::string> m_name;

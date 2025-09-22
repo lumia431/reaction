@@ -7,10 +7,10 @@
 
 #pragma once
 
-#include "reaction/core/react.h"
-#include "reaction/graph/observer_graph.h"
-#include "reaction/graph/field_graph.h"
 #include "reaction/core/id_generator.h"
+#include "reaction/core/react.h"
+#include "reaction/graph/field_graph.h"
+#include "reaction/graph/observer_graph.h"
 
 namespace reaction {
 
@@ -59,11 +59,13 @@ public:
      * @tparam IV Invalidation strategy, default is KeepHandle.
      * @tparam T The type of the initial value (deduced).
      * @param t The initial value to store in the field.
-     * @return React<VarExpr, std::remove_cvref_t<T>, IV, TR> A reactive wrapper around the stored value.
+     * @return React<VarExpr, std::remove_cvref_t<T>, IV, TR> A reactive wrapper around the stored
+     * value.
      */
     template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, NonReact T>
-    auto field(T &&t) {
-        auto ptr = std::make_shared<ReactImpl<VarExpr, std::remove_cvref_t<T>, IV, TR>>(std::forward<T>(t));
+    auto field(T&& t) {
+        auto ptr = std::make_shared<ReactImpl<VarExpr, std::remove_cvref_t<T>, IV, TR>>(
+            std::forward<T>(t));
         ObserverGraph::getInstance().addNode(ptr->shared_from_this());
         FieldGraph::getInstance().addObj(m_id, ptr->shared_from_this());
         return React{ptr};
@@ -74,9 +76,7 @@ public:
      *
      * @return uint64_t The unique ID.
      */
-    uint64_t getId() {
-        return m_id;
-    }
+    uint64_t getId() { return m_id; }
 
 private:
     UniqueID m_id; ///< Unique identifier for this field instance.
@@ -95,8 +95,9 @@ private:
  * @return React<VarExpr, const std::remove_cvref_t<SrcType>, IV, TR> Reactive constant wrapper.
  */
 template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, NonReact SrcType>
-auto constVar(SrcType &&t) {
-    auto ptr = std::make_shared<ReactImpl<VarExpr, const std::remove_cvref_t<SrcType>, IV, TR>>(std::forward<SrcType>(t));
+auto constVar(SrcType&& t) {
+    auto ptr = std::make_shared<ReactImpl<VarExpr, const std::remove_cvref_t<SrcType>, IV, TR>>(
+        std::forward<SrcType>(t));
     ObserverGraph::getInstance().addNode(ptr);
     return React{ptr};
 }
@@ -114,8 +115,9 @@ auto constVar(SrcType &&t) {
  * @return React<VarExpr, std::remove_cvref_t<SrcType>, IV, TR> Reactive variable wrapper.
  */
 template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, NonReact SrcType>
-auto var(SrcType &&t) {
-    auto ptr = std::make_shared<ReactImpl<VarExpr, std::remove_cvref_t<SrcType>, IV, TR>>(std::forward<SrcType>(t));
+auto var(SrcType&& t) {
+    auto ptr = std::make_shared<ReactImpl<VarExpr, std::remove_cvref_t<SrcType>, IV, TR>>(
+        std::forward<SrcType>(t));
     ObserverGraph::getInstance().addNode(ptr);
     if constexpr (HasField<SrcType>) {
         FieldGraph::getInstance().bindField(t.getId(), ptr->shared_from_this());
@@ -136,8 +138,9 @@ auto var(SrcType &&t) {
  * @return React<CalcExpr, std::remove_cvref_t<OpExpr>, IV, TR> Reactive calculation wrapper.
  */
 template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, IsOpExpr OpExpr>
-auto expr(OpExpr &&opExpr) {
-    auto ptr = std::make_shared<ReactImpl<CalcExpr, std::remove_cvref_t<OpExpr>, IV, TR>>(std::forward<OpExpr>(opExpr));
+auto expr(OpExpr&& opExpr) {
+    auto ptr = std::make_shared<ReactImpl<CalcExpr, std::remove_cvref_t<OpExpr>, IV, TR>>(
+        std::forward<OpExpr>(opExpr));
     ObserverGraph::getInstance().addNode(ptr);
     ptr->set();
     return React{ptr};
@@ -157,7 +160,7 @@ auto expr(OpExpr &&opExpr) {
  * @return React<CalcExpr, ReturnType<Fun, Args...>, IV, TR> Reactive calculation wrapper.
  */
 template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, typename Fun, typename... Args>
-auto calc(Fun &&fun, Args &&...args) {
+auto calc(Fun&& fun, Args&&... args) {
     auto ptr = std::make_shared<ReactImpl<CalcExpr, ReturnType<Fun, Args...>, IV, TR>>();
     ObserverGraph::getInstance().addNode(ptr);
     ptr->set(std::forward<Fun>(fun), std::forward<Args>(args)...);
@@ -176,7 +179,7 @@ auto calc(Fun &&fun, Args &&...args) {
  * @return The reactive action wrapper.
  */
 template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, typename Fun, typename... Args>
-auto action(Fun &&fun, Args &&...args) {
+auto action(Fun&& fun, Args&&... args) {
     return calc<TR, IV>(std::forward<Fun>(fun), std::forward<Args>(args)...);
 }
 
@@ -191,8 +194,7 @@ auto action(Fun &&fun, Args &&...args) {
  * @param t The input value, expression, or callable.
  * @return Corresponding reactive wrapper.
  */
-template <NonReact T>
-auto create(T &&t) {
+template <NonReact T> auto create(T&& t) {
     if constexpr (IsBinaryOpExpr<std::remove_cvref_t<T>>) {
         return expr(std::forward<T>(t));
     } else if constexpr (InvocableType<T>) {
@@ -214,8 +216,7 @@ auto create(T &&t) {
  * @param args Arguments to forward to the callable.
  * @return A reactive calculation wrapper.
  */
-template <typename Fun, typename... Args>
-auto create(Fun &&fun, Args &&...args) {
+template <typename Fun, typename... Args> auto create(Fun&& fun, Args&&... args) {
     return calc(std::forward<Fun>(fun), std::forward<Args>(args)...);
 }
 
@@ -229,8 +230,7 @@ auto create(Fun &&fun, Args &&...args) {
  * @param fun A function containing batched operations.
  * @return A Batch object encapsulating the operation.
  */
-template <InvocableType Fun>
-auto batch(Fun &&fun) {
+template <InvocableType Fun> auto batch(Fun&& fun) {
     return Batch{std::forward<Fun>(fun)};
 }
 
@@ -243,8 +243,7 @@ auto batch(Fun &&fun) {
  * @tparam Fun Callable type to execute within the batch.
  * @param fun A function containing batched operations to be executed.
  */
-template <InvocableType Fun>
-void batchExecute(Fun &&fun) {
+template <InvocableType Fun> void batchExecute(Fun&& fun) {
     Batch batch{std::forward<Fun>(fun)};
     batch.execute();
 }

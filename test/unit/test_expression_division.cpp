@@ -18,8 +18,8 @@ TEST(ExpressionDivisionTest, TestIntegerDivisionPromotion) {
     using namespace reaction;
 
     // Test basic integer division that should return floating-point result
-    auto a = var(1).setName("a");
-    auto b = var(2).setName("b");
+    auto a        = var(1).setName("a");
+    auto b        = var(2).setName("b");
     auto division = expr(a / b).setName("division");
 
     EXPECT_DOUBLE_EQ(division.get(), 0.5);
@@ -42,7 +42,7 @@ TEST(ExpressionDivisionTest, TestIntegerDivisionPromotion) {
 TEST(ExpressionDivisionTest, TestMixedTypeDivision) {
     using namespace reaction;
 
-    auto intVar = var(5).setName("intVar");
+    auto intVar   = var(5).setName("intVar");
     auto floatVar = var(2.0).setName("floatVar");
 
     // Integer divided by float - mixed type expressions work naturally
@@ -66,8 +66,8 @@ TEST(ExpressionDivisionTest, TestMixedTypeDivision) {
 TEST(ExpressionDivisionTest, TestFloatingPointDivision) {
     using namespace reaction;
 
-    auto a = var(3.14).setName("a");
-    auto b = var(2.0).setName("b");
+    auto a        = var(3.14).setName("a");
+    auto b        = var(2.0).setName("b");
     auto division = expr(a / b).setName("division");
 
     EXPECT_DOUBLE_EQ(division.get(), 1.57);
@@ -120,7 +120,7 @@ TEST(ExpressionDivisionTest, TestDivisionWithCalculations) {
     auto y = var(4).setName("y");
 
     // Create intermediate calculations
-    auto sum = calc([&]() { return x() + y(); }).setName("sum");
+    auto sum  = calc([&]() { return x() + y(); }).setName("sum");
     auto diff = calc([&]() { return x() - y(); }).setName("diff");
 
     // Division of calculations using expression templates
@@ -167,15 +167,17 @@ TEST(ExpressionDivisionTest, TestDivisionEdgeCases) {
 TEST(ExpressionDivisionTest, TestDivisionInBatchOperations) {
     using namespace reaction;
 
-    auto numerator = var(15).setName("numerator");
+    auto numerator   = var(15).setName("numerator");
     auto denominator = var(4).setName("denominator");
-    auto result = expr(numerator / denominator).setName("result");
+    auto result      = expr(numerator / denominator).setName("result");
 
     int triggerCount = 0;
-    auto observer = action([&](double value) {
-        triggerCount++;
-        EXPECT_DOUBLE_EQ(value, 3.75); // 15/4 = 3.75
-    }, result);
+    auto observer    = action(
+        [&](double value) {
+            triggerCount++;
+            EXPECT_DOUBLE_EQ(value, 3.75); // 15/4 = 3.75
+        },
+        result);
 
     triggerCount = 0;
 

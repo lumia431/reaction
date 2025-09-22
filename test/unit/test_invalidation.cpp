@@ -21,7 +21,9 @@ TEST(InvalidationTest, TestCloseHandle) {
     auto dsG = reaction::calc([](auto aa) { return aa; }, a).setName("dsG");
 
     {
-        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::CloseHandle>([](int aa) { return aa; }, a).setName("dsA");
+        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::CloseHandle>(
+                       [](int aa) { return aa; }, a)
+                       .setName("dsA");
         dsB.reset([&]() { return a() + dsA(); });
         dsC.reset([&]() { return a() + dsA() + dsB(); });
         dsD.reset([&]() { return dsA() + dsB() + dsC(); });
@@ -68,7 +70,9 @@ TEST(InvalidationTest, TestLastHandle) {
     auto dsC = reaction::calc([](auto aa) { return aa; }, a).setName("dsC");
 
     {
-        auto dsA = reaction::calc<reaction::ChangeTrig, reaction::LastHandle>([](int aa) { return aa; }, a).setName("dsA");
+        auto dsA =
+            reaction::calc<reaction::ChangeTrig, reaction::LastHandle>([](int aa) { return aa; }, a)
+                .setName("dsA");
 
         dsB.reset([](int aa, int AA) { return aa + AA; }, a, dsA);
         dsC.reset([](int aa, int AA, int BB) { return aa + AA + BB; }, a, dsA, dsB);

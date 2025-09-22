@@ -7,9 +7,9 @@
 
 #pragma once
 
-#include "reaction/core/observer_node.h"
 #include "reaction/concurrency/thread_safety.h"
 #include "reaction/core/exception.h"
+#include "reaction/core/observer_node.h"
 
 namespace reaction {
 
@@ -21,31 +21,29 @@ namespace reaction {
  *
  * @tparam Type The type of the resource to manage.
  */
-template <typename Type>
-class Resource : public ObserverNode {
+template <typename Type> class Resource : public ObserverNode {
 public:
     /**
      * @brief Default constructor initializes with nullptr.
      */
-    Resource() : m_ptr(nullptr) {
-    }
+    Resource() : m_ptr(nullptr) {}
 
     /**
      * @brief Constructor that initializes the resource with a forwarded value.
      *
-     * @tparam T Type of the initialization argument, constrained so it cannot be another Resource<Type>.
+     * @tparam T Type of the initialization argument, constrained so it cannot be another
+     * Resource<Type>.
      * @param t The initialization value for the resource.
      */
     template <typename T>
-        requires(!std::is_same_v<std::remove_cvref_t<T>, Resource<Type>>)
-    Resource(T &&t) : m_ptr(std::make_unique<Type>(std::forward<T>(t))) {
-    }
+    requires(!std::is_same_v<std::remove_cvref_t<T>, Resource<Type>>)
+    Resource(T&& t) : m_ptr(std::make_unique<Type>(std::forward<T>(t))) {}
 
     // Delete copy constructor to avoid copying unique_ptr
-    Resource(const Resource &) = delete;
+    Resource(const Resource&) = delete;
 
     // Delete copy assignment operator to avoid copying unique_ptr
-    Resource &operator=(const Resource &) = delete;
+    Resource& operator=(const Resource&) = delete;
 
     /**
      * @brief Get a reference to the managed resource.
@@ -54,7 +52,7 @@ public:
      *
      * @return Type& Reference to the managed resource.
      */
-    [[nodiscard]] Type &getValue() const {
+    [[nodiscard]] Type& getValue() const {
         REACTION_REGISTER_THREAD();
         ConditionalSharedLock<ConditionalSharedMutex> lock(m_valueMutex);
         if (!m_ptr) {
@@ -73,8 +71,7 @@ public:
      * @param t The new value.
      * @return true if the value changed.
      */
-    template <typename T>
-    bool updateValue(T &&t) noexcept {
+    template <typename T> bool updateValue(T&& t) noexcept {
         REACTION_REGISTER_THREAD();
         ConditionalUniqueLock<ConditionalSharedMutex> lock(m_valueMutex);
         bool changed = true;
@@ -85,7 +82,7 @@ public:
                 // Create a local copy to avoid data tearing during comparison
                 Type newValue(std::forward<T>(t));
                 changed = *m_ptr != newValue;
-                *m_ptr = std::move(newValue);
+                *m_ptr  = std::move(newValue);
             }
         }
         return changed;
@@ -98,7 +95,7 @@ public:
      *
      * @return Type* Raw pointer to the resource.
      */
-    [[nodiscard]] Type *getRawPtr() const {
+    [[nodiscard]] Type* getRawPtr() const {
         REACTION_REGISTER_THREAD();
         ConditionalSharedLock<ConditionalSharedMutex> lock(m_valueMutex);
         if (!this->m_ptr) {
@@ -108,7 +105,7 @@ public:
     }
 
 protected:
-    std::unique_ptr<Type> m_ptr; ///< Unique pointer managing the resource.
+    std::unique_ptr<Type> m_ptr;                 ///< Unique pointer managing the resource.
     mutable ConditionalSharedMutex m_valueMutex; ///< Mutex for thread-safe value access.
 };
 
@@ -122,17 +119,14 @@ struct Void {};
  *
  * Since Void contains no data, getValue simply returns a default constructed Void.
  */
-template <>
-class Resource<Void> : public ObserverNode {
+template <> class Resource<Void> : public ObserverNode {
 public:
     /**
      * @brief Return a default constructed Void.
      *
      * @return Void An empty value.
      */
-    Void getValue() const noexcept {
-        return Void{};
-    }
+    Void getValue() const noexcept { return Void{}; }
 };
 
 } // namespace reaction

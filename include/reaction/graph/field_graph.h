@@ -7,10 +7,11 @@
 
 #pragma once
 
-#include "reaction/graph/observer_graph.h"
+#include <unordered_map>
+
 #include "reaction/concurrency/thread_safety.h"
 #include "reaction/core/types.h"
-#include <unordered_map>
+#include "reaction/graph/observer_graph.h"
 
 namespace reaction {
 
@@ -25,7 +26,7 @@ public:
      * @brief Get singleton instance.
      * @return FieldGraph& singleton reference.
      */
-    [[nodiscard]] static FieldGraph &getInstance() noexcept {
+    [[nodiscard]] static FieldGraph& getInstance() noexcept {
         static FieldGraph instance;
         return instance;
     }
@@ -35,7 +36,7 @@ public:
      * @param id Object ID.
      * @param node Node pointer.
      */
-    void addObj(uint64_t id, const NodePtr &node) noexcept {
+    void addObj(uint64_t id, const NodePtr& node) noexcept {
         REACTION_REGISTER_THREAD();
         ConditionalUniqueLock<ConditionalSharedMutex> lock(m_fieldMutex);
         m_fieldMap[id].insert(node);
@@ -58,7 +59,7 @@ public:
      * @param id Object ID.
      * @param objPtr Source node.
      */
-    void bindField(uint64_t id, const NodePtr &objPtr) {
+    void bindField(uint64_t id, const NodePtr& objPtr) {
         REACTION_REGISTER_THREAD();
         NodeSet nodesToBind;
         {
@@ -70,7 +71,7 @@ public:
         }
 
         // Bind nodes without holding the field mutex to avoid deadlock with ObserverGraph
-        for (auto &node : nodesToBind) {
+        for (auto& node : nodesToBind) {
             ObserverGraph::getInstance().addObserver(objPtr, node.lock());
         }
     }
@@ -78,7 +79,7 @@ public:
 private:
     FieldGraph() {}
     std::unordered_map<uint64_t, NodeSet> m_fieldMap; ///< Map from object ID to its field nodes.
-    mutable ConditionalSharedMutex m_fieldMutex;       ///< Mutex for thread-safe field operations.
+    mutable ConditionalSharedMutex m_fieldMutex;      ///< Mutex for thread-safe field operations.
 };
 
 } // namespace reaction

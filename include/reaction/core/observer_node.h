@@ -7,8 +7,9 @@
 
 #pragma once
 
-#include "reaction/core/types.h"
 #include <memory>
+
+#include "reaction/core/types.h"
 
 namespace reaction {
 
@@ -31,9 +32,7 @@ public:
      * By default, triggers notify().
      * @param changed Whether the node's value has changed.
      */
-    virtual void valueChanged(bool changed = true) {
-        this->notify(changed);
-    }
+    virtual void valueChanged(bool changed = true) { this->notify(changed); }
 
     /**
      * @brief Handle value change without triggering downstream notifications.
@@ -55,9 +54,7 @@ public:
      *
      * @param depth The new depth value to consider
      */
-    void updateDepth(uint8_t depth) noexcept {
-        m_depth = std::max(depth, m_depth);
-    }
+    void updateDepth(uint8_t depth) noexcept { m_depth = std::max(depth, m_depth); }
 
     /**
      * @brief Update all observer dependencies at once.
@@ -66,21 +63,20 @@ public:
      * @tparam Args Parameter pack for node pointers.
      * @param args Nodes to observe.
      */
-    template<typename... Args>
-    void updateObservers(Args &&...args);
+    template <typename... Args> void updateObservers(Args&&... args);
 
     /**
      * @brief Add a single observer node.
      * @param node Observer node to add.
      */
-    void addOneObserver(const NodePtr &node);
+    void addOneObserver(const NodePtr& node);
 
     /**
      * @brief Notify observers and delayed repeat nodes.
      * @param changed Whether the node's value has changed.
      */
     void notify(bool changed = true) {
-        for (auto &observer : m_observers) {
+        for (auto& observer : m_observers) {
             if (auto wp = observer.lock()) [[likely]]
                 wp->valueChanged(changed);
         }
@@ -100,13 +96,12 @@ private:
 
 namespace reaction {
 
-template<typename... Args>
-inline void ObserverNode::updateObservers(Args &&...args) {
+template <typename... Args> inline void ObserverNode::updateObservers(Args&&... args) {
     auto shared_this = shared_from_this();
     ObserverGraph::getInstance().updateObserversTransactional(shared_this, args...);
 }
 
-inline void ObserverNode::addOneObserver(const NodePtr &node) {
+inline void ObserverNode::addOneObserver(const NodePtr& node) {
     ObserverGraph::getInstance().addObserver(shared_from_this(), node);
 }
 

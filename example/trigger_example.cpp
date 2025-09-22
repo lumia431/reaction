@@ -6,6 +6,7 @@
  */
 
 #include <reaction.h>
+
 #include <iostream>
 
 void triggerExample() {
@@ -15,7 +16,7 @@ void triggerExample() {
 
     // Value change trigger example
     int valueChangeCount = 0;
-    auto valueChangeDS = reaction::calc<reaction::ChangeTrig>(
+    auto valueChangeDS   = reaction::calc<reaction::ChangeTrig>(
         [&valueChangeCount](double price) {
             valueChangeCount++;
             return price * 1.1; // Calculate 10% price increase
@@ -23,7 +24,7 @@ void triggerExample() {
         stockPrice);
 
     int filterCount = 0;
-    auto filterDS = reaction::calc<reaction::FilterTrig>(
+    auto filterDS   = reaction::calc<reaction::FilterTrig>(
         [&filterCount](double price) {
             filterCount++;
             return price > 105.0 ? "Sell" : "Hold";

@@ -10,10 +10,10 @@
 
 // Test expression templates with reactive values
 TEST(ExpressionTemplatesTest, TestExpr) {
-    auto a = reaction::var(1);
-    auto b = reaction::var(2);
-    auto c = reaction::var(3.14);
-    auto ds = reaction::calc([&]() { return a() + b(); });
+    auto a       = reaction::var(1);
+    auto b       = reaction::var(2);
+    auto c       = reaction::var(3.14);
+    auto ds      = reaction::calc([&]() { return a() + b(); });
     auto expr_ds = reaction::expr(c + a / b - ds * 2);
 
     a.value(2);

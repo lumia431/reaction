@@ -7,13 +7,13 @@
 
 #pragma once
 
-#include "reaction/graph/batch.h"
-#include "reaction/expression/expression.h"
-#include "reaction/policy/invalidation.h"
+#include "reaction/concurrency/global_state.h"
 #include "reaction/concurrency/thread_safety.h"
 #include "reaction/core/exception.h"
-#include "reaction/concurrency/global_state.h"
 #include "reaction/core/raii_guards.h"
+#include "reaction/expression/expression.h"
+#include "reaction/graph/batch.h"
+#include "reaction/policy/invalidation.h"
 
 namespace reaction {
 
@@ -36,20 +36,13 @@ public:
      * @brief Assign a new value directly to the reactive variable.
      * Only valid for VarExpr + non-const Type.
      */
-    template <typename T>
-    void operator=(T &&t) {
-        value(std::forward<T>(t));
-    }
+    template <typename T> void operator=(T&& t) { value(std::forward<T>(t)); }
 
     /// @brief Returns the current evaluated value.
-    [[nodiscard]] decltype(auto) get() const {
-        return this->getValue();
-    }
+    [[nodiscard]] decltype(auto) get() const { return this->getValue(); }
 
     /// @brief Returns raw pointer to the stored object (for pointer-based types).
-    [[nodiscard]] auto getRaw() const {
-        return this->getRawPtr();
-    }
+    [[nodiscard]] auto getRaw() const { return this->getRawPtr(); }
 
     /**
      * @brief Sets a new expression source and dependencies.
@@ -57,8 +50,7 @@ public:
      * @param f    Expression function/lambda.
      * @param args Additional arguments (usually reactive inputs).
      */
-    template <typename F, HasArguments... A>
-    void set(F &&f, A &&...args) {
+    template <typename F, HasArguments... A> void set(F&& f, A&&... args) {
         this->setSource(std::forward<F>(f), std::forward<A>(args)...);
         this->notify();
     }
@@ -66,12 +58,9 @@ public:
     /**
      * @brief Overload of set with only function input. Dependency is auto-tracked.
      */
-    template <typename F>
-    void set(F &&f) {
+    template <typename F> void set(F&& f) {
         {
-            auto g = makeRegFunGuard([this](const NodePtr &node) {
-                this->addObCb(node);
-            });
+            auto g = makeRegFunGuard([this](const NodePtr& node) { this->addObCb(node); });
             this->setSource(std::forward<F>(f));
         }
         this->notify();
@@ -79,9 +68,7 @@ public:
 
     /// @brief Set a no-argument expression and auto-track dependencies.
     void set() {
-        auto g = makeRegFunGuard([this](const NodePtr &node) {
-            this->addObCb(node);
-        });
+        auto g = makeRegFunGuard([this](const NodePtr& node) { this->addObCb(node); });
         this->setOpExpr();
     }
 
@@ -89,8 +76,8 @@ public:
      * @brief Sets the actual value directly (only if convertible).
      */
     template <typename T>
-        requires(Convertable<T, Type> && IsVarExpr<Expr> && !ConstType<Type>)
-    void value(T &&t) {
+    requires(Convertable<T, Type> && IsVarExpr<Expr> && !ConstType<Type>)
+    void value(T&& t) {
         this->setValue(std::forward<T>(t));
     }
 
@@ -105,9 +92,7 @@ public:
     }
 
     /// @brief Increases internal weak reference count.
-    void addWeakRef() noexcept {
-        m_weakRefCount++;
-    }
+    void addWeakRef() noexcept { m_weakRefCount++; }
 
     /// @brief Decreases weak reference count and invalidates if reaching zero.
     void releaseWeakRef() noexcept {
@@ -130,8 +115,7 @@ private:
  * @tparam IV   Invalidation strategy.
  * @tparam TR   Trigger mode type.
  */
-template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR>
-class React {
+template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR> class React {
 public:
     using value_type = Type;
     using react_type = ReactImpl<Expr, Type, IV, TR>;
@@ -142,22 +126,18 @@ public:
     }
 
     /// @brief Destructor releases weak reference if still alive.
-    ~React() {
-        safeReleaseRef();
-    }
+    ~React() { safeReleaseRef(); }
 
     /// @brief Copy constructor.
-    React(const React &other) noexcept : m_weakPtr(other.m_weakPtr) {
-        safeAddRef();
-    }
+    React(const React& other) noexcept : m_weakPtr(other.m_weakPtr) { safeAddRef(); }
 
     /// @brief Move constructor.
-    React(React &&other) noexcept : m_weakPtr(std::move(other.m_weakPtr)) {
+    React(React&& other) noexcept : m_weakPtr(std::move(other.m_weakPtr)) {
         other.m_weakPtr.reset();
     }
 
     /// @brief Copy assignment with reference count handling.
-    React &operator=(const React &other) noexcept {
+    React& operator=(const React& other) noexcept {
         if (this != &other) {
             safeReleaseRef();
             m_weakPtr = other.m_weakPtr;
@@ -167,7 +147,7 @@ public:
     }
 
     /// @brief Move assignment.
-    React &operator=(React &&other) noexcept {
+    React& operator=(React&& other) noexcept {
         if (this != &other) {
             safeReleaseRef();
             m_weakPtr = std::move(other.m_weakPtr);
@@ -177,24 +157,16 @@ public:
     }
 
     /// @brief Compare by internal pointer name (used in containers).
-    bool operator<(const React &other) const {
-        return getName() < other.getName();
-    }
+    bool operator<(const React& other) const { return getName() < other.getName(); }
 
     /// @brief Check equality by underlying object pointer.
-    bool operator==(const React &other) const {
-        return getPtr().get() == other.getPtr().get();
-    }
+    bool operator==(const React& other) const { return getPtr().get() == other.getPtr().get(); }
 
     /// @brief Pointer-like access to raw value.
-    [[nodiscard]] auto operator->() const {
-        return getPtr()->getRaw();
-    }
+    [[nodiscard]] auto operator->() const { return getPtr()->getRaw(); }
 
     /// @brief Checks if this React is valid (non-null).
-    [[nodiscard]] explicit operator bool() const {
-        return !m_weakPtr.expired();
-    }
+    [[nodiscard]] explicit operator bool() const { return !m_weakPtr.expired(); }
 
     /**
      * @brief Value access operator.
@@ -208,20 +180,16 @@ public:
     }
 
     /// @brief Returns the current value.
-    [[nodiscard]] decltype(auto) get() const {
-        return getPtr()->get();
-    }
+    [[nodiscard]] decltype(auto) get() const { return getPtr()->get(); }
 
     /// @brief Reset the expression with new source and dependencies.
-    template <typename F, typename... A>
-    React &reset(F &&f, A &&...args) {
+    template <typename F, typename... A> React& reset(F&& f, A&&... args) {
         getPtr()->set(std::forward<F>(f), std::forward<A>(args)...);
         return *this;
     }
 
     /// @brief Assigns a value (only if valid).
-    template <typename T>
-    React &value(T &&t) {
+    template <typename T> React& value(T&& t) {
         if (g_batch_fun) {
             std::invoke(g_batch_fun, getPtr());
         } else {
@@ -231,20 +199,19 @@ public:
     }
 
     /// @brief Apply a filter to this React node.
-    template <typename F, typename... A>
-    React &filter(F &&f, A &&...args) {
+    template <typename F, typename... A> React& filter(F&& f, A&&... args) {
         getPtr()->filter(std::forward<F>(f), std::forward<A>(args)...);
         return *this;
     }
 
     /// @brief Closes this reactive node.
-    React &close() {
+    React& close() {
         getPtr()->close();
         return *this;
     }
 
     /// @brief Assign a human-readable name for debugging/tracing.
-    React &setName(const std::string &name) {
+    React& setName(const std::string& name) {
         ObserverGraph::getInstance().setName(getPtr(), name);
         return *this;
     }
@@ -291,11 +258,10 @@ private:
             p->releaseWeakRef();
     }
 
-    std::weak_ptr<react_type> m_weakPtr; ///< Weak reference to the implementation node.
+    std::weak_ptr<react_type> m_weakPtr;       ///< Weak reference to the implementation node.
     mutable ConditionalSharedMutex m_ptrMutex; ///< Mutex for thread-safe weak_ptr access.
 
-    template <typename T, IsTrigger M>
-    friend class CalcExprBase;
+    template <typename T, IsTrigger M> friend class CalcExprBase;
 
     friend struct FilterTrig;
     friend struct std::hash<React<Expr, Type, IV, TR>>;
@@ -309,8 +275,8 @@ namespace std {
 using namespace reaction;
 template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR>
 struct hash<React<Expr, Type, IV, TR>> {
-    std::size_t operator()(const React<Expr, Type, IV, TR> &react) const noexcept {
-        return std::hash<ObserverNode *>{}(react.getPtr().get());
+    std::size_t operator()(const React<Expr, Type, IV, TR>& react) const noexcept {
+        return std::hash<ObserverNode*>{}(react.getPtr().get());
     }
 };
 

@@ -20,14 +20,11 @@ struct VarExpr;
 struct Void;
 struct ChangeTrig;
 
-template <typename Op, typename L, typename R>
-class BinaryOpExpr;
+template <typename Op, typename L, typename R> class BinaryOpExpr;
 
-template <typename Op, typename T>
-class UnaryOpExpr;
+template <typename Op, typename T> class UnaryOpExpr;
 
-template <typename T>
-struct ValueWrapper;
+template <typename T> struct ValueWrapper;
 
 // ==================== Basic type concepts ====================
 
@@ -35,8 +32,7 @@ struct ValueWrapper;
  * @brief Placeholder type used for generic substitution.
  */
 struct AnyTp {
-    template <typename T>
-    operator T();
+    template <typename T> operator T();
 };
 
 /**
@@ -91,7 +87,7 @@ concept HasArguments = sizeof...(Args) > 0;
  * @brief Checks if the type supports equality comparison.
  */
 template <typename T>
-concept ComparableType = requires(T &a, T &b) {
+concept ComparableType = requires(T& a, T& b) {
     { a == b } -> std::convertible_to<bool>;
 };
 
@@ -137,8 +133,7 @@ concept IsReactSource = requires(T t) {
  * @tparam IV    Invalidation strategy type.
  * @tparam TR    Triggering mode type.
  */
-template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR>
-class ReactImpl;
+template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR> class ReactImpl;
 
 /**
  * @brief Public wrapper of a reactive node.
@@ -148,16 +143,14 @@ class ReactImpl;
  * @tparam IV    Invalidation strategy.
  * @tparam TR    Triggering mode.
  */
-template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR>
-class React;
+template <typename Expr, typename Type, IsInvalidation IV, IsTrigger TR> class React;
 
 // ==================== Type Traits =======================
 
 /**
  * @brief Fallback trait to mark non-reactive types.
  */
-template <typename T>
-struct ReactTraits : std::false_type {
+template <typename T> struct ReactTraits : std::false_type {
     using type = T;
 };
 
@@ -184,23 +177,22 @@ concept NonReact = !IsReact<T>;
 /**
  * @brief Extracts the return type from a callable expression using the React argument types.
  */
-template <typename Fun, typename... Args>
-struct ExpressionTraits {
+template <typename Fun, typename... Args> struct ExpressionTraits {
     using raw_type = std::invoke_result_t<Fun, typename ReactTraits<Args>::type...>;
-    using type = std::conditional_t<VoidType<raw_type>, Void, std::remove_cvref_t<raw_type>>;
+    using type     = std::conditional_t<VoidType<raw_type>, Void, std::remove_cvref_t<raw_type>>;
 };
 
 /**
  * @brief Alias to get the return type of a callable using React traits.
  */
 template <typename Fun, typename... Args>
-using ReturnType = typename ExpressionTraits<std::remove_cvref_t<Fun>, std::remove_cvref_t<Args>...>::type;
+using ReturnType =
+    typename ExpressionTraits<std::remove_cvref_t<Fun>, std::remove_cvref_t<Args>...>::type;
 
 /**
  * @brief Fallback trait for identifying binary operation expressions.
  */
-template <typename T>
-struct BinaryOpExprTraits : std::false_type {};
+template <typename T> struct BinaryOpExprTraits : std::false_type {};
 
 /**
  * @brief Specialization for BinaryOpExpr types.
@@ -211,14 +203,12 @@ struct BinaryOpExprTraits<BinaryOpExpr<Op, L, R>> : std::true_type {};
 /**
  * @brief Fallback trait for identifying unary operation expressions.
  */
-template <typename T>
-struct UnaryOpExprTraits : std::false_type {};
+template <typename T> struct UnaryOpExprTraits : std::false_type {};
 
 /**
  * @brief Specialization for UnaryOpExpr types.
  */
-template <typename Op, typename T>
-struct UnaryOpExprTraits<UnaryOpExpr<Op, T>> : std::true_type {};
+template <typename Op, typename T> struct UnaryOpExprTraits<UnaryOpExpr<Op, T>> : std::true_type {};
 
 /**
  * @brief Concept to check if a type is a binary operation expression.
@@ -244,15 +234,15 @@ concept IsOpExpr = IsBinaryOpExpr<T> || IsUnaryOpExpr<T>;
  *        Otherwise, wrap it using ValueWrapper.
  */
 template <typename T>
-using ExprTraits = std::conditional_t<IsReact<T> || IsBinaryOpExpr<T> || IsUnaryOpExpr<T>, T, ValueWrapper<T>>;
+using ExprTraits =
+    std::conditional_t<IsReact<T> || IsBinaryOpExpr<T> || IsUnaryOpExpr<T>, T, ValueWrapper<T>>;
 
 /**
  * @brief Concept to determine if either operand is reactive or a binary expression.
  */
 template <typename L, typename R>
-concept HasReactOp = IsReact<std::remove_cvref_t<L>> ||
-                     IsReact<std::remove_cvref_t<R>> ||
-                     IsBinaryOpExpr<std::remove_cvref_t<L>> ||
-                     IsBinaryOpExpr<std::remove_cvref_t<R>>;
+concept HasReactOp =
+    IsReact<std::remove_cvref_t<L>> || IsReact<std::remove_cvref_t<R>> ||
+    IsBinaryOpExpr<std::remove_cvref_t<L>> || IsBinaryOpExpr<std::remove_cvref_t<R>>;
 
 } // namespace reaction

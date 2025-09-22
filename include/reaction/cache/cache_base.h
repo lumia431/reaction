@@ -7,11 +7,12 @@
 
 #pragma once
 
-#include "reaction/concurrency/thread_safety.h"
-#include <unordered_map>
+#include <algorithm>
 #include <atomic>
 #include <chrono>
-#include <algorithm>
+#include <unordered_map>
+
+#include "reaction/concurrency/thread_safety.h"
 
 namespace reaction {
 
@@ -29,30 +30,28 @@ namespace reaction {
  * @tparam Hash Hash function for key type
  * @tparam KeyEqual Equality comparison for key type
  */
-template <
-    typename Key,
-    typename Value,
-    typename Hash = std::hash<Key>,
-    typename KeyEqual = std::equal_to<Key>
->
+template <typename Key,
+          typename Value,
+          typename Hash     = std::hash<Key>,
+          typename KeyEqual = std::equal_to<Key>>
 class CacheBase {
 public:
     /**
      * @brief Cache statistics structure.
      */
     struct Stats {
-        size_t totalEntries = 0;
+        size_t totalEntries     = 0;
         uint64_t currentVersion = 0;
-        size_t hitCount = 0;
-        size_t missCount = 0;
-        double hitRatio = 0.0;
+        size_t hitCount         = 0;
+        size_t missCount        = 0;
+        double hitRatio         = 0.0;
 
         Stats(size_t entries, uint64_t version, size_t hits, size_t misses)
-            : totalEntries(entries)
-            , currentVersion(version)
-            , hitCount(hits)
-            , missCount(misses)
-            , hitRatio(hits + misses > 0 ? static_cast<double>(hits) / (hits + misses) : 0.0) {}
+            : totalEntries(entries),
+              currentVersion(version),
+              hitCount(hits),
+              missCount(misses),
+              hitRatio(hits + misses > 0 ? static_cast<double>(hits) / (hits + misses) : 0.0) {}
     };
 
     /**
@@ -65,24 +64,20 @@ public:
 
         template <typename V>
         CacheEntry(V&& val, uint64_t ver)
-            : value(std::forward<V>(val))
-            , version(ver)
-            , lastAccess(std::chrono::steady_clock::now()) {}
+            : value(std::forward<V>(val)),
+              version(ver),
+              lastAccess(std::chrono::steady_clock::now()) {}
 
         CacheEntry(const CacheEntry& other)
-            : value(other.value)
-            , version(other.version)
-            , lastAccess(other.lastAccess) {}
+            : value(other.value), version(other.version), lastAccess(other.lastAccess) {}
 
         CacheEntry(CacheEntry&& other) noexcept
-            : value(std::move(other.value))
-            , version(other.version)
-            , lastAccess(other.lastAccess) {}
+            : value(std::move(other.value)), version(other.version), lastAccess(other.lastAccess) {}
 
         CacheEntry& operator=(const CacheEntry& other) {
             if (this != &other) {
-                value = other.value;
-                version = other.version;
+                value      = other.value;
+                version    = other.version;
                 lastAccess = other.lastAccess;
             }
             return *this;
@@ -90,8 +85,8 @@ public:
 
         CacheEntry& operator=(CacheEntry&& other) noexcept {
             if (this != &other) {
-                value = std::move(other.value);
-                version = other.version;
+                value      = std::move(other.value);
+                version    = other.version;
                 lastAccess = other.lastAccess;
             }
             return *this;
@@ -106,8 +101,7 @@ protected:
      * @param ttl Time-to-live for cache entries
      */
     explicit CacheBase(size_t maxSize, std::chrono::minutes ttl)
-        : m_maxCacheSize(maxSize)
-        , m_cacheTTL(ttl) {}
+        : m_maxCacheSize(maxSize), m_cacheTTL(ttl) {}
 
     /**
      * @brief Try to get cached value for a key.
@@ -137,8 +131,7 @@ protected:
      * @param key The key to cache under
      * @param value The value to cache
      */
-    template <typename V>
-    void cacheValue(const Key& key, V&& value) noexcept {
+    template <typename V> void cacheValue(const Key& key, V&& value) noexcept {
         ConditionalUniqueLock<ConditionalSharedMutex> lock(m_cacheMutex);
 
         uint64_t currentVersion = m_currentVersion.load(std::memory_order_acquire);
@@ -175,11 +168,7 @@ protected:
     Stats getStatsInternal() const noexcept {
         ConditionalSharedLock<ConditionalSharedMutex> lock(m_cacheMutex);
         return Stats{
-            m_cacheEntries.size(),
-            m_currentVersion.load(),
-            m_hitCount.load(),
-            m_missCount.load()
-        };
+            m_cacheEntries.size(), m_currentVersion.load(), m_hitCount.load(), m_missCount.load()};
     }
 
     /**
@@ -196,7 +185,7 @@ private:
      * Must be called with m_cacheMutex held in exclusive mode.
      */
     void cleanupOldEntriesInternal() noexcept {
-        auto now = std::chrono::steady_clock::now();
+        auto now        = std::chrono::steady_clock::now();
         auto cutoffTime = now - m_cacheTTL;
 
         // Remove entries older than TTL
@@ -210,8 +199,8 @@ private:
 
         // If still too many entries, remove least recently used
         if (m_cacheEntries.size() > m_maxCacheSize) {
-            auto oldestIt = std::min_element(m_cacheEntries.begin(), m_cacheEntries.end(),
-                [](const auto& a, const auto& b) {
+            auto oldestIt = std::min_element(
+                m_cacheEntries.begin(), m_cacheEntries.end(), [](const auto& a, const auto& b) {
                     return a.second.lastAccess < b.second.lastAccess;
                 });
 
@@ -242,39 +231,34 @@ public:
     using Base = CacheBase<PtrType, Value, std::hash<PtrType>, std::equal_to<PtrType>>;
 
 protected:
-    explicit PtrCacheBase(size_t maxSize, std::chrono::minutes ttl)
-        : Base(maxSize, ttl) {}
+    explicit PtrCacheBase(size_t maxSize, std::chrono::minutes ttl) : Base(maxSize, ttl) {}
 };
 
 /**
  * @brief Specialized cache base for pair key types with custom hash.
  */
 template <typename First, typename Second, typename Value>
-class PairCacheBase : public CacheBase<
-    std::pair<First, Second>,
-    Value,
-    std::hash<std::pair<First, Second>>,
-    std::equal_to<std::pair<First, Second>>
-> {
+class PairCacheBase : public CacheBase<std::pair<First, Second>,
+                                       Value,
+                                       std::hash<std::pair<First, Second>>,
+                                       std::equal_to<std::pair<First, Second>>> {
 public:
     using KeyType = std::pair<First, Second>;
-    using Base = CacheBase<KeyType, Value, std::hash<KeyType>, std::equal_to<KeyType>>;
+    using Base    = CacheBase<KeyType, Value, std::hash<KeyType>, std::equal_to<KeyType>>;
 
 protected:
-    explicit PairCacheBase(size_t maxSize, std::chrono::minutes ttl)
-        : Base(maxSize, ttl) {}
+    explicit PairCacheBase(size_t maxSize, std::chrono::minutes ttl) : Base(maxSize, ttl) {}
 };
 
 } // namespace reaction
 
 // Specialize std::hash for std::pair to support PairCacheBase
 namespace std {
-    template <typename T1, typename T2>
-    struct hash<std::pair<T1, T2>> {
-        size_t operator()(const std::pair<T1, T2>& p) const noexcept {
-            auto h1 = std::hash<T1>{}(p.first);
-            auto h2 = std::hash<T2>{}(p.second);
-            return h1 ^ (h2 << 1);
-        }
-    };
-}
+template <typename T1, typename T2> struct hash<std::pair<T1, T2>> {
+    size_t operator()(const std::pair<T1, T2>& p) const noexcept {
+        auto h1 = std::hash<T1>{}(p.first);
+        auto h2 = std::hash<T2>{}(p.second);
+        return h1 ^ (h2 << 1);
+    }
+};
+} // namespace std

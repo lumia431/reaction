@@ -19,11 +19,12 @@
  */
 
 #include <reaction.h>
-#include <iostream>
+
+#include <chrono>
 #include <iomanip>
+#include <iostream>
 #include <string>
 #include <thread>
-#include <chrono>
 
 using namespace reaction;
 
@@ -41,7 +42,7 @@ void demonstrateDependencyCycleException() {
     // First, demonstrate self-observation
     std::cout << "\n--- Self-Observation Example ---\n";
     try {
-        auto a = var(10).setName("variable_a");
+        auto a     = var(10).setName("variable_a");
         auto calcA = calc([&]() { return a() + 1; }).setName("calc_a");
 
         std::cout << "Attempting to create self-observation...\n";
@@ -121,7 +122,7 @@ void demonstrateTypeMismatchException() {
 
     try {
         // Create calculations with different return types
-        auto intCalc = calc([]() { return 42; }).setName("int_calculation");
+        auto intCalc    = calc([]() { return 42; }).setName("int_calculation");
         auto stringCalc = calc([]() { return std::string("hello"); }).setName("string_calculation");
 
         std::cout << "Created int calculation: " << intCalc.get() << "\n";
@@ -180,7 +181,7 @@ void demonstrateBatchOperationConflicts() {
 
     std::cout << "Demonstrating batch operation conflict detection...\n";
 
-    auto counter = var(0).setName("counter");
+    auto counter  = var(0).setName("counter");
     auto tempCalc = calc([&]() { return counter() * 2; }).setName("temp_calc");
 
     std::cout << "Initial tempCalc value: " << tempCalc.get() << "\n";
@@ -210,7 +211,8 @@ void demonstrateBatchOperationConflicts() {
     try {
         batchExecute([&]() {
             counter.value(5);
-            std::cout << "✅ Normal batch operation succeeded - tempCalc: " << tempCalc.get() << "\n";
+            std::cout << "✅ Normal batch operation succeeded - tempCalc: " << tempCalc.get()
+                      << "\n";
         });
         std::cout << "Batch operation completed successfully\n";
         std::cout << "Final tempCalc value: " << tempCalc.get() << "\n";
@@ -227,22 +229,23 @@ void demonstrateExceptionPropagation() {
     try {
         // Create a chain: var -> calc -> action
         auto source = var(10).setName("source");
-        auto multiplier = calc([&]() {
-            int val = source();
-            if (val < 0) {
-                throw std::runtime_error("Negative values not allowed in multiplier");
-            }
-            return val * 2;
-        }).setName("multiplier");
+        auto multiplier =
+            calc([&]() {
+                int val = source();
+                if (val < 0) {
+                    throw std::runtime_error("Negative values not allowed in multiplier");
+                }
+                return val * 2;
+            }).setName("multiplier");
 
         auto logger = action([&]() {
-            try {
-                std::cout << "Multiplier result: " << multiplier() << "\n";
-            } catch (const std::runtime_error& e) {
-                std::cout << "⚠️  Runtime error in action: " << e.what() << "\n";
-                throw; // Re-throw to demonstrate propagation
-            }
-        }).setName("logger");
+                          try {
+                              std::cout << "Multiplier result: " << multiplier() << "\n";
+                          } catch (const std::runtime_error& e) {
+                              std::cout << "⚠️  Runtime error in action: " << e.what() << "\n";
+                              throw; // Re-throw to demonstrate propagation
+                          }
+                      }).setName("logger");
 
         // Test normal operation
         std::cout << "Testing normal operation:\n";

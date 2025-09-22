@@ -10,9 +10,10 @@
 
 // Test copy semantics of reactive variables
 TEST(MemoryManagementTest, TestCopy) {
-    auto a = reaction::var(1);
-    auto b = reaction::var(3.14);
-    auto ds = reaction::calc([](int aa, double bb) { return std::to_string(aa) + std::to_string(bb); }, a, b);
+    auto a  = reaction::var(1);
+    auto b  = reaction::var(3.14);
+    auto ds = reaction::calc(
+        [](int aa, double bb) { return std::to_string(aa) + std::to_string(bb); }, a, b);
     auto dds = reaction::calc([](auto aa, auto dsds) { return std::to_string(aa) + dsds; }, a, ds);
 
     auto dds_copy = dds;
@@ -26,9 +27,10 @@ TEST(MemoryManagementTest, TestCopy) {
 
 // Test move semantics of reactive variables
 TEST(MemoryManagementTest, TestMove) {
-    auto a = reaction::var(1);
-    auto b = reaction::var(3.14);
-    auto ds = reaction::calc([](int aa, double bb) { return std::to_string(aa) + std::to_string(bb); }, a, b);
+    auto a  = reaction::var(1);
+    auto b  = reaction::var(3.14);
+    auto ds = reaction::calc(
+        [](int aa, double bb) { return std::to_string(aa) + std::to_string(bb); }, a, b);
     auto dds = reaction::calc([](auto aa, auto dsds) { return std::to_string(aa) + dsds; }, a, ds);
 
     auto dds_move = std::move(dds);

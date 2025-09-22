@@ -26,17 +26,18 @@
 #include <functional>
 #include <optional>
 #include <vector>
-#include "reaction/expression/operators.h"
-#include "reaction/expression/expression_types.h"
-#include "reaction/expression/expression_builders.h"
-#include "reaction/core/concept.h"
-#include "reaction/core/resource.h"
-#include "reaction/policy/trigger.h"
-#include "reaction/core/exception.h"
-#include "reaction/graph/observer_graph.h"
-#include "reaction/graph/field_graph.h"
+
 #include "reaction/concurrency/global_state.h"
+#include "reaction/core/concept.h"
+#include "reaction/core/exception.h"
 #include "reaction/core/raii_guards.h"
+#include "reaction/core/resource.h"
+#include "reaction/expression/expression_builders.h"
+#include "reaction/expression/expression_types.h"
+#include "reaction/expression/operators.h"
+#include "reaction/graph/field_graph.h"
+#include "reaction/graph/observer_graph.h"
+#include "reaction/policy/trigger.h"
 
 namespace reaction {
 
@@ -61,8 +62,7 @@ template <typename Expr, typename Type, IsTrigger TR> class Expression;
  * @tparam Type Computed value type.
  * @tparam TR   Triggering mode.
  */
-template <typename Type, IsTrigger TR>
-class CalcExprBase : public Resource<Type>, public TR {
+template <typename Type, IsTrigger TR> class CalcExprBase : public Resource<Type>, public TR {
 public:
     /**
      * @brief Sets the function source and its dependencies transactionally.
@@ -70,23 +70,24 @@ public:
      * This method ensures atomicity: either all changes succeed,
      * or the node is restored to its original consistent state.
      */
-    template <typename F, typename... A>
-    void setSource(F &&f, A &&...args) {
+    template <typename F, typename... A> void setSource(F&& f, A&&... args) {
         if constexpr (std::convertible_to<ReturnType<F, A...>, Type>) {
             // Check if node is involved in any active batch operations
-            auto shared_this = std::static_pointer_cast<CalcExprBase<Type, TR>>(this->shared_from_this());
+            auto shared_this =
+                std::static_pointer_cast<CalcExprBase<Type, TR>>(this->shared_from_this());
             if (ObserverGraph::getInstance().isNodeInActiveBatch(shared_this)) {
-                REACTION_THROW_BATCH_CONFLICT("Reset operations must be performed outside of batch contexts");
+                REACTION_THROW_BATCH_CONFLICT(
+                    "Reset operations must be performed outside of batch contexts");
             }
 
             // Step 1: Save current state for rollback
-            auto originalFun = std::move(m_fun);
+            auto originalFun   = std::move(m_fun);
             auto originalValue = [this]() -> std::optional<Type> {
                 if constexpr (!VoidType<Type>) {
                     // Safely get value without throwing if not initialized
                     try {
                         return this->getValue();
-                    } catch (const std::runtime_error &) {
+                    } catch (const std::runtime_error&) {
                         return std::nullopt;
                     }
                 } else {
@@ -95,7 +96,8 @@ public:
             }();
 
             // Step 2: Get rollback function for observer state
-            auto observerRollback = ObserverGraph::getInstance().saveNodeStateForRollback(shared_this);
+            auto observerRollback =
+                ObserverGraph::getInstance().saveNodeStateForRollback(shared_this);
 
             try {
                 // Step 3: Update observers transactionally
@@ -111,7 +113,7 @@ public:
                     evaluate();
                 }
 
-            } catch (const std::exception &) {
+            } catch (const std::exception&) {
                 // Step 6: Rollback on failure
                 m_fun = std::move(originalFun);
 
@@ -133,19 +135,13 @@ public:
     }
 
     /// @brief Registers an observer for dependency tracking.
-    void addObCb(const NodePtr &node) {
-        this->addOneObserver(node);
-    }
+    void addObCb(const NodePtr& node) { this->addOneObserver(node); }
 
     /// @brief Handles value change notifications and trigger checks.
-    void valueChanged(bool changed) override {
-        handleChange<true>(changed);
-    }
+    void valueChanged(bool changed) override { handleChange<true>(changed); }
 
     /// @brief Handles value change without notifications.
-    void changedNoNotify(bool changed) override {
-        handleChange<false>(changed);
-    }
+    void changedNoNotify(bool changed) override { handleChange<false>(changed); }
 
 private:
     /**
@@ -156,8 +152,7 @@ private:
     // - Replace std::function with move-only function wrapper
     // - Reduce heap allocations for better performance
     // - Consider using std::unique_function when available
-    template <typename F, typename... A>
-    auto createFun(F &&f, A &&...args) {
+    template <typename F, typename... A> auto createFun(F&& f, A&&... args) {
         return [f = std::forward<F>(f), ... args = args.getPtr()]() {
             if constexpr (VoidType<Type>) {
                 std::invoke(f, args->get()...);
@@ -168,8 +163,7 @@ private:
         };
     }
 
-    template <bool Notify>
-    void handleChange(bool changed) {
+    template <bool Notify> void handleChange(bool changed) {
         if constexpr (IsChangeTrig<TR>) {
             this->setChanged(changed);
         }
@@ -205,21 +199,18 @@ private:
  * Specialized by expression type and content.
  */
 template <typename Expr, typename Type, IsTrigger TR>
-class Expression : public CalcExprBase<Type, TR> {
-};
+class Expression : public CalcExprBase<Type, TR> {};
 
 /**
  * @brief Expression specialization for reactive variables.
  *
  * Allows manual setting and change detection.
  */
-template <typename Type, IsTrigger TR>
-class Expression<VarExpr, Type, TR> : public Resource<Type> {
+template <typename Type, IsTrigger TR> class Expression<VarExpr, Type, TR> : public Resource<Type> {
 public:
     using Resource<Type>::Resource;
 
-    template <typename T>
-    void setValue(T &&t) {
+    template <typename T> void setValue(T&& t) {
         bool changed = this->updateValue(std::forward<T>(t));
         if (!g_batch_execute) {
             this->notify(changed);
@@ -235,16 +226,13 @@ class Expression<CalcExpr, BinaryOpExpr<Op, L, R>, TR>
     : public CalcExprBase<typename BinaryOpExpr<Op, L, R>::value_type, TR> {
 public:
     template <typename T>
-        requires(!std::is_same_v<std::remove_cvref_t<T>, Expression>)
-    Expression(T &&expr) : m_expr(std::forward<T>(expr)) {
-    }
+    requires(!std::is_same_v<std::remove_cvref_t<T>, Expression>)
+    Expression(T&& expr) : m_expr(std::forward<T>(expr)) {}
 
 protected:
     /// @brief Sets the operator expression as the current source.
     void setOpExpr() {
-        this->setSource([this]() {
-            return m_expr();
-        });
+        this->setSource([this]() { return m_expr(); });
     }
 
 private:
@@ -259,16 +247,13 @@ class Expression<CalcExpr, UnaryOpExpr<Op, T>, TR>
     : public CalcExprBase<typename UnaryOpExpr<Op, T>::value_type, TR> {
 public:
     template <typename U>
-        requires(!std::is_same_v<std::remove_cvref_t<U>, Expression>)
-    Expression(U &&expr) : m_expr(std::forward<U>(expr)) {
-    }
+    requires(!std::is_same_v<std::remove_cvref_t<U>, Expression>)
+    Expression(U&& expr) : m_expr(std::forward<U>(expr)) {}
 
 protected:
     /// @brief Sets the unary operator expression as the current source.
     void setOpExpr() {
-        this->setSource([this]() {
-            return m_expr();
-        });
+        this->setSource([this]() { return m_expr(); });
     }
 
 private:

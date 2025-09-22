@@ -8,11 +8,11 @@
 #pragma once
 
 #include <atomic>
-#include <shared_mutex>
+#include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <thread>
 #include <unordered_map>
-#include <memory>
 
 // Compile-time configuration for forcing thread safety
 #ifndef REACTION_FORCE_THREAD_SAFETY
@@ -22,9 +22,9 @@
 // Thread safety mode detection
 #ifndef REACTION_THREAD_SAFETY_MODE
 #if REACTION_FORCE_THREAD_SAFETY
-#define REACTION_THREAD_SAFETY_MODE 1  // Always thread-safe
+#define REACTION_THREAD_SAFETY_MODE 1 // Always thread-safe
 #else
-#define REACTION_THREAD_SAFETY_MODE 0  // Auto-detect
+#define REACTION_THREAD_SAFETY_MODE 0 // Auto-detect
 #endif
 #endif
 
@@ -60,7 +60,7 @@ public:
      */
     bool isThreadSafetyEnabled() const noexcept {
         // Use thread-local cache to avoid repeated atomic loads
-        static thread_local bool cached_enabled = false;
+        static thread_local bool cached_enabled     = false;
         static thread_local uint32_t cached_version = 0;
 
         uint32_t current_version = m_safetyVersion.load(std::memory_order_relaxed);
@@ -78,7 +78,8 @@ public:
      */
     void enableThreadSafety() noexcept {
         bool expected = false;
-        if (m_threadSafetyEnabled.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
+        if (m_threadSafetyEnabled.compare_exchange_strong(
+                expected, true, std::memory_order_acq_rel)) {
             // Increment version to invalidate thread-local caches
             m_safetyVersion.fetch_add(1, std::memory_order_release);
         }
@@ -116,7 +117,8 @@ public:
 
         // Try to register as the first thread
         std::thread::id expected = std::thread::id{};
-        if (m_firstThreadId.compare_exchange_strong(expected, currentId, std::memory_order_acq_rel)) {
+        if (m_firstThreadId.compare_exchange_strong(
+                expected, currentId, std::memory_order_acq_rel)) {
             // First thread registered successfully
             thread_registered = true;
             return;
@@ -146,14 +148,14 @@ public:
     }
 
 private:
-    ThreadSafetyManager() = default;
-    ~ThreadSafetyManager() = default;
-    ThreadSafetyManager(const ThreadSafetyManager&) = delete;
+    ThreadSafetyManager()                                      = default;
+    ~ThreadSafetyManager()                                     = default;
+    ThreadSafetyManager(const ThreadSafetyManager&)            = delete;
     ThreadSafetyManager& operator=(const ThreadSafetyManager&) = delete;
 
     std::atomic<bool> m_threadSafetyEnabled{REACTION_THREAD_SAFETY_MODE};
     std::atomic<std::thread::id> m_firstThreadId{};
-    std::atomic<uint32_t> m_safetyVersion{1};  // Version counter for cache invalidation
+    std::atomic<uint32_t> m_safetyVersion{1}; // Version counter for cache invalidation
 };
 
 /**
@@ -162,9 +164,7 @@ private:
  */
 class ThreadRegistrationGuard {
 public:
-    ThreadRegistrationGuard() {
-        ThreadSafetyManager::getInstance().registerThread();
-    }
+    ThreadRegistrationGuard() { ThreadSafetyManager::getInstance().registerThread(); }
 };
 
 // === Conditional Mutex Abstractions with Template Optimization ===
@@ -177,8 +177,7 @@ public:
  *
  * @tparam MutexType The underlying mutex type (std::mutex, std::shared_mutex, etc.)
  */
-template<typename MutexType>
-class ConditionalMutexWrapper {
+template <typename MutexType> class ConditionalMutexWrapper {
 public:
     /// @brief Acquire lock if thread safety is enabled.
     void lock() noexcept(noexcept(std::declval<MutexType>().lock())) {
@@ -203,7 +202,7 @@ public:
     }
 
     // Shared mutex operations (SFINAE-enabled for types that support them)
-    template<typename T = MutexType>
+    template <typename T = MutexType>
     auto lock_shared() noexcept(noexcept(std::declval<T>().lock_shared()))
         -> decltype(std::declval<T>().lock_shared(), void()) {
         if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) [[likely]] {
@@ -211,7 +210,7 @@ public:
         }
     }
 
-    template<typename T = MutexType>
+    template <typename T = MutexType>
     auto unlock_shared() noexcept(noexcept(std::declval<T>().unlock_shared()))
         -> decltype(std::declval<T>().unlock_shared(), void()) {
         if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) [[likely]] {
@@ -219,7 +218,7 @@ public:
         }
     }
 
-    template<typename T = MutexType>
+    template <typename T = MutexType>
     auto try_lock_shared() noexcept(noexcept(std::declval<T>().try_lock_shared()))
         -> decltype(std::declval<T>().try_lock_shared()) {
         if (ThreadSafetyManager::getInstance().isThreadSafetyEnabled()) [[likely]] {
@@ -251,26 +250,24 @@ using ConditionalMutex = ConditionalMutexWrapper<std::mutex>;
  * @param LockMethod The locking method name
  * @param UnlockMethod The unlocking method name
  */
-#define REACTION_DEFINE_LOCK_GUARD(GuardName, LockMethod, UnlockMethod) \
-    template<typename Mutex> \
-    class GuardName { \
-    public: \
-        explicit GuardName(Mutex& mutex) noexcept(noexcept(mutex.LockMethod())) \
-            : m_mutex(mutex) { \
-            m_mutex.LockMethod(); \
-        } \
-        \
-        ~GuardName() noexcept(noexcept(m_mutex.UnlockMethod())) { \
-            m_mutex.UnlockMethod(); \
-        } \
-        \
-        GuardName(const GuardName&) = delete; \
-        GuardName& operator=(const GuardName&) = delete; \
-        GuardName(GuardName&&) = delete; \
-        GuardName& operator=(GuardName&&) = delete; \
-        \
-    private: \
-        Mutex& m_mutex; \
+#define REACTION_DEFINE_LOCK_GUARD(GuardName, LockMethod, UnlockMethod)                            \
+    template <typename Mutex> class GuardName {                                                    \
+    public:                                                                                        \
+        explicit GuardName(Mutex& mutex) noexcept(noexcept(mutex.LockMethod())) : m_mutex(mutex) { \
+            m_mutex.LockMethod();                                                                  \
+        }                                                                                          \
+                                                                                                   \
+        ~GuardName() noexcept(noexcept(m_mutex.UnlockMethod())) {                                  \
+            m_mutex.UnlockMethod();                                                                \
+        }                                                                                          \
+                                                                                                   \
+        GuardName(const GuardName&)            = delete;                                           \
+        GuardName& operator=(const GuardName&) = delete;                                           \
+        GuardName(GuardName&&)                 = delete;                                           \
+        GuardName& operator=(GuardName&&)      = delete;                                           \
+                                                                                                   \
+    private:                                                                                       \
+        Mutex& m_mutex;                                                                            \
     }
 
 // Generate optimized lock guards
@@ -280,21 +277,19 @@ REACTION_DEFINE_LOCK_GUARD(ConditionalSharedLockGuard, lock_shared, unlock_share
 /**
  * @brief RAII shared lock guard for conditional shared mutex.
  */
-template<typename Mutex>
-using ConditionalSharedLock = ConditionalSharedLockGuard<Mutex>;
+template <typename Mutex> using ConditionalSharedLock = ConditionalSharedLockGuard<Mutex>;
 
 /**
  * @brief RAII unique lock guard for conditional mutex.
  */
-template<typename Mutex>
-using ConditionalUniqueLock = ConditionalLockGuard<Mutex>;
+template <typename Mutex> using ConditionalUniqueLock = ConditionalLockGuard<Mutex>;
 
 // Helper macros for thread registration with better performance
-#define REACTION_REGISTER_THREAD() \
-    do { \
-        static thread_local reaction::ThreadRegistrationGuard thread_guard_##__COUNTER__; \
-        (void)thread_guard_##__COUNTER__; \
-    } while(0)
+#define REACTION_REGISTER_THREAD()                                                                 \
+    do {                                                                                           \
+        static thread_local reaction::ThreadRegistrationGuard thread_guard_##__COUNTER__;          \
+        (void)thread_guard_##__COUNTER__;                                                          \
+    } while (0)
 
 // Cleanup macro to avoid pollution
 #undef REACTION_DEFINE_LOCK_GUARD

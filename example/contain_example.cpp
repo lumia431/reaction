@@ -6,12 +6,13 @@
  */
 
 #include <reaction.h>
+
 #include <iomanip>
+#include <iostream>
 #include <list>
 #include <map>
 #include <set>
 #include <vector>
-#include <iostream>
 
 int main() {
     using namespace reaction;
@@ -27,14 +28,14 @@ int main() {
     std::list<Calc<double>> stats;
     stats.push_back(create([&] {
         double sum = 0;
-        for (auto &grade : grades)
+        for (auto& grade : grades)
             sum += grade();
         return sum / grades.size();
     }));
 
     stats.push_back(create([&] {
         double max = grades[0].get();
-        for (auto &grade : grades)
+        for (auto& grade : grades)
             max = std::max(max, grade());
         return max;
     }));
@@ -48,13 +49,16 @@ int main() {
     }
 
     // 4. Grade level mapping - using map to store CalcExpr
-    std::map<int, Calc<const char *>> gradeLevels;
+    std::map<int, Calc<const char*>> gradeLevels;
     for (int i = 0; i < STUDENT_COUNT; ++i) {
         gradeLevels.insert({i, create([i, &grades] {
                                 double g = grades[i]();
-                                if (g >= 90) return "A";
-                                if (g >= 80) return "B";
-                                if (g >= 70) return "C";
+                                if (g >= 90)
+                                    return "A";
+                                if (g >= 80)
+                                    return "B";
+                                if (g >= 70)
+                                    return "C";
                                 return "D";
                             })});
     }
@@ -67,7 +71,8 @@ int main() {
 
         std::cout << "Grade Levels:\n";
         for (int i = 0; i < STUDENT_COUNT; ++i) {
-            std::cout << "  Student " << i << ": " << gradeLevels[i].get() << " (" << grades[i].get() << ")\n";
+            std::cout << "  Student " << i << ": " << gradeLevels[i].get() << " ("
+                      << grades[i].get() << ")\n";
         }
         std::cout << "========================\n\n";
     };

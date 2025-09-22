@@ -6,35 +6,26 @@
  */
 
 #include <reaction.h>
+
 #include <iostream>
 
 // Person class with reactive fields for name and age
 class Person : public reaction::FieldBase {
 public:
     // Constructor initializing person data
-    Person(const std::string &name, int age) : m_name(field(name)),
-                                               m_age(field(age)) {
-    }
+    Person(const std::string& name, int age) : m_name(field(name)), m_age(field(age)) {}
 
     // Getter for name
-    std::string getName() const {
-        return m_name.get();
-    }
+    std::string getName() const { return m_name.get(); }
 
     // Setter for name
-    void setName(const std::string &name) {
-        m_name.value(name);
-    }
+    void setName(const std::string& name) { m_name.value(name); }
 
     // Getter for age
-    int getAge() const {
-        return m_age.get();
-    }
+    int getAge() const { return m_age.get(); }
 
     // Setter for age
-    void setAge(int age) {
-        m_age.value(age);
-    }
+    void setAge(int age) { m_age.value(age); }
 
     // Method to get person info as string
     std::string getInfo() const {
@@ -59,11 +50,12 @@ void personFieldExample() {
 
     // Create a computed greeting message
     auto ds = reaction::calc(
-        [](const auto &p1, const auto &p2) {
+        [](const auto& p1, const auto& p2) {
             std::cout << "Person1 : " << p1.getInfo() << " Person2 : " << p2.getInfo() << '\n';
             return true;
         },
-        person1, person2);
+        person1,
+        person2);
     // Update person's name and age
     person1->setName("Alice Johnson");
     person1->setAge(37);

@@ -5,8 +5,9 @@
  * See the LICENSE file in the project root for full details.
  */
 
-#include <gtest/gtest.h>
 #include <reaction.h>
+
+#include <gtest/gtest.h>
 
 using namespace reaction;
 
@@ -159,22 +160,35 @@ TEST_F(ExceptionTest, BatchOperationConflictException) {
  * @brief Test error code to string conversion.
  */
 TEST_F(ExceptionTest, ErrorCodeToString) {
-    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::DEPENDENCY_CYCLE), "DEPENDENCY_CYCLE");
-    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::SELF_OBSERVATION), "SELF_OBSERVATION");
-    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::NULL_POINTER_ACCESS), "NULL_POINTER_ACCESS");
-    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::RESOURCE_NOT_INITIALIZED), "RESOURCE_NOT_INITIALIZED");
-    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::TYPE_MISMATCH), "TYPE_MISMATCH");
-    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::INVALID_STATE), "INVALID_STATE");
-    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::THREAD_SAFETY_VIOLATION), "THREAD_SAFETY_VIOLATION");
-    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::BATCH_OPERATION_CONFLICT), "BATCH_OPERATION_CONFLICT");
-    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::UNKNOWN), "UNKNOWN");
+    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::DEPENDENCY_CYCLE),
+              "DEPENDENCY_CYCLE");
+    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::SELF_OBSERVATION),
+              "SELF_OBSERVATION");
+    EXPECT_EQ(
+        ReactionException::errorCodeToString(ReactionException::ErrorCode::NULL_POINTER_ACCESS),
+        "NULL_POINTER_ACCESS");
+    EXPECT_EQ(ReactionException::errorCodeToString(
+                  ReactionException::ErrorCode::RESOURCE_NOT_INITIALIZED),
+              "RESOURCE_NOT_INITIALIZED");
+    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::TYPE_MISMATCH),
+              "TYPE_MISMATCH");
+    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::INVALID_STATE),
+              "INVALID_STATE");
+    EXPECT_EQ(
+        ReactionException::errorCodeToString(ReactionException::ErrorCode::THREAD_SAFETY_VIOLATION),
+        "THREAD_SAFETY_VIOLATION");
+    EXPECT_EQ(ReactionException::errorCodeToString(
+                  ReactionException::ErrorCode::BATCH_OPERATION_CONFLICT),
+              "BATCH_OPERATION_CONFLICT");
+    EXPECT_EQ(ReactionException::errorCodeToString(ReactionException::ErrorCode::UNKNOWN),
+              "UNKNOWN");
 }
 
 /**
  * @brief Test actual dependency cycle detection with new exceptions.
  */
 TEST_F(ExceptionTest, RealDependencyCycleDetection) {
-    auto a = var(10);
+    auto a    = var(10);
     auto calc = reaction::calc([&]() { return a() + 1; });
 
     // Test what exception is actually thrown
@@ -185,7 +199,8 @@ TEST_F(ExceptionTest, RealDependencyCycleDetection) {
         SUCCEED() << "Got DependencyCycleException: " << e.what();
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::DEPENDENCY_CYCLE);
     } catch (const ReactionException& e) {
-        SUCCEED() << "Got ReactionException with code " << static_cast<int>(e.getErrorCode()) << ": " << e.what();
+        SUCCEED() << "Got ReactionException with code " << static_cast<int>(e.getErrorCode())
+                  << ": " << e.what();
     } catch (const std::exception& e) {
         SUCCEED() << "Got std::exception: " << e.what();
     } catch (...) {
@@ -219,7 +234,8 @@ TEST_F(ExceptionTest, RealTypeMismatch) {
         SUCCEED() << "Got TypeMismatchException: " << e.what();
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::TYPE_MISMATCH);
     } catch (const ReactionException& e) {
-        SUCCEED() << "Got ReactionException with code " << static_cast<int>(e.getErrorCode()) << ": " << e.what();
+        SUCCEED() << "Got ReactionException with code " << static_cast<int>(e.getErrorCode())
+                  << ": " << e.what();
     } catch (const std::exception& e) {
         SUCCEED() << "Got std::exception: " << e.what();
     } catch (...) {

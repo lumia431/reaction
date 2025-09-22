@@ -16,8 +16,7 @@ namespace reaction {
  *
  * @tparam Derived The derived trigger type
  */
-template<typename Derived>
-struct TriggerBase {
+template <typename Derived> struct TriggerBase {
     [[nodiscard]] constexpr bool checkTrig() const noexcept {
         return static_cast<const Derived*>(this)->checkTrigImpl();
     }
@@ -33,9 +32,7 @@ struct AlwaysTrig : TriggerBase<AlwaysTrig> {
      * @brief Always returns true to trigger (compile-time constant).
      * @return true
      */
-    [[nodiscard]] static constexpr bool checkTrigImpl() noexcept {
-        return true;
-    }
+    [[nodiscard]] static constexpr bool checkTrigImpl() noexcept { return true; }
 };
 
 /**
@@ -49,17 +46,13 @@ public:
      * @brief Check if the trigger condition is met.
      * @return true if the change flag is set, false otherwise.
      */
-    [[nodiscard]] constexpr bool checkTrigImpl() const noexcept {
-        return m_changed;
-    }
+    [[nodiscard]] constexpr bool checkTrigImpl() const noexcept { return m_changed; }
 
     /**
      * @brief Set the internal change flag.
      * @param changed New value of the change flag.
      */
-    constexpr void setChanged(bool changed) noexcept {
-        m_changed = changed;
-    }
+    constexpr void setChanged(bool changed) noexcept { m_changed = changed; }
 
 private:
     bool m_changed = true; ///< Internal flag indicating whether a change occurred.
@@ -85,8 +78,7 @@ public:
      * @param f Callable object.
      * @param args Arguments to bind (expected to support getPtr()).
      */
-    template <typename F, typename... A>
-    void filter(F &&f, A &&...args) {
+    template <typename F, typename... A> void filter(F&& f, A&&... args) {
         m_filterFun = createFun(std::forward<F>(f), std::forward<A>(args)...);
     }
 
@@ -94,13 +86,12 @@ public:
      * @brief Invoke the stored filter function to determine trigger condition.
      * @return true if filter passes, false otherwise.
      */
-    [[nodiscard]] bool checkTrig() const noexcept {
-        return std::invoke(m_filterFun);
-    }
+    [[nodiscard]] bool checkTrig() const noexcept { return std::invoke(m_filterFun); }
 
 private:
     /**
-     * @brief Helper to create the stored filter function by binding callable and weak-locked arguments.
+     * @brief Helper to create the stored filter function by binding callable and weak-locked
+     * arguments.
      *
      * Uses C++17 fold expressions to capture each argument's weak pointer lock and get its value.
      *
@@ -110,8 +101,7 @@ private:
      * @param args Arguments to bind (expected to support getPtr()).
      * @return A lambda function returning bool.
      */
-    template <typename F, typename... A>
-    auto createFun(F &&f, A &&...args) {
+    template <typename F, typename... A> auto createFun(F&& f, A&&... args) {
         // Capture f by forwarding, and capture each args by getting weak pointer
         return [f = std::forward<F>(f), ... args = args.getPtr()]() {
             // Lock each weak pointer and call f with dereferenced values
@@ -119,7 +109,9 @@ private:
         };
     }
 
-    std::function<bool()> m_filterFun = []() { return true; }; ///< Default filter always returns true.
+    std::function<bool()> m_filterFun = []() {
+        return true;
+    }; ///< Default filter always returns true.
 };
 
 } // namespace reaction

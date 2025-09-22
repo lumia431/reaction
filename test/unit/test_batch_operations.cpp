@@ -15,9 +15,12 @@ TEST(BatchOperationsTest, TestRepeatDependency) {
     auto b = reaction::var(2).setName("b");
 
     int triggerCount = 0;
-    auto dsA = reaction::calc([&]() { return a() + b(); }).setName("dsA");
+    auto dsA         = reaction::calc([&]() { return a() + b(); }).setName("dsA");
 
-    auto dsB = reaction::calc([&]() {++triggerCount; return a() + dsA(); }).setName("dsB");
+    auto dsB = reaction::calc([&]() {
+                   ++triggerCount;
+                   return a() + dsA();
+               }).setName("dsB");
 
     triggerCount = 0;
 
@@ -31,11 +34,14 @@ TEST(BatchOperationsTest, TestRepeatDependency) {
 TEST(BatchOperationsTest, TestRepeatDependency2) {
     // ds → A, ds → B, ds → C, A → a, B → a
     int triggerCount = 0;
-    auto a = reaction::var(1).setName("a");
-    auto A = reaction::calc([&]() { return a() + 1; }).setName("A");
-    auto B = reaction::calc([&]() { return a() + 2; }).setName("B");
-    auto C = reaction::calc([&]() { return 5; }).setName("C");
-    auto ds = reaction::calc([&]() { ++triggerCount; return A() + B() + C(); }).setName("ds");
+    auto a           = reaction::var(1).setName("a");
+    auto A           = reaction::calc([&]() { return a() + 1; }).setName("A");
+    auto B           = reaction::calc([&]() { return a() + 2; }).setName("B");
+    auto C           = reaction::calc([&]() { return 5; }).setName("C");
+    auto ds          = reaction::calc([&]() {
+                  ++triggerCount;
+                  return A() + B() + C();
+              }).setName("ds");
 
     auto ba = reaction::batch([&]() { a.value(2); });
 
@@ -62,14 +68,17 @@ TEST(BatchOperationsTest, TestRepeatDependency3) {
     auto b = reaction::var(1).setName("b");
 
     int triggerCount = 0;
-    auto A2 = reaction::calc([&]() { return a() * 2; }).setName("A2");
-    auto A1 = reaction::calc([&]() { return A2() + 1; }).setName("A1");
-    auto A = reaction::calc([&]() { return A1() - 1; }).setName("A");
+    auto A2          = reaction::calc([&]() { return a() * 2; }).setName("A2");
+    auto A1          = reaction::calc([&]() { return A2() + 1; }).setName("A1");
+    auto A           = reaction::calc([&]() { return A1() - 1; }).setName("A");
 
     auto B1 = reaction::calc([&]() { return a() - 1; }).setName("B1");
-    auto B = reaction::calc([&]() { return B1() + 1; }).setName("B");
+    auto B  = reaction::calc([&]() { return B1() + 1; }).setName("B");
 
-    auto ds = reaction::calc([&]() { ++triggerCount; return A() + B(); }).setName("ds");
+    auto ds      = reaction::calc([&]() {
+                  ++triggerCount;
+                  return A() + B();
+              }).setName("ds");
     triggerCount = 0;
 
     reaction::batchExecute([&]() { a.value(2); });
@@ -87,13 +96,22 @@ TEST(BatchOperationsTest, TestRepeatDependency4) {
     int triggerCountB = 0;
     int triggerCountC = 0;
 
-    auto a = reaction::var(1).setName("a");
-    auto A = reaction::calc([&]() { return a() + 1; }).setName("A");
-    auto B = reaction::calc([&]() { return a() + 2; }).setName("B");
-    auto C = reaction::calc([&]() { return 5; }).setName("C");
-    auto ds_a = reaction::calc([&]() { ++triggerCountA; return A() + B() + C(); }).setName("ds_a");
-    auto ds_b = reaction::calc([&]() { ++triggerCountB; return A() + B() + C(); }).setName("ds_b");
-    auto ds_c = reaction::calc([&]() { ++triggerCountC; return ds_a() + ds_b(); }).setName("ds_c");
+    auto a    = reaction::var(1).setName("a");
+    auto A    = reaction::calc([&]() { return a() + 1; }).setName("A");
+    auto B    = reaction::calc([&]() { return a() + 2; }).setName("B");
+    auto C    = reaction::calc([&]() { return 5; }).setName("C");
+    auto ds_a = reaction::calc([&]() {
+                    ++triggerCountA;
+                    return A() + B() + C();
+                }).setName("ds_a");
+    auto ds_b = reaction::calc([&]() {
+                    ++triggerCountB;
+                    return A() + B() + C();
+                }).setName("ds_b");
+    auto ds_c = reaction::calc([&]() {
+                    ++triggerCountC;
+                    return ds_a() + ds_b();
+                }).setName("ds_c");
 
     triggerCountA = 0;
     triggerCountB = 0;
@@ -125,45 +143,45 @@ TEST(BatchOperationsTest, TestComplexDependenciesWithMultipleAssignments) {
     // Create computed values with complex dependencies
     // A: Depends on a and b
     auto A = reaction::calc([&]() {
-        triggerCountA++;
-        return a() + b();
-    }).setName("A");
+                 triggerCountA++;
+                 return a() + b();
+             }).setName("A");
 
     // B: Depends on b and c (shared dependency with A on b)
     auto B = reaction::calc([&]() {
-        triggerCountB++;
-        return b() * c();
-    }).setName("B");
+                 triggerCountB++;
+                 return b() * c();
+             }).setName("B");
 
     // C: Depends on c and d (shared dependency with B on c)
     auto C = reaction::calc([&]() {
-        triggerCountC++;
-        return c() + d();
-    }).setName("C");
+                 triggerCountC++;
+                 return c() + d();
+             }).setName("C");
 
     // Sum: Depends on A, B, and C (aggregates all intermediates)
     auto Sum = reaction::calc([&]() {
-        triggerCountSum++;
-        return A() + B() + C();
-    }).setName("Sum");
+                   triggerCountSum++;
+                   return A() + B() + C();
+               }).setName("Sum");
 
     // Product: Depends on A and B (shared dependencies with Sum)
     auto Product = reaction::calc([&]() {
-        triggerCountProduct++;
-        return A() * B();
-    }).setName("Product");
+                       triggerCountProduct++;
+                       return A() * B();
+                   }).setName("Product");
 
     // Combined: Depends on Sum and Product (shared dependencies through A and B)
     auto Combined = reaction::calc([&]() {
-        triggerCountCombined++;
-        return Sum() - Product();
-    }).setName("Combined");
+                        triggerCountCombined++;
+                        return Sum() - Product();
+                    }).setName("Combined");
 
     // Final: Depends on Combined and C (shared dependency through C)
     auto Final = reaction::calc([&]() {
-        triggerCountFinal++;
-        return Combined() * C();
-    }).setName("Final");
+                     triggerCountFinal++;
+                     return Combined() * C();
+                 }).setName("Final");
 
     // Precompute initial values
     EXPECT_EQ(A.get(), 3);         // 1+2
@@ -177,7 +195,7 @@ TEST(BatchOperationsTest, TestComplexDependenciesWithMultipleAssignments) {
     // Reset counters
     triggerCountA = triggerCountB = triggerCountC = 0;
     triggerCountSum = triggerCountProduct = triggerCountCombined = 0;
-    triggerCountFinal = 0;
+    triggerCountFinal                                            = 0;
 
     // Execute batch with multiple assignments
     reaction::batchExecute([&]() {
@@ -208,7 +226,7 @@ TEST(BatchOperationsTest, TestComplexDependenciesWithMultipleAssignments) {
     // Additional test: Verify that updating only one variable triggers minimal reactions
     triggerCountA = triggerCountB = triggerCountC = 0;
     triggerCountSum = triggerCountProduct = triggerCountCombined = 0;
-    triggerCountFinal = 0;
+    triggerCountFinal                                            = 0;
 
     reaction::batchExecute([&]() {
         d.value(50); // Only affects C and its dependents
@@ -237,14 +255,12 @@ TEST(BatchOperationsTest, TestComplexDependenciesWithMultipleAssignments) {
  * are involved in active batch operations.
  */
 TEST(BatchOperationsTest, TestBatchResetProtection) {
-    auto var1 = reaction::var(5).setName("var1");
+    auto var1  = reaction::var(5).setName("var1");
     auto calc1 = reaction::calc([&]() { return var1() * 2; }).setName("calc1");
 
     // Create a batch that keeps the nodes active
     std::cout << "Creating batch..." << std::endl;
-    auto batch = reaction::batch([&]() {
-        var1.value(10);
-    });
+    auto batch = reaction::batch([&]() { var1.value(10); });
 
     std::cout << "Batch created." << std::endl;
 
@@ -259,7 +275,7 @@ TEST(BatchOperationsTest, TestBatchResetProtection) {
     }
 
     // Verify nodes still have original values
-    EXPECT_EQ(var1.get(), 5);  // Constructor didn't change value due to BatchFunGuard
+    EXPECT_EQ(var1.get(), 5); // Constructor didn't change value due to BatchFunGuard
     EXPECT_EQ(calc1.get(), 10);
 }
 
@@ -267,13 +283,11 @@ TEST(BatchOperationsTest, TestBatchResetProtection) {
  * @brief Test manual batch close functionality
  */
 TEST(BatchOperationsTest, TestManualBatchClose) {
-    auto var1 = reaction::var(5).setName("var1");
+    auto var1  = reaction::var(5).setName("var1");
     auto calc1 = reaction::calc([&]() { return var1() * 2; }).setName("calc1");
 
     // Create batch
-    auto batch = reaction::batch([&]() {
-        var1.value(10);
-    });
+    auto batch = reaction::batch([&]() { var1.value(10); });
 
     // Batch should be active initially
     EXPECT_FALSE(batch.isClosed());
@@ -289,7 +303,7 @@ TEST(BatchOperationsTest, TestManualBatchClose) {
 
     // After manual close, reset should work
     EXPECT_NO_THROW(calc1.reset([&]() { return var1() + 100; }));
-    EXPECT_EQ(calc1.get(), 105);  // 5 + 100 (var1 wasn't changed by batch constructor)
+    EXPECT_EQ(calc1.get(), 105); // 5 + 100 (var1 wasn't changed by batch constructor)
 
     // Calling close multiple times should be safe
     EXPECT_NO_THROW(batch.close());
@@ -327,8 +341,8 @@ TEST(BatchOperationsTest, TestComplexDependencyBatchResetProtection) {
     auto calc6 = reaction::calc([&]() { return var3() + var4(); }).setName("calc6");
     auto calc7 = reaction::calc([&]() { return calc6() * 4; }).setName("calc7");
 
-    auto calc8 = reaction::calc([&]() { return var4() * 2; }).setName("calc8");
-    auto calc9 = reaction::calc([&]() { return calc8() + 5; }).setName("calc9");
+    auto calc8  = reaction::calc([&]() { return var4() * 2; }).setName("calc8");
+    auto calc9  = reaction::calc([&]() { return calc8() + 5; }).setName("calc9");
     auto calc10 = reaction::calc([&]() { return calc9() * 2; }).setName("calc10");
 
     // Initial values check
@@ -345,10 +359,10 @@ TEST(BatchOperationsTest, TestComplexDependencyBatchResetProtection) {
 
     // Create a batch that affects multiple parts of the dependency graph
     auto batch = reaction::batch([&]() {
-        var1.value(10);  // Affects calc1, calc2, calc3
-        var2.value(20);  // Affects calc1, calc4, calc5
-        var3.value(30);  // Affects calc4, calc6, calc7
-        var4.value(40);  // Affects calc6, calc8, calc9, calc10
+        var1.value(10); // Affects calc1, calc2, calc3
+        var2.value(20); // Affects calc1, calc4, calc5
+        var3.value(30); // Affects calc4, calc6, calc7
+        var4.value(40); // Affects calc6, calc8, calc9, calc10
     });
 
     // While batch is active, all reset operations should be prevented
@@ -396,15 +410,15 @@ TEST(BatchOperationsTest, TestComplexDependencyBatchResetProtection) {
 
     // Now reset operations should work
     EXPECT_NO_THROW(calc1.reset([&]() { return var1() * 2; }));
-    EXPECT_EQ(calc1.get(), 20);  // 10 * 2
+    EXPECT_EQ(calc1.get(), 20); // 10 * 2
 
     // This should propagate through the dependency chain
-    EXPECT_EQ(calc2.get(), 40);  // 20 * 2
-    EXPECT_EQ(calc3.get(), 41);  // 40 + 1
+    EXPECT_EQ(calc2.get(), 40); // 20 * 2
+    EXPECT_EQ(calc3.get(), 41); // 40 + 1
 
     // Test that other nodes can also be reset
     EXPECT_NO_THROW(calc5.reset([&]() { return calc4() + 1000; }));
-    EXPECT_EQ(calc5.get(), 1050);  // 50 + 1000
+    EXPECT_EQ(calc5.get(), 1050); // 50 + 1000
 
     // Test that batch is indeed closed
     EXPECT_TRUE(batch.isClosed());
@@ -436,34 +450,34 @@ TEST(BatchOperationsTest, TestMultipleBatchesWithSharedDependencies) {
 
     // Create observers with complex dependencies
     auto obs1 = reaction::calc([&]() {
-        triggerCountX++;
-        return X() + c();
-    }).setName("obs1");
+                    triggerCountX++;
+                    return X() + c();
+                }).setName("obs1");
 
     auto obs2 = reaction::calc([&]() {
-        triggerCountY++;
-        return Y() + a();
-    }).setName("obs2");
+                    triggerCountY++;
+                    return Y() + a();
+                }).setName("obs2");
 
     auto obs3 = reaction::calc([&]() {
-        triggerCountZ++;
-        return Z() + obs1() + obs2();
-    }).setName("obs3");
+                    triggerCountZ++;
+                    return Z() + obs1() + obs2();
+                }).setName("obs3");
 
     auto obs4 = reaction::calc([&]() {
-        triggerCountA++;
-        return a() + obs3();
-    }).setName("obs4");
+                    triggerCountA++;
+                    return a() + obs3();
+                }).setName("obs4");
 
     auto obs5 = reaction::calc([&]() {
-        triggerCountB++;
-        return b() + obs4();
-    }).setName("obs5");
+                    triggerCountB++;
+                    return b() + obs4();
+                }).setName("obs5");
 
     auto obs6 = reaction::calc([&]() {
-        triggerCountC++;
-        return c() + obs5() + obs3();
-    }).setName("obs6");
+                    triggerCountC++;
+                    return c() + obs5() + obs3();
+                }).setName("obs6");
 
     // Precompute initial values
     EXPECT_EQ(X.get(), 3);     // 1+2
