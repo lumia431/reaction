@@ -530,7 +530,10 @@ private:
         }
 
         m_dependentList.at(source).insert(target);
-        m_observerList.at(target).get().insert(source);
+        {
+            ConditionalUniqueLock<ConditionalSharedMutex> targetLock(target->m_observersMutex);
+            target->m_observers.insert(source);
+        }
     }
 
     std::unordered_map<NodePtr, NodeSetRef> m_observerList; ///< Map from node to its observers (refs).

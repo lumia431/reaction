@@ -8,6 +8,7 @@
 #pragma once
 
 #include "reaction/core/types.h"
+#include "reaction/concurrency/thread_safety.h"
 #include <memory>
 
 namespace reaction {
@@ -23,6 +24,7 @@ class ObserverGraph;
  */
 class ObserverNode : public std::enable_shared_from_this<ObserverNode> {
 public:
+    mutable ConditionalSharedMutex m_observersMutex; ///< Mutex for thread-safe observer access
     virtual ~ObserverNode() = default;
 
     /**
@@ -80,7 +82,13 @@ public:
      * @param changed Whether the node's value has changed.
      */
     void notify(bool changed = true) {
-        for (auto &observer : m_observers) {
+        // Create a snapshot of observers to avoid holding lock during notifications
+        NodeSet snapshot;
+        {
+            ConditionalSharedLock<ConditionalSharedMutex> lock(m_observersMutex);
+            snapshot = m_observers;
+        }
+        for (auto &observer : snapshot) {
             if (auto wp = observer.lock()) [[likely]]
                 wp->valueChanged(changed);
         }

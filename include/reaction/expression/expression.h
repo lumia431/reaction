@@ -64,6 +64,7 @@ template <typename Expr, typename Type, IsTrigger TR> class Expression;
 template <typename Type, IsTrigger TR>
 class CalcExprBase : public Resource<Type>, public TR {
 public:
+    mutable ConditionalSharedMutex m_funMutex; ///< Mutex for thread-safe function access
     /**
      * @brief Sets the function source and its dependencies transactionally.
      *
@@ -79,8 +80,10 @@ public:
                 REACTION_THROW_BATCH_CONFLICT("Reset operations must be performed outside of batch contexts");
             }
 
-            // Step 1: Save current state for rollback
-            auto originalFun = std::move(m_fun);
+            auto originalFun = [this]() {
+                ConditionalSharedLock<ConditionalSharedMutex> lock(m_funMutex);
+                return m_fun;
+            }();
             auto originalValue = [this]() -> std::optional<Type> {
                 if constexpr (!VoidType<Type>) {
                     // Safely get value without throwing if not initialized
@@ -94,17 +97,24 @@ public:
                 }
             }();
 
-            // Step 2: Get rollback function for observer state
             auto observerRollback = ObserverGraph::getInstance().saveNodeStateForRollback(shared_this);
 
             try {
-                // Step 3: Update observers transactionally
+                // Create new function first
+                auto newFun = createFun(std::forward<F>(f), std::forward<A>(args)...);
+
+                // Update observers with new dependencies
                 this->updateObservers(args.getPtr()...);
 
-                // Step 4: Set new function
-                m_fun = createFun(std::forward<F>(f), std::forward<A>(args)...);
+                // Atomically replace the function
+                {
+                    ConditionalUniqueLock<ConditionalSharedMutex> lock(m_funMutex);
+                    m_fun = std::move(newFun);
+                    // Add memory barrier to ensure consistency across compilers
+                    std::atomic_thread_fence(std::memory_order_release);
+                }
 
-                // Step 5: Evaluate and update value
+                // Now evaluate with the new function
                 if constexpr (!VoidType<Type>) {
                     this->updateValue(evaluate());
                 } else {
@@ -113,7 +123,10 @@ public:
 
             } catch (const std::exception &) {
                 // Step 6: Rollback on failure
-                m_fun = std::move(originalFun);
+                {
+                    ConditionalUniqueLock<ConditionalSharedMutex> lock(m_funMutex);
+                    m_fun = originalFun;
+                }
 
                 // Restore original value if it exists
                 if constexpr (!VoidType<Type>) {
@@ -189,10 +202,14 @@ private:
 
     /// @brief Evaluates the current expression.
     auto evaluate() const {
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_funMutex);
         if constexpr (VoidType<Type>) {
             std::invoke(m_fun);
         } else {
-            return std::invoke(m_fun);
+            auto result = std::invoke(m_fun);
+            // Add memory barrier to ensure consistency across compilers
+            std::atomic_thread_fence(std::memory_order_acquire);
+            return result;
         }
     }
 

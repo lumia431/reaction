@@ -9,6 +9,7 @@
 
 #include "reaction/graph/batch.h"
 #include "reaction/expression/expression.h"
+#include "reaction/expression/atomic_operations.h"
 #include "reaction/policy/invalidation.h"
 #include "reaction/concurrency/thread_safety.h"
 #include "reaction/core/exception.h"
@@ -113,6 +114,31 @@ public:
     void releaseWeakRef() noexcept {
         if (--m_weakRefCount == 0) {
             this->handleInvalid(*this);
+        }
+    }
+
+    /**
+     * @brief Generic atomic operation helper.
+     *
+     * @tparam F Operation function type (should take Type& and return bool indicating if changed).
+     * @param operation The operation to perform on the value.
+     * @param alwaysChanged If true, always consider the operation as changing the value.
+     */
+    template <typename F>
+    void atomicOperation(F &&operation, bool alwaysChanged = false) {
+        REACTION_REGISTER_THREAD();
+        bool changed = false;
+        {
+            ConditionalUniqueLock<ConditionalSharedMutex> lock(this->m_valueMutex);
+            if (this->m_ptr) {
+                changed = operation(*this->m_ptr);
+                if (alwaysChanged) {
+                    changed = true;
+                }
+            }
+        }
+        if (!g_batch_execute && changed) {
+            this->notify(true);
         }
     }
 
@@ -254,6 +280,121 @@ public:
         return ObserverGraph::getInstance().getName(getPtr());
     }
 
+    // ==================== Compound Assignment Operators ====================
+
+    /// @brief Compound addition assignment operator (+=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && AddAssignable<Type, U>)
+    React &operator+=(const U &rhs) {
+        atomicAddAssign(*getPtr(), rhs);
+        return *this;
+    }
+
+    /// @brief Compound subtraction assignment operator (-=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && SubtractAssignable<Type, U>)
+    React &operator-=(const U &rhs) {
+        atomicSubtractAssign(*getPtr(), rhs);
+        return *this;
+    }
+
+    /// @brief Compound multiplication assignment operator (*=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && MultiplyAssignable<Type, U>)
+    React &operator*=(const U &rhs) {
+        atomicMultiplyAssign(*getPtr(), rhs);
+        return *this;
+    }
+
+    /// @brief Compound division assignment operator (/=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && DivideAssignable<Type, U>)
+    React &operator/=(const U &rhs) {
+        atomicDivideAssign(*getPtr(), rhs);
+        return *this;
+    }
+
+    /// @brief Compound modulo assignment operator (%=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && ModuloAssignable<Type, U>)
+    React &operator%=(const U &rhs) {
+        atomicModuloAssign(*getPtr(), rhs);
+        return *this;
+    }
+
+    /// @brief Compound bitwise AND assignment operator (&=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && BitwiseAndAssignable<Type, U>)
+    React &operator&=(const U &rhs) {
+        atomicBitwiseAndAssign(*getPtr(), rhs);
+        return *this;
+    }
+
+    /// @brief Compound bitwise OR assignment operator (|=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && BitwiseOrAssignable<Type, U>)
+    React &operator|=(const U &rhs) {
+        atomicBitwiseOrAssign(*getPtr(), rhs);
+        return *this;
+    }
+
+    /// @brief Compound bitwise XOR assignment operator (^=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && BitwiseXorAssignable<Type, U>)
+    React &operator^=(const U &rhs) {
+        atomicBitwiseXorAssign(*getPtr(), rhs);
+        return *this;
+    }
+
+    /// @brief Compound left shift assignment operator (<<=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && LeftShiftAssignable<Type, U>)
+    React &operator<<=(const U &rhs) {
+        atomicLeftShiftAssign(*getPtr(), rhs);
+        return *this;
+    }
+
+    /// @brief Compound right shift assignment operator (>>=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && RightShiftAssignable<Type, U>)
+    React &operator>>=(const U &rhs) {
+        atomicRightShiftAssign(*getPtr(), rhs);
+        return *this;
+    }
+
+    // ==================== Increment/Decrement Operators ====================
+
+    /// @brief Pre-increment operator (++var)
+    template <typename T = Type>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && PreIncrementable<T>)
+    React &operator++() {
+        atomicIncrement(*getPtr());
+        return *this;
+    }
+
+    /// @brief Post-increment operator (var++)
+    template <typename T = Type>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && PostIncrementable<T>)
+    Type operator++(int) {
+        return atomicPostIncrement(*getPtr());
+    }
+
+    /// @brief Pre-decrement operator (--var)
+    template <typename T = Type>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && PreDecrementable<T>)
+    React &operator--() {
+        atomicDecrement(*getPtr());
+        return *this;
+    }
+
+    /// @brief Post-decrement operator (var--)
+    template <typename T = Type>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && PostDecrementable<T>)
+    Type operator--(int) {
+        return atomicPostDecrement(*getPtr());
+    }
+
+private:
     /// @brief Get the internal shared pointer for advanced operations.
     [[nodiscard]] std::shared_ptr<react_type> getPtr() const {
         // Thread-safe access to weak_ptr using conditional mutex
@@ -270,7 +411,6 @@ public:
         return ptr;
     }
 
-private:
     /**
      * @brief Safely increment the weak reference count.
      *
