@@ -7,14 +7,14 @@
 
 #pragma once
 
-#include "reaction/core/types.h"
+#include "reaction/cache/graph_cache.h"
 #include "reaction/concurrency/thread_safety.h"
 #include "reaction/core/exception.h"
-#include "reaction/cache/graph_cache.h"
+#include "reaction/core/types.h"
 #include <functional>
+#include <iostream>
 #include <set>
 #include <sstream>
-#include <iostream>
 #include <stdexcept>
 #include <vector>
 
@@ -97,9 +97,9 @@ public:
      * @param batchId Unique identifier for the batch operation
      * @param nodes Set of nodes affected by this batch
      */
-    void registerActiveBatch(const void* batchId, const NodeSet& nodes) {
+    void registerActiveBatch(const void *batchId, const NodeSet &nodes) {
         ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
-        for (const auto& nodeWeak : nodes) {
+        for (const auto &nodeWeak : nodes) {
             if (auto node = nodeWeak.lock()) {
                 m_activeBatchNodes[node].insert(batchId);
             }
@@ -115,12 +115,12 @@ public:
      *
      * @param batchId Unique identifier for the batch operation
      */
-    void unregisterActiveBatch(const void* batchId) {
+    void unregisterActiveBatch(const void *batchId) {
         ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
         m_activeBatchIds.erase(batchId);
 
         // Remove this batch from all node tracking
-        for (auto it = m_activeBatchNodes.begin(); it != m_activeBatchNodes.end(); ) {
+        for (auto it = m_activeBatchNodes.begin(); it != m_activeBatchNodes.end();) {
             it->second.erase(batchId);
             if (it->second.empty()) {
                 it = m_activeBatchNodes.erase(it);
@@ -136,7 +136,7 @@ public:
      * @param node The node to check
      * @return true if the node is in an active batch, false otherwise
      */
-    bool isNodeInActiveBatch(const NodePtr& node) const {
+    bool isNodeInActiveBatch(const NodePtr &node) const {
         ConditionalSharedLock<ConditionalSharedMutex> lock(m_graphMutex);
         auto it = m_activeBatchNodes.find(node);
         return it != m_activeBatchNodes.end() && !it->second.empty();
@@ -325,9 +325,9 @@ public:
         CycleDetectionCache::Stats cycleStats;
         NodeMetricsCache::Stats metricsStats;
 
-        CacheStats(const GraphTraversalCache::Stats& gStats,
-                  const CycleDetectionCache::Stats& cStats,
-                  const NodeMetricsCache::Stats& mStats)
+        CacheStats(const GraphTraversalCache::Stats &gStats,
+            const CycleDetectionCache::Stats &cStats,
+            const NodeMetricsCache::Stats &mStats)
             : graphStats(gStats), cycleStats(cStats), metricsStats(mStats) {}
     };
 
@@ -435,7 +435,7 @@ private:
         }
 
         // Try to get cached result first
-        const bool* cachedResult = m_cycleCache.getCachedCycleResult(source, target);
+        const bool *cachedResult = m_cycleCache.getCachedCycleResult(source, target);
         if (cachedResult) {
             return *cachedResult;
         }
@@ -498,6 +498,8 @@ private:
             for (auto dep : m_dependentList[node]) {
                 if (auto locked_dep = dep.lock()) {
                     if (m_observerList.contains(locked_dep)) {
+                        // Take the node's observer mutex before modifying its observer set
+                        ConditionalUniqueLock<ConditionalSharedMutex> depLock(locked_dep->m_observersMutex);
                         m_observerList.at(locked_dep).get().erase(node);
                     }
                 }
@@ -530,20 +532,23 @@ private:
         }
 
         m_dependentList.at(source).insert(target);
-        m_observerList.at(target).get().insert(source);
+        {
+            ConditionalUniqueLock<ConditionalSharedMutex> targetLock(target->m_observersMutex);
+            target->m_observers.insert(source);
+        }
     }
 
-    std::unordered_map<NodePtr, NodeSetRef> m_observerList; ///< Map from node to its observers (refs).
-    std::unordered_map<NodePtr, NodeSet> m_dependentList;   ///< Map from node to its dependencies.
-    std::unordered_map<NodePtr, std::string> m_nameList;    ///< Human-readable node names.
-    std::unordered_map<NodePtr, std::set<const void*>> m_activeBatchNodes; ///< Map from node to active batch IDs.
-    std::set<const void*> m_activeBatchIds;                ///< Set of all active batch IDs.
-    mutable ConditionalSharedMutex m_graphMutex;            ///< Mutex for thread-safe graph operations.
+    std::unordered_map<NodePtr, NodeSetRef> m_observerList;                 ///< Map from node to its observers (refs).
+    std::unordered_map<NodePtr, NodeSet> m_dependentList;                   ///< Map from node to its dependencies.
+    std::unordered_map<NodePtr, std::string> m_nameList;                    ///< Human-readable node names.
+    std::unordered_map<NodePtr, std::set<const void *>> m_activeBatchNodes; ///< Map from node to active batch IDs.
+    std::set<const void *> m_activeBatchIds;                                ///< Set of all active batch IDs.
+    mutable ConditionalSharedMutex m_graphMutex;                            ///< Mutex for thread-safe graph operations.
 
     // Cache subsystems
-    mutable GraphTraversalCache m_graphCache;               ///< Cache for graph traversal results.
-    mutable CycleDetectionCache m_cycleCache;               ///< Cache for cycle detection results.
-    mutable NodeMetricsCache m_metricsCache;                ///< Cache for node metrics and existence checks.
+    mutable GraphTraversalCache m_graphCache; ///< Cache for graph traversal results.
+    mutable CycleDetectionCache m_cycleCache; ///< Cache for cycle detection results.
+    mutable NodeMetricsCache m_metricsCache;  ///< Cache for node metrics and existence checks.
 };
 
 /**
@@ -581,7 +586,7 @@ inline void ObserverGraph::collectObservers(const NodePtr &node, NodeSet &observ
     REACTION_REGISTER_THREAD();
 
     // Try to get cached immediate observers first
-    const NodeSet* cachedObservers = m_graphCache.getCachedImmediateObservers(node);
+    const NodeSet *cachedObservers = m_graphCache.getCachedImmediateObservers(node);
     NodeSet currentObservers;
 
     if (cachedObservers) {

@@ -68,7 +68,7 @@ inline bool isBatchFunctionActive() noexcept {
 
 /**
  * @brief Reset all global state to default values.
- * 
+ *
  * Useful for cleanup or testing scenarios.
  */
 inline void resetGlobalState() noexcept {

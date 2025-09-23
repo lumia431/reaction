@@ -38,7 +38,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE
 )
 
 file(GLOB_RECURSE HEADERS_LIST "${CMAKE_CURRENT_SOURCE_DIR}/include/reaction/*.h")
-file(GLOB MAIN_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/include/reaction.h")
+file(GLOB MAIN_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/include/reaction/reaction.h")
 foreach(header_file ${HEADERS_LIST} ${MAIN_HEADER})
     target_sources(${PROJECT_NAME} INTERFACE
         $<BUILD_INTERFACE:${header_file}>
@@ -106,3 +106,13 @@ install(
     NAMESPACE ${PROJECT_NAME}::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
 )
+
+if(NOT TARGET uninstall)
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+    IMMEDIATE @ONLY)
+
+  add_custom_target(uninstall
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+endif()

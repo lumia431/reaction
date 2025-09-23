@@ -7,10 +7,10 @@
 
 #pragma once
 
-#include "reaction/core/react.h"
-#include "reaction/graph/observer_graph.h"
-#include "reaction/graph/field_graph.h"
 #include "reaction/core/id_generator.h"
+#include "reaction/core/react.h"
+#include "reaction/graph/field_graph.h"
+#include "reaction/graph/observer_graph.h"
 
 namespace reaction {
 

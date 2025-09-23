@@ -8,7 +8,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
-#include <reaction.h>
+#include <reaction/reaction.h>
 #include <string>
 #include <vector>
 

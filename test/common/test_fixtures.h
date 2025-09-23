@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <reaction.h>
+#include <reaction/reaction.h>
 #include "gtest/gtest.h"
 
 /**

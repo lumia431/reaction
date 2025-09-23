@@ -15,27 +15,27 @@ namespace reaction {
 
 /**
  * @brief Base template for binary operators with automatic forwarding.
- * 
+ *
  * @tparam Derived The derived operator type (CRTP)
  */
 template <typename Derived>
 struct BinaryOperatorBase {
     template <typename L, typename R>
-    constexpr auto operator()(L&& l, R&& r) const noexcept(noexcept(static_cast<const Derived*>(this)->apply(std::forward<L>(l), std::forward<R>(r)))) {
-        return static_cast<const Derived*>(this)->apply(std::forward<L>(l), std::forward<R>(r));
+    constexpr auto operator()(L &&l, R &&r) const noexcept(noexcept(static_cast<const Derived *>(this)->apply(std::forward<L>(l), std::forward<R>(r)))) {
+        return static_cast<const Derived *>(this)->apply(std::forward<L>(l), std::forward<R>(r));
     }
 };
 
 /**
  * @brief Base template for unary operators with automatic forwarding.
- * 
+ *
  * @tparam Derived The derived operator type (CRTP)
  */
 template <typename Derived>
 struct UnaryOperatorBase {
     template <typename T>
-    constexpr auto operator()(T&& operand) const noexcept(noexcept(static_cast<const Derived*>(this)->apply(std::forward<T>(operand)))) {
-        return static_cast<const Derived*>(this)->apply(std::forward<T>(operand));
+    constexpr auto operator()(T &&operand) const noexcept(noexcept(static_cast<const Derived *>(this)->apply(std::forward<T>(operand)))) {
+        return static_cast<const Derived *>(this)->apply(std::forward<T>(operand));
     }
 };
 
@@ -48,13 +48,13 @@ struct UnaryOperatorBase {
  * @param symbol The C++ operator symbol
  * @param description Human-readable description
  */
-#define REACTION_DEFINE_BINARY_OP(OpName, symbol, description) \
-    /** @brief description */ \
-    struct OpName : BinaryOperatorBase<OpName> { \
-        template <typename L, typename R> \
-        constexpr auto apply(L&& l, R&& r) const noexcept(noexcept(l symbol r)) { \
-            return l symbol r; \
-        } \
+#define REACTION_DEFINE_BINARY_OP(OpName, symbol, description)                    \
+    /** @brief description */                                                     \
+    struct OpName : BinaryOperatorBase<OpName> {                                  \
+        template <typename L, typename R>                                         \
+        constexpr auto apply(L &&l, R &&r) const noexcept(noexcept(l symbol r)) { \
+            return l symbol r;                                                    \
+        }                                                                         \
     }
 
 // === Arithmetic Operators ===
@@ -72,7 +72,7 @@ REACTION_DEFINE_BINARY_OP(SubOp, -, Subtraction operator functor for reactive ex
  */
 struct DivOp : BinaryOperatorBase<DivOp> {
     template <typename L, typename R>
-    constexpr auto apply(L&& l, R&& r) const {
+    constexpr auto apply(L &&l, R &&r) const {
         using L_t = std::remove_cvref_t<L>;
         using R_t = std::remove_cvref_t<R>;
 
@@ -108,13 +108,13 @@ REACTION_DEFINE_BINARY_OP(OrOp, ||, Logical OR operator functor for reactive exp
  * @param symbol The C++ operator symbol
  * @param description Human-readable description
  */
-#define REACTION_DEFINE_UNARY_OP(OpName, symbol, description) \
-    /** @brief description */ \
-    struct OpName : UnaryOperatorBase<OpName> { \
-        template <typename T> \
-        constexpr auto apply(T&& operand) const noexcept(noexcept(symbol operand)) { \
-            return symbol operand; \
-        } \
+#define REACTION_DEFINE_UNARY_OP(OpName, symbol, description)                        \
+    /** @brief description */                                                        \
+    struct OpName : UnaryOperatorBase<OpName> {                                      \
+        template <typename T>                                                        \
+        constexpr auto apply(T &&operand) const noexcept(noexcept(symbol operand)) { \
+            return symbol operand;                                                   \
+        }                                                                            \
     }
 
 // === Unary Operators ===

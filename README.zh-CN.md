@@ -102,6 +102,14 @@ cmake --install build/ --prefix /your/install/path
 find_package(reaction REQUIRED)
 ```
 
+### 卸载
+
+要卸载框架:
+
+```bash
+cmake --build build/ --target uninstall
+```
+
 如需运行示例或测试单元:
 
 ```bash

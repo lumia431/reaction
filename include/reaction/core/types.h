@@ -7,9 +7,9 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <unordered_set>
-#include <functional>
 
 namespace reaction {
 
@@ -20,14 +20,14 @@ class ObserverNode;
 
 /**
  * @brief Shared pointer to ObserverNode.
- * 
+ *
  * Used for managing reactive node lifetimes with automatic memory management.
  */
 using NodePtr = std::shared_ptr<ObserverNode>;
 
 /**
  * @brief Weak pointer to ObserverNode.
- * 
+ *
  * Used for non-owning references to reactive nodes to avoid circular dependencies.
  */
 using NodeWeak = std::weak_ptr<ObserverNode>;
@@ -70,7 +70,7 @@ namespace reaction {
 
 /**
  * @brief Unordered set of weak pointers to ObserverNode.
- * 
+ *
  * Uses custom hash and equality functions for weak_ptr support.
  * Commonly used for storing collections of reactive node references.
  */
@@ -78,7 +78,7 @@ using NodeSet = std::unordered_set<NodeWeak, std::WeakPtrHash, std::WeakPtrEqual
 
 /**
  * @brief Reference wrapper type for NodeSet.
- * 
+ *
  * Used when we need to store references to NodeSet objects.
  */
 using NodeSetRef = std::reference_wrapper<NodeSet>;

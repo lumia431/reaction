@@ -7,15 +7,15 @@
 
 #pragma once
 
-#include "reaction/core/observer_node.h"
-#include "reaction/graph/observer_graph.h"
-#include "reaction/concurrency/thread_safety.h"
-#include "reaction/core/types.h"
 #include "reaction/concurrency/global_state.h"
+#include "reaction/concurrency/thread_safety.h"
+#include "reaction/core/observer_node.h"
 #include "reaction/core/raii_guards.h"
+#include "reaction/core/types.h"
+#include "reaction/graph/observer_graph.h"
+#include <atomic>
 #include <iostream>
 #include <set>
-#include <atomic>
 
 namespace reaction {
 
@@ -31,13 +31,13 @@ struct BatchCompare {
      * @param rhs Right-hand side weak pointer
      * @return true if lhs's depth is less than rhs's depth
      */
-    bool operator()(const NodeWeak& lhs, const NodeWeak& rhs) const noexcept {
+    bool operator()(const NodeWeak &lhs, const NodeWeak &rhs) const noexcept {
         auto left = lhs.lock();
         auto right = rhs.lock();
 
         // Handle null pointers safely
         if (!left && !right) return false;
-        if (!left) return true;  // null comes first
+        if (!left) return true; // null comes first
         if (!right) return false;
 
         return left->m_depth < right->m_depth;
@@ -143,7 +143,8 @@ public:
 
         ConditionalSharedLock<ConditionalSharedMutex> lock(m_batchMutex);
         for (auto &node : m_batchNodes) {
-            if (auto wp = node.lock()) [[likely]] wp->changedNoNotify();
+            if (auto wp = node.lock()) [[likely]]
+                wp->changedNoNotify();
         }
     }
 
@@ -151,7 +152,7 @@ private:
     NodeSet m_observers;                                ///< Collection of observer nodes accessed during batch
     std::multiset<NodeWeak, BatchCompare> m_batchNodes; ///< Nodes tracked by this batch, ordered by depth
     std::function<void()> m_fun;                        ///< The function to execute for this batch
-    const void* m_batchId;                              ///< Unique identifier for this batch instance
+    const void *m_batchId;                              ///< Unique identifier for this batch instance
     std::atomic<bool> m_isClosed{false};                ///< Whether the batch has been manually closed
     mutable ConditionalSharedMutex m_batchMutex;        ///< Mutex for thread-safe batch operations
 };

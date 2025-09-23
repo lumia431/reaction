@@ -14,7 +14,7 @@
  * This is the primary header file that provides access to all Reaction framework
  * functionality. Include this file to get complete access to reactive programming
  * features including:
- * 
+ *
  * - Reactive variables, calculations, and expressions
  * - Observer pattern implementation
  * - Batch operations for performance optimization
@@ -29,14 +29,14 @@
 
 // Core reactive node and resource management
 #include "reaction/core/observer_node.h"
-#include "reaction/core/resource.h"
 #include "reaction/core/react.h"
+#include "reaction/core/resource.h"
 
 // === Graph Management ===
 
 // Observer and dependency graph management
-#include "reaction/graph/observer_graph.h"
 #include "reaction/graph/field_graph.h"
+#include "reaction/graph/observer_graph.h"
 
 // === Expression System ===
 
@@ -65,8 +65,8 @@
 #include "reaction/core/exception.h"
 
 // Support utilities
-#include "reaction/core/id_generator.h"
 #include "reaction/concurrency/global_state.h"
+#include "reaction/core/id_generator.h"
 #include "reaction/core/raii_guards.h"
 
 // === Factory Functions ===

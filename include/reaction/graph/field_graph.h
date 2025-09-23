@@ -7,9 +7,9 @@
 
 #pragma once
 
-#include "reaction/graph/observer_graph.h"
 #include "reaction/concurrency/thread_safety.h"
 #include "reaction/core/types.h"
+#include "reaction/graph/observer_graph.h"
 #include <unordered_map>
 
 namespace reaction {
@@ -78,7 +78,7 @@ public:
 private:
     FieldGraph() {}
     std::unordered_map<uint64_t, NodeSet> m_fieldMap; ///< Map from object ID to its field nodes.
-    mutable ConditionalSharedMutex m_fieldMutex;       ///< Mutex for thread-safe field operations.
+    mutable ConditionalSharedMutex m_fieldMutex;      ///< Mutex for thread-safe field operations.
 };
 
 } // namespace reaction
