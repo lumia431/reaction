@@ -254,6 +254,152 @@ public:
         return ObserverGraph::getInstance().getName(getPtr());
     }
 
+    // ==================== Compound Assignment Operators ====================
+    
+    /// @brief Compound addition assignment operator (+=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && AddAssignable<Type, U>)
+    React &operator+=(const U &rhs) {
+        auto currentVal = get();
+        currentVal += rhs;
+        value(std::move(currentVal));
+        return *this;
+    }
+
+    /// @brief Compound subtraction assignment operator (-=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && SubtractAssignable<Type, U>)
+    React &operator-=(const U &rhs) {
+        auto currentVal = get();
+        currentVal -= rhs;
+        value(std::move(currentVal));
+        return *this;
+    }
+
+    /// @brief Compound multiplication assignment operator (*=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && MultiplyAssignable<Type, U>)
+    React &operator*=(const U &rhs) {
+        auto currentVal = get();
+        currentVal *= rhs;
+        value(std::move(currentVal));
+        return *this;
+    }
+
+    /// @brief Compound division assignment operator (/=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && DivideAssignable<Type, U>)
+    React &operator/=(const U &rhs) {
+        auto currentVal = get();
+        currentVal /= rhs;
+        value(std::move(currentVal));
+        return *this;
+    }
+
+    /// @brief Compound modulo assignment operator (%=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && ModuloAssignable<Type, U>)
+    React &operator%=(const U &rhs) {
+        auto currentVal = get();
+        currentVal %= rhs;
+        value(std::move(currentVal));
+        return *this;
+    }
+
+    /// @brief Compound bitwise AND assignment operator (&=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && BitwiseAndAssignable<Type, U>)
+    React &operator&=(const U &rhs) {
+        auto currentVal = get();
+        currentVal &= rhs;
+        value(std::move(currentVal));
+        return *this;
+    }
+
+    /// @brief Compound bitwise OR assignment operator (|=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && BitwiseOrAssignable<Type, U>)
+    React &operator|=(const U &rhs) {
+        auto currentVal = get();
+        currentVal |= rhs;
+        value(std::move(currentVal));
+        return *this;
+    }
+
+    /// @brief Compound bitwise XOR assignment operator (^=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && BitwiseXorAssignable<Type, U>)
+    React &operator^=(const U &rhs) {
+        auto currentVal = get();
+        currentVal ^= rhs;
+        value(std::move(currentVal));
+        return *this;
+    }
+
+    /// @brief Compound left shift assignment operator (<<=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && LeftShiftAssignable<Type, U>)
+    React &operator<<=(const U &rhs) {
+        auto currentVal = get();
+        currentVal <<= rhs;
+        value(std::move(currentVal));
+        return *this;
+    }
+
+    /// @brief Compound right shift assignment operator (>>=)
+    template <typename U>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && RightShiftAssignable<Type, U>)
+    React &operator>>=(const U &rhs) {
+        auto currentVal = get();
+        currentVal >>= rhs;
+        value(std::move(currentVal));
+        return *this;
+    }
+
+    // ==================== Increment/Decrement Operators ====================
+
+    /// @brief Pre-increment operator (++var)
+    template <typename T = Type>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && PreIncrementable<T>)
+    React &operator++() {
+        auto currentVal = get();
+        ++currentVal;
+        value(std::move(currentVal));
+        return *this;
+    }
+
+    /// @brief Post-increment operator (var++)
+    template <typename T = Type>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && PostIncrementable<T>)
+    Type operator++(int) {
+        auto currentVal = get();
+        auto oldVal = currentVal;  // Store the old value
+        currentVal++;
+        value(std::move(currentVal));
+        return oldVal;  // Return the old value as Type, not React
+    }
+
+    /// @brief Pre-decrement operator (--var)
+    template <typename T = Type>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && PreDecrementable<T>)
+    React &operator--() {
+        auto currentVal = get();
+        --currentVal;
+        value(std::move(currentVal));
+        return *this;
+    }
+
+    /// @brief Post-decrement operator (var--)
+    template <typename T = Type>
+        requires(IsVarExpr<Expr> && !ConstType<Type> && PostDecrementable<T>)
+    Type operator--(int) {
+        auto currentVal = get();
+        auto oldVal = currentVal;  // Store the old value
+        currentVal--;
+        value(std::move(currentVal));
+        return oldVal;  // Return the old value as Type, not React
+    }
+
     /// @brief Get the internal shared pointer for advanced operations.
     [[nodiscard]] std::shared_ptr<react_type> getPtr() const {
         // Thread-safe access to weak_ptr using conditional mutex

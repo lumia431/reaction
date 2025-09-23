@@ -95,6 +95,120 @@ concept ComparableType = requires(T &a, T &b) {
     { a == b } -> std::convertible_to<bool>;
 };
 
+// ==================== Operator Support Concepts ====================
+
+/**
+ * @brief Checks if a type supports pre-increment operation.
+ */
+template <typename T>
+concept PreIncrementable = requires(T &a) {
+    { ++a } -> std::convertible_to<T>;
+};
+
+/**
+ * @brief Checks if a type supports post-increment operation.
+ */
+template <typename T>
+concept PostIncrementable = requires(T &a) {
+    { a++ } -> std::convertible_to<T>;
+};
+
+/**
+ * @brief Checks if a type supports pre-decrement operation.
+ */
+template <typename T>
+concept PreDecrementable = requires(T &a) {
+    { --a } -> std::convertible_to<T>;
+};
+
+/**
+ * @brief Checks if a type supports post-decrement operation.
+ */
+template <typename T>
+concept PostDecrementable = requires(T &a) {
+    { a-- } -> std::convertible_to<T>;
+};
+
+/**
+ * @brief Checks if a type supports compound addition assignment.
+ */
+template <typename T, typename U = T>
+concept AddAssignable = requires(T &a, const U &b) {
+    { a += b } -> std::convertible_to<T&>;
+};
+
+/**
+ * @brief Checks if a type supports compound subtraction assignment.
+ */
+template <typename T, typename U = T>
+concept SubtractAssignable = requires(T &a, const U &b) {
+    { a -= b } -> std::convertible_to<T&>;
+};
+
+/**
+ * @brief Checks if a type supports compound multiplication assignment.
+ */
+template <typename T, typename U = T>
+concept MultiplyAssignable = requires(T &a, const U &b) {
+    { a *= b } -> std::convertible_to<T&>;
+};
+
+/**
+ * @brief Checks if a type supports compound division assignment.
+ */
+template <typename T, typename U = T>
+concept DivideAssignable = requires(T &a, const U &b) {
+    { a /= b } -> std::convertible_to<T&>;
+};
+
+/**
+ * @brief Checks if a type supports compound modulo assignment.
+ */
+template <typename T, typename U = T>
+concept ModuloAssignable = requires(T &a, const U &b) {
+    { a %= b } -> std::convertible_to<T&>;
+};
+
+/**
+ * @brief Checks if a type supports bitwise AND assignment.
+ */
+template <typename T, typename U = T>
+concept BitwiseAndAssignable = requires(T &a, const U &b) {
+    { a &= b } -> std::convertible_to<T&>;
+};
+
+/**
+ * @brief Checks if a type supports bitwise OR assignment.
+ */
+template <typename T, typename U = T>
+concept BitwiseOrAssignable = requires(T &a, const U &b) {
+    { a |= b } -> std::convertible_to<T&>;
+};
+
+/**
+ * @brief Checks if a type supports bitwise XOR assignment.
+ */
+template <typename T, typename U = T>
+concept BitwiseXorAssignable = requires(T &a, const U &b) {
+    { a ^= b } -> std::convertible_to<T&>;
+};
+
+/**
+ * @brief Checks if a type supports left shift assignment.
+ */
+template <typename T, typename U = T>
+concept LeftShiftAssignable = requires(T &a, const U &b) {
+    { a <<= b } -> std::convertible_to<T&>;
+};
+
+/**
+ * @brief Checks if a type supports right shift assignment.
+ */
+template <typename T, typename U = T>
+concept RightShiftAssignable = requires(T &a, const U &b) {
+    { a >>= b } -> std::convertible_to<T&>;
+};
+
 /**
  * @brief Checks if a type implements the field interface.
  */
