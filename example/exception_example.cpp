@@ -18,7 +18,7 @@
  * Use case: Safe reactive data processing with comprehensive error handling
  */
 
-#include <reaction.h>
+#include <reaction/reaction.h>
 #include <iostream>
 #include <iomanip>
 #include <string>

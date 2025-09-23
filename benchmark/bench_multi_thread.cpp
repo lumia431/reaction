@@ -1,4 +1,4 @@
-#include "reaction.h"
+#include "reaction/reaction.h"
 #include <benchmark/benchmark.h>
 #include <thread>
 #include <vector>

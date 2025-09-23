@@ -34,27 +34,26 @@ public:
      */
     template <typename U>
         requires(!std::is_same_v<std::remove_cvref_t<U>, UnifiedStateGuard>)
-    explicit UnifiedStateGuard(T& var, U&& value, const T& default_value) noexcept(
-        std::is_nothrow_assignable_v<T&, U> && std::is_nothrow_copy_constructible_v<T>
-    ) : m_var(var), m_default_value(default_value) {
+    explicit UnifiedStateGuard(T &var, U &&value, const T &default_value) noexcept(
+        std::is_nothrow_assignable_v<T &, U> && std::is_nothrow_copy_constructible_v<T>) : m_var(var), m_default_value(default_value) {
         m_var = std::forward<U>(value);
     }
 
     /**
      * @brief Destructor that restores the global variable to its default value.
      */
-    ~UnifiedStateGuard() noexcept(std::is_nothrow_assignable_v<T&, const T&>) {
+    ~UnifiedStateGuard() noexcept(std::is_nothrow_assignable_v<T &, const T &>) {
         m_var = m_default_value;
     }
 
     // Disable copying and moving for safety
-    UnifiedStateGuard(const UnifiedStateGuard&) = delete;
-    UnifiedStateGuard& operator=(const UnifiedStateGuard&) = delete;
-    UnifiedStateGuard(UnifiedStateGuard&&) = delete;
-    UnifiedStateGuard& operator=(UnifiedStateGuard&&) = delete;
+    UnifiedStateGuard(const UnifiedStateGuard &) = delete;
+    UnifiedStateGuard &operator=(const UnifiedStateGuard &) = delete;
+    UnifiedStateGuard(UnifiedStateGuard &&) = delete;
+    UnifiedStateGuard &operator=(UnifiedStateGuard &&) = delete;
 
 private:
-    T& m_var;
+    T &m_var;
     T m_default_value;
 };
 
@@ -78,9 +77,8 @@ struct OptimizedGlobalGuard {
      */
     template <typename T>
         requires(!std::is_same_v<std::remove_cvref_t<T>, OptimizedGlobalGuard>)
-    explicit OptimizedGlobalGuard(VarType& var_ref, T&& value) noexcept(
-        std::is_nothrow_assignable_v<VarType, T>
-    ) : m_var(var_ref) {
+    explicit OptimizedGlobalGuard(VarType &var_ref, T &&value) noexcept(
+        std::is_nothrow_assignable_v<VarType, T>) : m_var(var_ref) {
         m_var = std::forward<T>(value);
     }
 
@@ -88,19 +86,18 @@ struct OptimizedGlobalGuard {
      * @brief Destructor that restores the global variable to its default value.
      */
     ~OptimizedGlobalGuard() noexcept(
-        std::is_nothrow_assignable_v<VarType, decltype(DefaultVal)>
-    ) {
+        std::is_nothrow_assignable_v<VarType, decltype(DefaultVal)>) {
         m_var = DefaultVal;
     }
 
     // Disable copying and moving
-    OptimizedGlobalGuard(const OptimizedGlobalGuard&) = delete;
-    OptimizedGlobalGuard& operator=(const OptimizedGlobalGuard&) = delete;
-    OptimizedGlobalGuard(OptimizedGlobalGuard&&) = delete;
-    OptimizedGlobalGuard& operator=(OptimizedGlobalGuard&&) = delete;
+    OptimizedGlobalGuard(const OptimizedGlobalGuard &) = delete;
+    OptimizedGlobalGuard &operator=(const OptimizedGlobalGuard &) = delete;
+    OptimizedGlobalGuard(OptimizedGlobalGuard &&) = delete;
+    OptimizedGlobalGuard &operator=(OptimizedGlobalGuard &&) = delete;
 
 private:
-    VarType& m_var;
+    VarType &m_var;
 };
 
 // === Specific RAII Guard Factory Functions ===
@@ -112,11 +109,10 @@ private:
  * @param value Value to assign to the global registration function
  * @return RAII guard that manages the registration function state
  */
-template<typename T>
-[[nodiscard]] auto makeRegFunGuard(T&& value) noexcept {
-    return UnifiedStateGuard<std::function<void(const NodePtr&)>>(
-        g_reg_fun, std::forward<T>(value), nullptr
-    );
+template <typename T>
+[[nodiscard]] auto makeRegFunGuard(T &&value) noexcept {
+    return UnifiedStateGuard<std::function<void(const NodePtr &)>>(
+        g_reg_fun, std::forward<T>(value), nullptr);
 }
 
 /**
@@ -126,11 +122,10 @@ template<typename T>
  * @param value Value to assign to the global batch function
  * @return RAII guard that manages the batch function state
  */
-template<typename T>
-[[nodiscard]] auto makeBatchFunGuard(T&& value) noexcept {
-    return UnifiedStateGuard<std::function<void(const NodePtr&)>>(
-        g_batch_fun, std::forward<T>(value), nullptr
-    );
+template <typename T>
+[[nodiscard]] auto makeBatchFunGuard(T &&value) noexcept {
+    return UnifiedStateGuard<std::function<void(const NodePtr &)>>(
+        g_batch_fun, std::forward<T>(value), nullptr);
 }
 
 /**
@@ -158,12 +153,12 @@ template<typename T>
 /**
  * @brief Type alias for dependency registration guard.
  */
-using DepRegGuard = UnifiedStateGuard<std::function<void(const NodePtr&)>>;
+using DepRegGuard = UnifiedStateGuard<std::function<void(const NodePtr &)>>;
 
 /**
  * @brief Type alias for batch function guard.
  */
-using BatchFunGuard = UnifiedStateGuard<std::function<void(const NodePtr&)>>;
+using BatchFunGuard = UnifiedStateGuard<std::function<void(const NodePtr &)>>;
 
 /**
  * @brief Type alias for batch execution guard.

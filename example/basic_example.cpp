@@ -18,7 +18,7 @@
  * Use case: Stock price tracking with automatic profit/loss calculation
  */
 
-#include <reaction.h>
+#include <reaction/reaction.h>
 #include <cmath>
 #include <iomanip>
 #include <iostream>

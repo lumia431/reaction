@@ -6,7 +6,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <reaction.h>
+#include <reaction/reaction.h>
 
 using namespace reaction;
 

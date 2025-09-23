@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "reaction/concurrency/thread_safety.h"
 #include "reaction/core/types.h"
 #include <memory>
 
@@ -23,6 +24,7 @@ class ObserverGraph;
  */
 class ObserverNode : public std::enable_shared_from_this<ObserverNode> {
 public:
+    mutable ConditionalSharedMutex m_observersMutex; ///< Mutex for thread-safe observer access
     virtual ~ObserverNode() = default;
 
     /**
@@ -66,7 +68,7 @@ public:
      * @tparam Args Parameter pack for node pointers.
      * @param args Nodes to observe.
      */
-    template<typename... Args>
+    template <typename... Args>
     void updateObservers(Args &&...args);
 
     /**
@@ -80,7 +82,13 @@ public:
      * @param changed Whether the node's value has changed.
      */
     void notify(bool changed = true) {
-        for (auto &observer : m_observers) {
+        // Create a snapshot of observers to avoid holding lock during notifications
+        NodeSet snapshot;
+        {
+            ConditionalSharedLock<ConditionalSharedMutex> lock(m_observersMutex);
+            snapshot = m_observers;
+        }
+        for (auto &observer : snapshot) {
             if (auto wp = observer.lock()) [[likely]]
                 wp->valueChanged(changed);
         }
@@ -100,7 +108,7 @@ private:
 
 namespace reaction {
 
-template<typename... Args>
+template <typename... Args>
 inline void ObserverNode::updateObservers(Args &&...args) {
     auto shared_this = shared_from_this();
     ObserverGraph::getInstance().updateObserversTransactional(shared_this, args...);

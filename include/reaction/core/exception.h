@@ -7,10 +7,10 @@
 
 #pragma once
 
-#include <stdexcept>
-#include <string>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
+#include <string>
 
 namespace reaction {
 
@@ -50,17 +50,12 @@ public:
      * @param line Line number where the exception occurred
      * @param function Function name where the exception occurred
      */
-    ReactionException(const std::string& message,
-                     ErrorCode code = ErrorCode::UNKNOWN,
-                     const std::string& file = "",
-                     int line = 0,
-                     const std::string& function = "")
-        : std::runtime_error(formatMessage(message, code, file, line, function))
-        , m_errorCode(code)
-        , m_file(file)
-        , m_line(line)
-        , m_function(function)
-        , m_originalMessage(message) {
+    ReactionException(const std::string &message,
+        ErrorCode code = ErrorCode::UNKNOWN,
+        const std::string &file = "",
+        int line = 0,
+        const std::string &function = "")
+        : std::runtime_error(formatMessage(message, code, file, line, function)), m_errorCode(code), m_file(file), m_line(line), m_function(function), m_originalMessage(message) {
     }
 
     /**
@@ -75,7 +70,7 @@ public:
      * @brief Get the source file where the exception occurred.
      * @return File path as string
      */
-    const std::string& getFile() const noexcept {
+    const std::string &getFile() const noexcept {
         return m_file;
     }
 
@@ -91,7 +86,7 @@ public:
      * @brief Get the function name where the exception occurred.
      * @return Function name as string
      */
-    const std::string& getFunction() const noexcept {
+    const std::string &getFunction() const noexcept {
         return m_function;
     }
 
@@ -99,7 +94,7 @@ public:
      * @brief Get the original error message without formatting.
      * @return Original error message
      */
-    const std::string& getOriginalMessage() const noexcept {
+    const std::string &getOriginalMessage() const noexcept {
         return m_originalMessage;
     }
 
@@ -110,30 +105,30 @@ public:
      */
     static std::string errorCodeToString(ErrorCode code) {
         switch (code) {
-            case ErrorCode::DEPENDENCY_CYCLE:
-                return "DEPENDENCY_CYCLE";
-            case ErrorCode::SELF_OBSERVATION:
-                return "SELF_OBSERVATION";
-            case ErrorCode::NULL_POINTER_ACCESS:
-                return "NULL_POINTER_ACCESS";
-            case ErrorCode::RESOURCE_NOT_INITIALIZED:
-                return "RESOURCE_NOT_INITIALIZED";
-            case ErrorCode::TYPE_MISMATCH:
-                return "TYPE_MISMATCH";
-            case ErrorCode::INVALID_STATE:
-                return "INVALID_STATE";
-            case ErrorCode::THREAD_SAFETY_VIOLATION:
-                return "THREAD_SAFETY_VIOLATION";
-            case ErrorCode::BATCH_OPERATION_CONFLICT:
-                return "BATCH_OPERATION_CONFLICT";
-            case ErrorCode::MEMORY_ALLOCATION_FAILURE:
-                return "MEMORY_ALLOCATION_FAILURE";
-            case ErrorCode::GRAPH_CORRUPTION:
-                return "GRAPH_CORRUPTION";
-            case ErrorCode::OBSERVER_LIMIT_EXCEEDED:
-                return "OBSERVER_LIMIT_EXCEEDED";
-            default:
-                return "UNKNOWN";
+        case ErrorCode::DEPENDENCY_CYCLE:
+            return "DEPENDENCY_CYCLE";
+        case ErrorCode::SELF_OBSERVATION:
+            return "SELF_OBSERVATION";
+        case ErrorCode::NULL_POINTER_ACCESS:
+            return "NULL_POINTER_ACCESS";
+        case ErrorCode::RESOURCE_NOT_INITIALIZED:
+            return "RESOURCE_NOT_INITIALIZED";
+        case ErrorCode::TYPE_MISMATCH:
+            return "TYPE_MISMATCH";
+        case ErrorCode::INVALID_STATE:
+            return "INVALID_STATE";
+        case ErrorCode::THREAD_SAFETY_VIOLATION:
+            return "THREAD_SAFETY_VIOLATION";
+        case ErrorCode::BATCH_OPERATION_CONFLICT:
+            return "BATCH_OPERATION_CONFLICT";
+        case ErrorCode::MEMORY_ALLOCATION_FAILURE:
+            return "MEMORY_ALLOCATION_FAILURE";
+        case ErrorCode::GRAPH_CORRUPTION:
+            return "GRAPH_CORRUPTION";
+        case ErrorCode::OBSERVER_LIMIT_EXCEEDED:
+            return "OBSERVER_LIMIT_EXCEEDED";
+        default:
+            return "UNKNOWN";
         }
     }
 
@@ -141,11 +136,11 @@ protected:
     /**
      * @brief Format exception message with additional context information.
      */
-    static std::string formatMessage(const std::string& message,
-                                   ErrorCode code,
-                                   const std::string& file,
-                                   int line,
-                                   const std::string& function) {
+    static std::string formatMessage(const std::string &message,
+        ErrorCode code,
+        const std::string &file,
+        int line,
+        const std::string &function) {
         std::ostringstream oss;
         oss << "[" << errorCodeToString(code) << "] " << message;
 
@@ -179,20 +174,19 @@ private:
  */
 class DependencyCycleException : public ReactionException {
 public:
-    DependencyCycleException(const std::string& sourceName,
-                           const std::string& targetName,
-                           const std::string& file = "",
-                           int line = 0,
-                           const std::string& function = "")
+    DependencyCycleException(const std::string &sourceName,
+        const std::string &targetName,
+        const std::string &file = "",
+        int line = 0,
+        const std::string &function = "")
         : ReactionException(
-            "Detected cycle dependency: source '" + sourceName + "' -> target '" + targetName + "'",
-            ErrorCode::DEPENDENCY_CYCLE, file, line, function)
-        , m_sourceName(sourceName)
-        , m_targetName(targetName) {
+              "Detected cycle dependency: source '" + sourceName + "' -> target '" + targetName + "'",
+              ErrorCode::DEPENDENCY_CYCLE, file, line, function),
+          m_sourceName(sourceName), m_targetName(targetName) {
     }
 
-    const std::string& getSourceName() const noexcept { return m_sourceName; }
-    const std::string& getTargetName() const noexcept { return m_targetName; }
+    const std::string &getSourceName() const noexcept { return m_sourceName; }
+    const std::string &getTargetName() const noexcept { return m_targetName; }
 
 private:
     std::string m_sourceName;
@@ -204,17 +198,17 @@ private:
  */
 class SelfObservationException : public ReactionException {
 public:
-    SelfObservationException(const std::string& nodeName,
-                           const std::string& file = "",
-                           int line = 0,
-                           const std::string& function = "")
+    SelfObservationException(const std::string &nodeName,
+        const std::string &file = "",
+        int line = 0,
+        const std::string &function = "")
         : ReactionException(
-            "Detected self-observation: node '" + nodeName + "' cannot observe itself",
-            ErrorCode::SELF_OBSERVATION, file, line, function)
-        , m_nodeName(nodeName) {
+              "Detected self-observation: node '" + nodeName + "' cannot observe itself",
+              ErrorCode::SELF_OBSERVATION, file, line, function),
+          m_nodeName(nodeName) {
     }
 
-    const std::string& getNodeName() const noexcept { return m_nodeName; }
+    const std::string &getNodeName() const noexcept { return m_nodeName; }
 
 private:
     std::string m_nodeName;
@@ -225,17 +219,17 @@ private:
  */
 class NullPointerAccessException : public ReactionException {
 public:
-    NullPointerAccessException(const std::string& context = "Unknown context",
-                             const std::string& file = "",
-                             int line = 0,
-                             const std::string& function = "")
+    NullPointerAccessException(const std::string &context = "Unknown context",
+        const std::string &file = "",
+        int line = 0,
+        const std::string &function = "")
         : ReactionException(
-            "Null or expired pointer access in " + context,
-            ErrorCode::NULL_POINTER_ACCESS, file, line, function)
-        , m_context(context) {
+              "Null or expired pointer access in " + context,
+              ErrorCode::NULL_POINTER_ACCESS, file, line, function),
+          m_context(context) {
     }
 
-    const std::string& getContext() const noexcept { return m_context; }
+    const std::string &getContext() const noexcept { return m_context; }
 
 private:
     std::string m_context;
@@ -246,17 +240,17 @@ private:
  */
 class ResourceNotInitializedException : public ReactionException {
 public:
-    ResourceNotInitializedException(const std::string& resourceType = "Resource",
-                                  const std::string& file = "",
-                                  int line = 0,
-                                  const std::string& function = "")
+    ResourceNotInitializedException(const std::string &resourceType = "Resource",
+        const std::string &file = "",
+        int line = 0,
+        const std::string &function = "")
         : ReactionException(
-            resourceType + " is not initialized",
-            ErrorCode::RESOURCE_NOT_INITIALIZED, file, line, function)
-        , m_resourceType(resourceType) {
+              resourceType + " is not initialized",
+              ErrorCode::RESOURCE_NOT_INITIALIZED, file, line, function),
+          m_resourceType(resourceType) {
     }
 
-    const std::string& getResourceType() const noexcept { return m_resourceType; }
+    const std::string &getResourceType() const noexcept { return m_resourceType; }
 
 private:
     std::string m_resourceType;
@@ -267,20 +261,19 @@ private:
  */
 class TypeMismatchException : public ReactionException {
 public:
-    TypeMismatchException(const std::string& expectedType,
-                        const std::string& actualType,
-                        const std::string& file = "",
-                        int line = 0,
-                        const std::string& function = "")
+    TypeMismatchException(const std::string &expectedType,
+        const std::string &actualType,
+        const std::string &file = "",
+        int line = 0,
+        const std::string &function = "")
         : ReactionException(
-            "Type mismatch: expected '" + expectedType + "', got '" + actualType + "'",
-            ErrorCode::TYPE_MISMATCH, file, line, function)
-        , m_expectedType(expectedType)
-        , m_actualType(actualType) {
+              "Type mismatch: expected '" + expectedType + "', got '" + actualType + "'",
+              ErrorCode::TYPE_MISMATCH, file, line, function),
+          m_expectedType(expectedType), m_actualType(actualType) {
     }
 
-    const std::string& getExpectedType() const noexcept { return m_expectedType; }
-    const std::string& getActualType() const noexcept { return m_actualType; }
+    const std::string &getExpectedType() const noexcept { return m_expectedType; }
+    const std::string &getActualType() const noexcept { return m_actualType; }
 
 private:
     std::string m_expectedType;
@@ -292,20 +285,19 @@ private:
  */
 class InvalidStateException : public ReactionException {
 public:
-    InvalidStateException(const std::string& currentState,
-                        const std::string& requiredState,
-                        const std::string& file = "",
-                        int line = 0,
-                        const std::string& function = "")
+    InvalidStateException(const std::string &currentState,
+        const std::string &requiredState,
+        const std::string &file = "",
+        int line = 0,
+        const std::string &function = "")
         : ReactionException(
-            "Invalid state: current '" + currentState + "', required '" + requiredState + "'",
-            ErrorCode::INVALID_STATE, file, line, function)
-        , m_currentState(currentState)
-        , m_requiredState(requiredState) {
+              "Invalid state: current '" + currentState + "', required '" + requiredState + "'",
+              ErrorCode::INVALID_STATE, file, line, function),
+          m_currentState(currentState), m_requiredState(requiredState) {
     }
 
-    const std::string& getCurrentState() const noexcept { return m_currentState; }
-    const std::string& getRequiredState() const noexcept { return m_requiredState; }
+    const std::string &getCurrentState() const noexcept { return m_currentState; }
+    const std::string &getRequiredState() const noexcept { return m_requiredState; }
 
 private:
     std::string m_currentState;
@@ -317,17 +309,17 @@ private:
  */
 class ThreadSafetyViolationException : public ReactionException {
 public:
-    ThreadSafetyViolationException(const std::string& operation,
-                                 const std::string& file = "",
-                                 int line = 0,
-                                 const std::string& function = "")
+    ThreadSafetyViolationException(const std::string &operation,
+        const std::string &file = "",
+        int line = 0,
+        const std::string &function = "")
         : ReactionException(
-            "Thread safety violation during " + operation,
-            ErrorCode::THREAD_SAFETY_VIOLATION, file, line, function)
-        , m_operation(operation) {
+              "Thread safety violation during " + operation,
+              ErrorCode::THREAD_SAFETY_VIOLATION, file, line, function),
+          m_operation(operation) {
     }
 
-    const std::string& getOperation() const noexcept { return m_operation; }
+    const std::string &getOperation() const noexcept { return m_operation; }
 
 private:
     std::string m_operation;
@@ -338,17 +330,17 @@ private:
  */
 class BatchOperationConflictException : public ReactionException {
 public:
-    BatchOperationConflictException(const std::string& conflictDescription,
-                                  const std::string& file = "",
-                                  int line = 0,
-                                  const std::string& function = "")
+    BatchOperationConflictException(const std::string &conflictDescription,
+        const std::string &file = "",
+        int line = 0,
+        const std::string &function = "")
         : ReactionException(
-            "Batch operation conflict: " + conflictDescription,
-            ErrorCode::BATCH_OPERATION_CONFLICT, file, line, function)
-        , m_conflictDescription(conflictDescription) {
+              "Batch operation conflict: " + conflictDescription,
+              ErrorCode::BATCH_OPERATION_CONFLICT, file, line, function),
+          m_conflictDescription(conflictDescription) {
     }
 
-    const std::string& getConflictDescription() const noexcept { return m_conflictDescription; }
+    const std::string &getConflictDescription() const noexcept { return m_conflictDescription; }
 
 private:
     std::string m_conflictDescription;

@@ -7,9 +7,9 @@
 
 #pragma once
 
-#include "reaction/core/observer_node.h"
 #include "reaction/concurrency/thread_safety.h"
 #include "reaction/core/exception.h"
+#include "reaction/core/observer_node.h"
 
 namespace reaction {
 
@@ -108,7 +108,7 @@ public:
     }
 
 protected:
-    std::unique_ptr<Type> m_ptr; ///< Unique pointer managing the resource.
+    std::unique_ptr<Type> m_ptr;                 ///< Unique pointer managing the resource.
     mutable ConditionalSharedMutex m_valueMutex; ///< Mutex for thread-safe value access.
 };
 

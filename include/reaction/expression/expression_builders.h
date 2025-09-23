@@ -7,17 +7,17 @@
 
 #pragma once
 
+#include "reaction/core/concept.h"
 #include "reaction/expression/expression_types.h"
 #include "reaction/expression/operators.h"
-#include "reaction/core/concept.h"
 
 namespace reaction {
 
 /**
  * @brief Creates a binary expression from two operands and an operator.
- * 
+ *
  * Optimized factory function with perfect forwarding and compile-time optimization.
- * 
+ *
  * @tparam Op The operator type
  * @tparam L Left operand type
  * @tparam R Right operand type
@@ -27,8 +27,7 @@ namespace reaction {
  */
 template <typename Op, typename L, typename R>
 [[nodiscard]] constexpr auto make_binary_expr(L &&l, R &&r) noexcept(
-    std::is_nothrow_constructible_v<BinaryOpExpr<Op, ExprTraits<std::remove_cvref_t<L>>, ExprTraits<std::remove_cvref_t<R>>>, L, R>
-) {
+    std::is_nothrow_constructible_v<BinaryOpExpr<Op, ExprTraits<std::remove_cvref_t<L>>, ExprTraits<std::remove_cvref_t<R>>>, L, R>) {
     using LeftType = ExprTraits<std::remove_cvref_t<L>>;
     using RightType = ExprTraits<std::remove_cvref_t<R>>;
     return BinaryOpExpr<Op, LeftType, RightType>(std::forward<L>(l), std::forward<R>(r));
@@ -36,9 +35,9 @@ template <typename Op, typename L, typename R>
 
 /**
  * @brief Creates a unary expression from one operand and an operator.
- * 
+ *
  * Optimized factory function with perfect forwarding and compile-time optimization.
- * 
+ *
  * @tparam Op The operator type
  * @tparam T Operand type
  * @param operand The operand
@@ -46,8 +45,7 @@ template <typename Op, typename L, typename R>
  */
 template <typename Op, typename T>
 [[nodiscard]] constexpr auto make_unary_expr(T &&operand) noexcept(
-    std::is_nothrow_constructible_v<UnaryOpExpr<Op, ExprTraits<std::remove_cvref_t<T>>>, T>
-) {
+    std::is_nothrow_constructible_v<UnaryOpExpr<Op, ExprTraits<std::remove_cvref_t<T>>>, T>) {
     using OperandType = ExprTraits<std::remove_cvref_t<T>>;
     return UnaryOpExpr<Op, OperandType>(std::forward<T>(operand));
 }
@@ -56,16 +54,16 @@ template <typename Op, typename T>
 
 /**
  * @brief Generic template for binary operator overloads.
- * 
+ *
  * Reduces code duplication by providing a unified implementation for all binary operators.
- * 
+ *
  * @tparam Op The operator type (AddOp, MulOp, etc.)
  * @tparam L Left operand type
  * @tparam R Right operand type
  */
 template <typename Op, typename L, typename R>
     requires HasReactOp<L, R>
-constexpr auto make_binary_op(L&& l, R&& r) {
+constexpr auto make_binary_op(L &&l, R &&r) {
     return make_binary_expr<Op>(std::forward<L>(l), std::forward<R>(r));
 }
 
@@ -77,10 +75,10 @@ constexpr auto make_binary_op(L&& l, R&& r) {
  * @param op_symbol The C++ operator symbol
  * @param OpType The corresponding operator functor type
  */
-#define REACTION_DEFINE_BINARY_OPERATOR(op_symbol, OpType) \
-    template <typename L, typename R> \
-        requires HasReactOp<L, R> \
-    constexpr auto operator op_symbol(L &&l, R &&r) { \
+#define REACTION_DEFINE_BINARY_OPERATOR(op_symbol, OpType)                     \
+    template <typename L, typename R>                                          \
+        requires HasReactOp<L, R>                                              \
+    constexpr auto operator op_symbol(L &&l, R &&r) {                          \
         return make_binary_op<OpType>(std::forward<L>(l), std::forward<R>(r)); \
     }
 
@@ -90,11 +88,11 @@ constexpr auto make_binary_op(L&& l, R&& r) {
  * @param op_symbol The C++ operator symbol
  * @param OpType The corresponding operator functor type
  */
-#define REACTION_DEFINE_UNARY_OPERATOR(op_symbol, OpType) \
-    template <typename T> \
+#define REACTION_DEFINE_UNARY_OPERATOR(op_symbol, OpType)                                                                           \
+    template <typename T>                                                                                                           \
         requires IsReact<std::remove_cvref_t<T>> || IsBinaryOpExpr<std::remove_cvref_t<T>> || IsUnaryOpExpr<std::remove_cvref_t<T>> \
-    constexpr auto operator op_symbol(T &&operand) { \
-        return make_unary_op<OpType>(std::forward<T>(operand)); \
+    constexpr auto operator op_symbol(T &&operand) {                                                                                \
+        return make_unary_op<OpType>(std::forward<T>(operand));                                                                     \
     }
 
 // === Arithmetic Operators ===
@@ -122,13 +120,13 @@ REACTION_DEFINE_BINARY_OPERATOR(||, OrOp);
 
 /**
  * @brief Generic template for unary operator overloads.
- * 
+ *
  * @tparam Op The operator type (NegOp, NotOp, etc.)
  * @tparam T Operand type
  */
 template <typename Op, typename T>
     requires IsReact<std::remove_cvref_t<T>> || IsBinaryOpExpr<std::remove_cvref_t<T>> || IsUnaryOpExpr<std::remove_cvref_t<T>>
-constexpr auto make_unary_op(T&& operand) {
+constexpr auto make_unary_op(T &&operand) {
     return make_unary_expr<Op>(std::forward<T>(operand));
 }
 

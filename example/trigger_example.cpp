@@ -5,7 +5,7 @@
  * See the LICENSE file in the project root for full details.
  */
 
-#include <reaction.h>
+#include <reaction/reaction.h>
 #include <iostream>
 
 void triggerExample() {

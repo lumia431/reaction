@@ -102,6 +102,14 @@ After installation, you can include and link against reaction in your own CMake-
 find_package(reaction REQUIRED)
 ```
 
+### Uninstall
+
+To uninstall the framework:
+
+```bash
+cmake --build build/ --target uninstall
+```
+
 If you want to run example or test units:
 
 ```bash
@@ -112,7 +120,7 @@ cmake --build build/
 ## 🚀 Quick Start
 
 ```cpp
-#include <reaction.h>
+#include <reaction/reaction.h>
 #include <iostream>
 #include <iomanip>
 #include <cmath>

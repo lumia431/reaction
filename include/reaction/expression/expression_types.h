@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <type_traits>
 #include "reaction/expression/operators.h"
+#include <type_traits>
 
 namespace reaction {
 
@@ -30,20 +30,20 @@ public:
 
     /// @brief Evaluates the expression by calling the derived implementation.
     [[nodiscard]] constexpr auto operator()() const
-        noexcept(noexcept(static_cast<const Derived*>(this)->evaluate())) {
-        return static_cast<const Derived*>(this)->evaluate();
+        noexcept(noexcept(static_cast<const Derived *>(this)->evaluate())) {
+        return static_cast<const Derived *>(this)->evaluate();
     }
 
     /// @brief Implicit conversion to value type (evaluates expression).
     [[nodiscard]] constexpr operator value_type() const
-        noexcept(noexcept(static_cast<const Derived*>(this)->evaluate())) {
-        return static_cast<const Derived*>(this)->evaluate();
+        noexcept(noexcept(static_cast<const Derived *>(this)->evaluate())) {
+        return static_cast<const Derived *>(this)->evaluate();
     }
 
     /// @brief Explicit evaluation method for clarity.
     [[nodiscard]] constexpr auto evaluate() const
-        noexcept(noexcept(static_cast<const Derived*>(this)->evaluate())) {
-        return static_cast<const Derived*>(this)->evaluate();
+        noexcept(noexcept(static_cast<const Derived *>(this)->evaluate())) {
+        return static_cast<const Derived *>(this)->evaluate();
     }
 };
 
@@ -64,14 +64,14 @@ struct ValueWrapper : ExpressionBase<ValueWrapper<T>, std::remove_cvref_t<T>> {
 
     template <typename Type>
         requires Convertable<Type, T>
-    constexpr ValueWrapper(Type&& t) noexcept(std::is_nothrow_constructible_v<T, Type>)
+    constexpr ValueWrapper(Type &&t) noexcept(std::is_nothrow_constructible_v<T, Type>)
         : m_value(std::forward<Type>(t)) {}
 
-    [[nodiscard]] constexpr const T& evaluate() const noexcept {
+    [[nodiscard]] constexpr const T &evaluate() const noexcept {
         return m_value;
     }
 
-    [[nodiscard]] constexpr const T& getValue() const noexcept {
+    [[nodiscard]] constexpr const T &getValue() const noexcept {
         return m_value;
     }
 };
@@ -93,8 +93,7 @@ public:
 
     template <typename Operand>
         requires Convertable<Operand, T>
-    constexpr UnaryOpExpr(Operand&& operand, Op op = Op{})
-        noexcept(std::is_nothrow_constructible_v<T, Operand> && std::is_nothrow_constructible_v<Op>)
+    constexpr UnaryOpExpr(Operand &&operand, Op op = Op{}) noexcept(std::is_nothrow_constructible_v<T, Operand> && std::is_nothrow_constructible_v<Op>)
         : m_operand(std::forward<Operand>(operand)), m_op(op) {}
 
     /// @brief Evaluates the unary expression with optimal performance.
@@ -104,7 +103,7 @@ public:
     }
 
     /// @brief Access to the operand for introspection.
-    [[nodiscard]] constexpr const T& getOperand() const noexcept {
+    [[nodiscard]] constexpr const T &getOperand() const noexcept {
         return m_operand;
     }
 
@@ -123,24 +122,21 @@ private:
  * @tparam R  Right-hand side expression type.
  */
 template <typename Op, typename L, typename R>
-class BinaryOpExpr : public ExpressionBase<BinaryOpExpr<Op, L, R>, 
-    typename std::conditional_t<
-        std::is_same_v<Op, DivOp> &&
-        std::is_integral_v<typename L::value_type> &&
-        std::is_integral_v<typename R::value_type>,
-        double,
-        std::remove_cvref_t<std::common_type_t<typename L::value_type, typename R::value_type>>
-    >
-> {
+class BinaryOpExpr : public ExpressionBase<BinaryOpExpr<Op, L, R>,
+                         typename std::conditional_t<
+                             std::is_same_v<Op, DivOp> &&
+                                 std::is_integral_v<typename L::value_type> &&
+                                 std::is_integral_v<typename R::value_type>,
+                             double,
+                             std::remove_cvref_t<std::common_type_t<typename L::value_type, typename R::value_type>>>> {
 public:
     // Special type deduction for division: promote integral types to double for floating-point division
     using value_type = typename std::conditional_t<
         std::is_same_v<Op, DivOp> &&
-        std::is_integral_v<typename L::value_type> &&
-        std::is_integral_v<typename R::value_type>,
+            std::is_integral_v<typename L::value_type> &&
+            std::is_integral_v<typename R::value_type>,
         double,
-        std::remove_cvref_t<std::common_type_t<typename L::value_type, typename R::value_type>>
-    >;
+        std::remove_cvref_t<std::common_type_t<typename L::value_type, typename R::value_type>>>;
 
     template <typename Left, typename Right>
     constexpr BinaryOpExpr(Left &&l, Right &&r, Op o = Op{})

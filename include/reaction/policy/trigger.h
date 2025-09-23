@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <functional>
 
 namespace reaction {
@@ -16,10 +17,10 @@ namespace reaction {
  *
  * @tparam Derived The derived trigger type
  */
-template<typename Derived>
+template <typename Derived>
 struct TriggerBase {
     [[nodiscard]] constexpr bool checkTrig() const noexcept {
-        return static_cast<const Derived*>(this)->checkTrigImpl();
+        return static_cast<const Derived *>(this)->checkTrigImpl();
     }
 };
 
@@ -49,20 +50,20 @@ public:
      * @brief Check if the trigger condition is met.
      * @return true if the change flag is set, false otherwise.
      */
-    [[nodiscard]] constexpr bool checkTrigImpl() const noexcept {
-        return m_changed;
+    [[nodiscard]] bool checkTrigImpl() const noexcept {
+        return m_changed.load(std::memory_order_acquire);
     }
 
     /**
      * @brief Set the internal change flag.
      * @param changed New value of the change flag.
      */
-    constexpr void setChanged(bool changed) noexcept {
-        m_changed = changed;
+    void setChanged(bool changed) noexcept {
+        m_changed.store(changed, std::memory_order_release);
     }
 
 private:
-    bool m_changed = true; ///< Internal flag indicating whether a change occurred.
+    std::atomic<bool> m_changed{true}; ///< Atomic flag indicating whether a change occurred.
 };
 
 /**

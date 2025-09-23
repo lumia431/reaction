@@ -16,13 +16,12 @@ namespace reaction {
  *
  * @tparam Derived The derived invalidation strategy type
  */
-template<typename Derived>
+template <typename Derived>
 struct InvalidationBase {
-    template<typename Source>
-    constexpr void handleInvalid(Source&& source) noexcept(
-        noexcept(static_cast<Derived*>(this)->handleInvalidImpl(std::forward<Source>(source)))
-    ) {
-        static_cast<Derived*>(this)->handleInvalidImpl(std::forward<Source>(source));
+    template <typename Source>
+    constexpr void handleInvalid(Source &&source) noexcept(
+        noexcept(static_cast<Derived *>(this)->handleInvalidImpl(std::forward<Source>(source)))) {
+        static_cast<Derived *>(this)->handleInvalidImpl(std::forward<Source>(source));
     }
 };
 
@@ -34,7 +33,7 @@ struct InvalidationBase {
  */
 struct CloseHandle : InvalidationBase<CloseHandle> {
     template <typename Source>
-    constexpr void handleInvalidImpl(Source&& source) {
+    constexpr void handleInvalidImpl(Source &&source) {
         if constexpr (IsReactSource<std::remove_cvref_t<Source>>) {
             source.close();
         }
@@ -49,7 +48,7 @@ struct CloseHandle : InvalidationBase<CloseHandle> {
  */
 struct KeepHandle : InvalidationBase<KeepHandle> {
     template <typename Source>
-    constexpr void handleInvalidImpl([[maybe_unused]] Source&& source) noexcept {
+    constexpr void handleInvalidImpl([[maybe_unused]] Source &&source) noexcept {
         // Do nothing - optimized away at compile time
     }
 };
@@ -62,7 +61,7 @@ struct KeepHandle : InvalidationBase<KeepHandle> {
  */
 struct LastHandle : InvalidationBase<LastHandle> {
     template <typename Source>
-    constexpr void handleInvalidImpl(Source&& source) {
+    constexpr void handleInvalidImpl(Source &&source) {
         if constexpr (IsReactSource<std::remove_cvref_t<Source>>) {
             try {
                 auto val = source.get();
