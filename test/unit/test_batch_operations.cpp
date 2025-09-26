@@ -253,13 +253,13 @@ TEST(BatchOperationsTest, TestBatchResetProtection) {
         calc1.reset([&]() { return var1() + 100; });
         std::cout << "Reset succeeded (unexpected)" << std::endl;
         FAIL() << "Expected reset to throw exception";
-    } catch (const std::runtime_error& e) {
+    } catch (const std::runtime_error &e) {
         std::cout << "Reset threw exception as expected: " << e.what() << std::endl;
         SUCCEED();
     }
 
     // Verify nodes still have original values
-    EXPECT_EQ(var1.get(), 5);  // Constructor didn't change value due to BatchFunGuard
+    EXPECT_EQ(var1.get(), 5); // Constructor didn't change value due to BatchFunGuard
     EXPECT_EQ(calc1.get(), 10);
 }
 
@@ -289,7 +289,7 @@ TEST(BatchOperationsTest, TestManualBatchClose) {
 
     // After manual close, reset should work
     EXPECT_NO_THROW(calc1.reset([&]() { return var1() + 100; }));
-    EXPECT_EQ(calc1.get(), 105);  // 5 + 100 (var1 wasn't changed by batch constructor)
+    EXPECT_EQ(calc1.get(), 105); // 5 + 100 (var1 wasn't changed by batch constructor)
 
     // Calling close multiple times should be safe
     EXPECT_NO_THROW(batch.close());
@@ -345,10 +345,10 @@ TEST(BatchOperationsTest, TestComplexDependencyBatchResetProtection) {
 
     // Create a batch that affects multiple parts of the dependency graph
     auto batch = reaction::batch([&]() {
-        var1.value(10);  // Affects calc1, calc2, calc3
-        var2.value(20);  // Affects calc1, calc4, calc5
-        var3.value(30);  // Affects calc4, calc6, calc7
-        var4.value(40);  // Affects calc6, calc8, calc9, calc10
+        var1.value(10); // Affects calc1, calc2, calc3
+        var2.value(20); // Affects calc1, calc4, calc5
+        var3.value(30); // Affects calc4, calc6, calc7
+        var4.value(40); // Affects calc6, calc8, calc9, calc10
     });
 
     // While batch is active, all reset operations should be prevented
@@ -396,15 +396,15 @@ TEST(BatchOperationsTest, TestComplexDependencyBatchResetProtection) {
 
     // Now reset operations should work
     EXPECT_NO_THROW(calc1.reset([&]() { return var1() * 2; }));
-    EXPECT_EQ(calc1.get(), 20);  // 10 * 2
+    EXPECT_EQ(calc1.get(), 20); // 10 * 2
 
     // This should propagate through the dependency chain
-    EXPECT_EQ(calc2.get(), 40);  // 20 * 2
-    EXPECT_EQ(calc3.get(), 41);  // 40 + 1
+    EXPECT_EQ(calc2.get(), 40); // 20 * 2
+    EXPECT_EQ(calc3.get(), 41); // 40 + 1
 
     // Test that other nodes can also be reset
     EXPECT_NO_THROW(calc5.reset([&]() { return calc4() + 1000; }));
-    EXPECT_EQ(calc5.get(), 1050);  // 50 + 1000
+    EXPECT_EQ(calc5.get(), 1050); // 50 + 1000
 
     // Test that batch is indeed closed
     EXPECT_TRUE(batch.isClosed());

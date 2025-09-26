@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include <reaction/reaction.h>
 #include "gtest/gtest.h"
+#include <reaction/reaction.h>
 
 /**
  * @brief Person class demonstrating field-based reactivity.

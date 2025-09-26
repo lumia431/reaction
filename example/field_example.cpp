@@ -5,8 +5,8 @@
  * See the LICENSE file in the project root for full details.
  */
 
-#include <reaction/reaction.h>
 #include <iostream>
+#include <reaction/reaction.h>
 
 // Person class with reactive fields for name and age
 class Person : public reaction::FieldBase {

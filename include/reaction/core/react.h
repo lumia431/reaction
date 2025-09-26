@@ -7,10 +7,8 @@
 
 #pragma once
 
-#include "reaction/concurrency/global_state.h"
-#include "reaction/concurrency/thread_safety.h"
 #include "reaction/core/exception.h"
-#include "reaction/core/raii_guards.h"
+#include "reaction/core/global_state.h"
 #include "reaction/expression/atomic_operations.h"
 #include "reaction/expression/expression.h"
 #include "reaction/graph/batch.h"
@@ -70,7 +68,7 @@ public:
     template <typename F>
     void set(F &&f) {
         {
-            auto g = makeRegFunGuard([this](const NodePtr &node) {
+            RegFunGuard g([this](const NodePtr &node) {
                 this->addObCb(node);
             });
             this->setSource(std::forward<F>(f));
@@ -80,7 +78,7 @@ public:
 
     /// @brief Set a no-argument expression and auto-track dependencies.
     void set() {
-        auto g = makeRegFunGuard([this](const NodePtr &node) {
+        RegFunGuard g([this](const NodePtr &node) {
             this->addObCb(node);
         });
         this->setOpExpr();
@@ -126,15 +124,11 @@ public:
      */
     template <typename F>
     void atomicOperation(F &&operation, bool alwaysChanged = false) {
-        REACTION_REGISTER_THREAD();
         bool changed = false;
-        {
-            ConditionalUniqueLock<ConditionalSharedMutex> lock(this->m_valueMutex);
-            if (this->m_ptr) {
-                changed = operation(*this->m_ptr);
-                if (alwaysChanged) {
-                    changed = true;
-                }
+        if (this->m_ptr) {
+            changed = operation(*this->m_ptr);
+            if (alwaysChanged) {
+                changed = true;
             }
         }
         if (!g_batch_execute && changed) {
@@ -397,8 +391,6 @@ public:
 private:
     /// @brief Get the internal shared pointer for advanced operations.
     [[nodiscard]] std::shared_ptr<react_type> getPtr() const {
-        // Thread-safe access to weak_ptr using conditional mutex
-        ConditionalSharedLock<ConditionalSharedMutex> lock(m_ptrMutex);
         auto ptr = m_weakPtr.lock();
         if (!ptr) [[unlikely]] {
             REACTION_THROW_NULL_POINTER("weak pointer lock failed");
@@ -413,7 +405,6 @@ private:
      * Only increments if the weak pointer can be locked successfully.
      */
     void safeAddRef() noexcept {
-        ConditionalSharedLock<ConditionalSharedMutex> lock(m_ptrMutex);
         if (auto p = m_weakPtr.lock()) [[likely]]
             p->addWeakRef();
     }
@@ -424,13 +415,11 @@ private:
      * Only decrements if the weak pointer can be locked successfully.
      */
     void safeReleaseRef() noexcept {
-        ConditionalSharedLock<ConditionalSharedMutex> lock(m_ptrMutex);
         if (auto p = m_weakPtr.lock()) [[likely]]
             p->releaseWeakRef();
     }
 
-    std::weak_ptr<react_type> m_weakPtr;       ///< Weak reference to the implementation node.
-    mutable ConditionalSharedMutex m_ptrMutex; ///< Mutex for thread-safe weak_ptr access.
+    std::weak_ptr<react_type> m_weakPtr; ///< Weak reference to the implementation node.
 
     template <typename T, IsTrigger M>
     friend class CalcExprBase;

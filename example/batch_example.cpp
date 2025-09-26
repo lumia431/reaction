@@ -36,7 +36,9 @@ int main() {
         // Current position value (computed value)
         Calc<double> value = calc([](auto current, auto shares) {
             return current * shares;
-        }, currentPrice, sharesHeld).setName(name + "_value");
+        },
+            currentPrice, sharesHeld)
+                                 .setName(name + "_value");
     };
 
     // Create a portfolio of stocks
@@ -65,32 +67,32 @@ int main() {
 
     // Print the current state of the portfolio
     auto printPortfolio = action([&] {
-        cout << "\n=== Portfolio Update ===" << endl;
+        cout << "\n=== Portfolio Update ===\n";
         cout << fixed << setprecision(2);
 
         // Print header
         cout << left << setw(8) << "Stock"
              << right << setw(10) << "Price"
              << setw(10) << "Shares"
-             << setw(12) << "Value" << endl;
-        cout << string(40, '-') << endl;
+             << setw(12) << "Value\n";
+        cout << string(40, '-') << "\n";
 
         // Print each stock's details
         for (auto &stock : portfolio) {
             cout << left << setw(8) << stock.name
                  << right << setw(10) << stock.currentPrice()
                  << setw(10) << stock.sharesHeld()
-                 << setw(12) << stock.value() << endl;
+                 << setw(12) << stock.value() << "\n";
         }
 
         // Print summary info
-        cout << string(40, '-') << endl;
+        cout << string(40, '-') << "\n";
         cout << left << setw(18) << "Total Holdings:"
-             << right << setw(20) << totalValue() << endl;
+             << right << setw(20) << totalValue() << "\n";
         cout << left << setw(18) << "Cash Balance:"
-             << right << setw(20) << cashBalance() << endl;
+             << right << setw(20) << cashBalance() << "\n";
         cout << left << setw(18) << "Net Worth:"
-             << right << setw(20) << netWorth() << endl;
+             << right << setw(20) << netWorth() << "\n";
         cout << "=====================================\n";
     });
 

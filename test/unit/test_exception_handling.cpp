@@ -31,7 +31,7 @@ TEST_F(ExceptionTest, BasicReactionException) {
     try {
         REACTION_THROW(ReactionException, "Test message", ReactionException::ErrorCode::UNKNOWN);
         FAIL() << "Expected ReactionException to be thrown";
-    } catch (const ReactionException& e) {
+    } catch (const ReactionException &e) {
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::UNKNOWN);
         EXPECT_EQ(e.getOriginalMessage(), "Test message");
         EXPECT_FALSE(e.getFile().empty());
@@ -47,7 +47,7 @@ TEST_F(ExceptionTest, DependencyCycleException) {
     try {
         REACTION_THROW_DEPENDENCY_CYCLE("NodeA", "NodeB");
         FAIL() << "Expected DependencyCycleException to be thrown";
-    } catch (const DependencyCycleException& e) {
+    } catch (const DependencyCycleException &e) {
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::DEPENDENCY_CYCLE);
         EXPECT_EQ(e.getSourceName(), "NodeA");
         EXPECT_EQ(e.getTargetName(), "NodeB");
@@ -64,7 +64,7 @@ TEST_F(ExceptionTest, SelfObservationException) {
     try {
         REACTION_THROW_SELF_OBSERVATION("SelfNode");
         FAIL() << "Expected SelfObservationException to be thrown";
-    } catch (const SelfObservationException& e) {
+    } catch (const SelfObservationException &e) {
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::SELF_OBSERVATION);
         EXPECT_EQ(e.getNodeName(), "SelfNode");
         EXPECT_TRUE(std::string(e.what()).find("SelfNode") != std::string::npos);
@@ -78,7 +78,7 @@ TEST_F(ExceptionTest, NullPointerAccessException) {
     try {
         REACTION_THROW_NULL_POINTER("weak pointer access");
         FAIL() << "Expected NullPointerAccessException to be thrown";
-    } catch (const NullPointerAccessException& e) {
+    } catch (const NullPointerAccessException &e) {
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::NULL_POINTER_ACCESS);
         EXPECT_EQ(e.getContext(), "weak pointer access");
         EXPECT_TRUE(std::string(e.what()).find("weak pointer access") != std::string::npos);
@@ -92,7 +92,7 @@ TEST_F(ExceptionTest, ResourceNotInitializedException) {
     try {
         REACTION_THROW_RESOURCE_NOT_INITIALIZED("TestResource");
         FAIL() << "Expected ResourceNotInitializedException to be thrown";
-    } catch (const ResourceNotInitializedException& e) {
+    } catch (const ResourceNotInitializedException &e) {
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::RESOURCE_NOT_INITIALIZED);
         EXPECT_EQ(e.getResourceType(), "TestResource");
         EXPECT_TRUE(std::string(e.what()).find("TestResource") != std::string::npos);
@@ -106,7 +106,7 @@ TEST_F(ExceptionTest, TypeMismatchException) {
     try {
         REACTION_THROW_TYPE_MISMATCH("int", "double");
         FAIL() << "Expected TypeMismatchException to be thrown";
-    } catch (const TypeMismatchException& e) {
+    } catch (const TypeMismatchException &e) {
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::TYPE_MISMATCH);
         EXPECT_EQ(e.getExpectedType(), "int");
         EXPECT_EQ(e.getActualType(), "double");
@@ -122,7 +122,7 @@ TEST_F(ExceptionTest, InvalidStateException) {
     try {
         REACTION_THROW_INVALID_STATE("current", "required");
         FAIL() << "Expected InvalidStateException to be thrown";
-    } catch (const InvalidStateException& e) {
+    } catch (const InvalidStateException &e) {
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::INVALID_STATE);
         EXPECT_EQ(e.getCurrentState(), "current");
         EXPECT_EQ(e.getRequiredState(), "required");
@@ -136,7 +136,7 @@ TEST_F(ExceptionTest, ThreadSafetyViolationException) {
     try {
         REACTION_THROW_THREAD_SAFETY_VIOLATION("concurrent access");
         FAIL() << "Expected ThreadSafetyViolationException to be thrown";
-    } catch (const ThreadSafetyViolationException& e) {
+    } catch (const ThreadSafetyViolationException &e) {
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::THREAD_SAFETY_VIOLATION);
         EXPECT_EQ(e.getOperation(), "concurrent access");
     }
@@ -149,7 +149,7 @@ TEST_F(ExceptionTest, BatchOperationConflictException) {
     try {
         REACTION_THROW_BATCH_CONFLICT("conflicting operations");
         FAIL() << "Expected BatchOperationConflictException to be thrown";
-    } catch (const BatchOperationConflictException& e) {
+    } catch (const BatchOperationConflictException &e) {
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::BATCH_OPERATION_CONFLICT);
         EXPECT_EQ(e.getConflictDescription(), "conflicting operations");
     }
@@ -181,12 +181,12 @@ TEST_F(ExceptionTest, RealDependencyCycleDetection) {
     try {
         calc.reset([&]() { return calc() + a(); });
         FAIL() << "Expected some exception to be thrown";
-    } catch (const DependencyCycleException& e) {
+    } catch (const DependencyCycleException &e) {
         SUCCEED() << "Got DependencyCycleException: " << e.what();
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::DEPENDENCY_CYCLE);
-    } catch (const ReactionException& e) {
+    } catch (const ReactionException &e) {
         SUCCEED() << "Got ReactionException with code " << static_cast<int>(e.getErrorCode()) << ": " << e.what();
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         SUCCEED() << "Got std::exception: " << e.what();
     } catch (...) {
         FAIL() << "Got unknown exception type";
@@ -215,12 +215,12 @@ TEST_F(ExceptionTest, RealTypeMismatch) {
     try {
         calc.reset([]() { return 3.14; }); // double return type
         SUCCEED() << "Framework allows implicit type conversion from double to int";
-    } catch (const TypeMismatchException& e) {
+    } catch (const TypeMismatchException &e) {
         SUCCEED() << "Got TypeMismatchException: " << e.what();
         EXPECT_EQ(e.getErrorCode(), ReactionException::ErrorCode::TYPE_MISMATCH);
-    } catch (const ReactionException& e) {
+    } catch (const ReactionException &e) {
         SUCCEED() << "Got ReactionException with code " << static_cast<int>(e.getErrorCode()) << ": " << e.what();
-    } catch (const std::exception& e) {
+    } catch (const std::exception &e) {
         SUCCEED() << "Got std::exception: " << e.what();
     } catch (...) {
         FAIL() << "Got unknown exception type";

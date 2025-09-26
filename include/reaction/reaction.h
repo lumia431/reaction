@@ -58,16 +58,11 @@
 
 // === Support Infrastructure ===
 
-// Thread safety utilities
-#include "reaction/concurrency/thread_safety.h"
-
 // Exception handling
 #include "reaction/core/exception.h"
 
 // Support utilities
-#include "reaction/concurrency/global_state.h"
 #include "reaction/core/id_generator.h"
-#include "reaction/core/raii_guards.h"
 
 // === Factory Functions ===
 

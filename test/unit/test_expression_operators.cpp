@@ -168,7 +168,7 @@ TEST(ExpressionOperatorsTest, TestComplexOperatorCombinations) {
 
     // Update values and verify recalculation
     x.value(8);
-    EXPECT_TRUE(complex1.get()); // (8+2) > 6 is true
+    EXPECT_TRUE(complex1.get());   // (8+2) > 6 is true
     EXPECT_EQ(complex2.get(), -6); // -(8-2) = -6
 }
 
@@ -241,7 +241,8 @@ TEST(ExpressionOperatorsTest, TestOperatorsInBatchOperations) {
     auto observer = action([&](bool value) {
         triggerCount++;
         EXPECT_TRUE(value); // Should be true for both original and updated values
-    }, result);
+    },
+        result);
 
     triggerCount = 0;
 
@@ -252,5 +253,5 @@ TEST(ExpressionOperatorsTest, TestOperatorsInBatchOperations) {
     });
 
     EXPECT_EQ(triggerCount, 1); // Should trigger only once
-    EXPECT_TRUE(result.get()); // (20>10) && (20/10==2) is true
+    EXPECT_TRUE(result.get());  // (20>10) && (20/10==2) is true
 }

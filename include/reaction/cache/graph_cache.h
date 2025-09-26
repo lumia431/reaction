@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "reaction/core/types.h"
 #include "reaction/cache/cache_base.h"
+#include "reaction/core/types.h"
 
 namespace reaction {
 
@@ -37,7 +37,7 @@ public:
      * @param node The node to get immediate observers for
      * @return Pointer to cached observers if valid, nullptr otherwise
      */
-    const NodeSet* getCachedImmediateObservers(const NodePtr& node) const noexcept {
+    const NodeSet *getCachedImmediateObservers(const NodePtr &node) const noexcept {
         return getCachedValue(node);
     }
 
@@ -47,7 +47,7 @@ public:
      * @param node The node whose immediate observers to cache
      * @param observers The immediate observers (not full traversal)
      */
-    void cacheImmediateObservers(const NodePtr& node, const NodeSet& observers) noexcept {
+    void cacheImmediateObservers(const NodePtr &node, const NodeSet &observers) noexcept {
         cacheValue(node, observers);
     }
 
@@ -73,8 +73,8 @@ public:
     }
 
 private:
-    static constexpr size_t MAX_CACHE_SIZE = 500;  // Smaller cache for immediate observers only
-    static constexpr std::chrono::minutes CACHE_TTL{5};  // Shorter TTL
+    static constexpr size_t MAX_CACHE_SIZE = 500;       // Smaller cache for immediate observers only
+    static constexpr std::chrono::minutes CACHE_TTL{5}; // Shorter TTL
 };
 
 /**
@@ -95,7 +95,7 @@ public:
      * @param target The node being observed
      * @return Pointer to cached result if valid, nullptr otherwise
      */
-    const bool* getCachedCycleResult(const NodePtr& source, const NodePtr& target) const noexcept {
+    const bool *getCachedCycleResult(const NodePtr &source, const NodePtr &target) const noexcept {
         return getCachedValue(std::make_pair(source, target));
     }
 
@@ -106,7 +106,7 @@ public:
      * @param target The node being observed
      * @param hasCycle Whether adding this edge would create a cycle
      */
-    void cacheCycleResult(const NodePtr& source, const NodePtr& target, bool hasCycle) noexcept {
+    void cacheCycleResult(const NodePtr &source, const NodePtr &target, bool hasCycle) noexcept {
         cacheValue(std::make_pair(source, target), hasCycle);
     }
 
@@ -140,16 +140,13 @@ private:
  * @brief Cached metrics for a node.
  */
 struct NodeMetrics {
-    bool exists;                  ///< Whether the node exists in the graph
-    size_t observerCount;         ///< Number of direct observers
-    size_t dependentCount;        ///< Number of direct dependencies
-    uint8_t maxDepth;             ///< Maximum depth in the dependency tree
+    bool exists;           ///< Whether the node exists in the graph
+    size_t observerCount;  ///< Number of direct observers
+    size_t dependentCount; ///< Number of direct dependencies
+    uint8_t maxDepth;      ///< Maximum depth in the dependency tree
 
     NodeMetrics(bool exists, size_t obsCount, size_t depCount, uint8_t depth)
-        : exists(exists)
-        , observerCount(obsCount)
-        , dependentCount(depCount)
-        , maxDepth(depth) {}
+        : exists(exists), observerCount(obsCount), dependentCount(depCount), maxDepth(depth) {}
 };
 
 /**
@@ -171,8 +168,8 @@ public:
      * @param node The node to check
      * @return Pointer to cached existence result if valid, nullptr otherwise
      */
-    const bool* getCachedNodeExists(const NodePtr& node) const noexcept {
-        if (const auto* metrics = this->getCachedValue(node)) {
+    const bool *getCachedNodeExists(const NodePtr &node) const noexcept {
+        if (const auto *metrics = this->getCachedValue(node)) {
             return &metrics->exists;
         }
         return nullptr;
@@ -184,7 +181,7 @@ public:
      * @param node The node to get metrics for
      * @return Pointer to cached metrics if valid, nullptr otherwise
      */
-    const NodeMetrics* getCachedNodeMetrics(const NodePtr& node) const noexcept {
+    const NodeMetrics *getCachedNodeMetrics(const NodePtr &node) const noexcept {
         return this->getCachedValue(node);
     }
 
@@ -197,8 +194,8 @@ public:
      * @param dependentCount Number of direct dependencies
      * @param maxDepth Maximum depth in the dependency tree
      */
-    void cacheNodeMetrics(const NodePtr& node, bool exists, size_t observerCount,
-                         size_t dependentCount, uint8_t maxDepth) noexcept {
+    void cacheNodeMetrics(const NodePtr &node, bool exists, size_t observerCount,
+        size_t dependentCount, uint8_t maxDepth) noexcept {
         this->cacheValue(node, NodeMetrics{exists, observerCount, dependentCount, maxDepth});
     }
 

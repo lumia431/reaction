@@ -8,7 +8,6 @@
 #pragma once
 
 #include "reaction/cache/graph_cache.h"
-#include "reaction/concurrency/thread_safety.h"
 #include "reaction/core/exception.h"
 #include "reaction/core/types.h"
 #include <functional>
@@ -57,9 +56,6 @@ public:
      * @throws std::runtime_error if a cycle or self-observation is detected.
      */
     void addObserver(const NodePtr &source, const NodePtr &target) {
-        REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
-
         if (source == target) {
             REACTION_THROW_SELF_OBSERVATION(getNameInternal(source));
         }
@@ -98,7 +94,6 @@ public:
      * @param nodes Set of nodes affected by this batch
      */
     void registerActiveBatch(const void *batchId, const NodeSet &nodes) {
-        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
         for (const auto &nodeWeak : nodes) {
             if (auto node = nodeWeak.lock()) {
                 m_activeBatchNodes[node].insert(batchId);
@@ -116,7 +111,6 @@ public:
      * @param batchId Unique identifier for the batch operation
      */
     void unregisterActiveBatch(const void *batchId) {
-        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
         m_activeBatchIds.erase(batchId);
 
         // Remove this batch from all node tracking
@@ -137,7 +131,6 @@ public:
      * @return true if the node is in an active batch, false otherwise
      */
     bool isNodeInActiveBatch(const NodePtr &node) const {
-        ConditionalSharedLock<ConditionalSharedMutex> lock(m_graphMutex);
         auto it = m_activeBatchNodes.find(node);
         return it != m_activeBatchNodes.end() && !it->second.empty();
     }
@@ -150,9 +143,6 @@ public:
      * @throws std::runtime_error if the node is currently involved in an active batch operation
      */
     void resetNode(const NodePtr &node) {
-        REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
-
         // Check if node exists in dependent list first
         if (m_dependentList.contains(node)) {
             for (auto dep : m_dependentList[node]) {
@@ -185,9 +175,6 @@ public:
     void updateObserversTransactional(const NodePtr &node, Args &&...args) {
         if (!node) return;
 
-        REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
-
         // Step 1: Save current state for rollback
         NodeSet originalDependents;
         if (m_dependentList.contains(node)) {
@@ -209,12 +196,7 @@ public:
             // Restore original dependencies
             for (auto &dep : originalDependents) {
                 if (auto locked_dep = dep.lock()) {
-                    try {
-                        addObserverInternal(node, locked_dep);
-                    } catch (...) {
-                        // If restore fails, we're in an inconsistent state, but better than crashing
-                        // Log error or handle gracefully
-                    }
+                    addObserverInternal(node, locked_dep);
                 }
             }
 
@@ -234,9 +216,6 @@ public:
     std::function<void()> saveNodeStateForRollback(const NodePtr &node) {
         if (!node) return []() {};
 
-        REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
-
         // Save current state
         NodeSet originalDependents;
         if (m_dependentList.contains(node)) {
@@ -245,20 +224,13 @@ public:
 
         // Return rollback function
         return [this, node, originalDependents = std::move(originalDependents)]() mutable {
-            REACTION_REGISTER_THREAD();
-            ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
-
             // Reset current dependencies
             resetNodeInternal(node);
 
             // Restore original dependencies
             for (auto &dep : originalDependents) {
                 if (auto locked_dep = dep.lock()) {
-                    try {
-                        addObserverInternal(node, locked_dep);
-                    } catch (...) {
-                        // If restore fails, we're in an inconsistent state, but better than crashing
-                    }
+                    addObserverInternal(node, locked_dep);
                 }
             }
         };
@@ -272,14 +244,12 @@ public:
      */
     void closeNode(const NodePtr &node) {
         if (!node) return;
-        REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
 
         NodeSet closedNodes;
         cascadeCloseDependents(node, closedNodes);
     }
 
-    void collectObservers(const NodePtr &node, NodeSet &observers, uint8_t depth) noexcept;
+    void collectObservers(const NodePtr &node, NodeSet &observers, uint16_t depth) noexcept;
 
     /**
      * @brief Set a human-readable name for a node.
@@ -289,8 +259,7 @@ public:
      * @param name Assigned name.
      */
     void setName(const NodePtr &node, const std::string &name) noexcept {
-        REACTION_REGISTER_THREAD();
-        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
+
         m_nameList.insert({node, name});
     }
 
@@ -300,8 +269,7 @@ public:
      * @return Human-readable name or empty string if not found.
      */
     [[nodiscard]] std::string getName(const NodePtr &node) noexcept {
-        REACTION_REGISTER_THREAD();
-        ConditionalSharedLock<ConditionalSharedMutex> lock(m_graphMutex);
+
         return getNameInternal(node);
     }
 
@@ -499,7 +467,6 @@ private:
                 if (auto locked_dep = dep.lock()) {
                     if (m_observerList.contains(locked_dep)) {
                         // Take the node's observer mutex before modifying its observer set
-                        ConditionalUniqueLock<ConditionalSharedMutex> depLock(locked_dep->m_observersMutex);
                         m_observerList.at(locked_dep).get().erase(node);
                     }
                 }
@@ -533,7 +500,6 @@ private:
 
         m_dependentList.at(source).insert(target);
         {
-            ConditionalUniqueLock<ConditionalSharedMutex> targetLock(target->m_observersMutex);
             target->m_observers.insert(source);
         }
     }
@@ -543,7 +509,6 @@ private:
     std::unordered_map<NodePtr, std::string> m_nameList;                    ///< Human-readable node names.
     std::unordered_map<NodePtr, std::set<const void *>> m_activeBatchNodes; ///< Map from node to active batch IDs.
     std::set<const void *> m_activeBatchIds;                                ///< Set of all active batch IDs.
-    mutable ConditionalSharedMutex m_graphMutex;                            ///< Mutex for thread-safe graph operations.
 
     // Cache subsystems
     mutable GraphTraversalCache m_graphCache; ///< Cache for graph traversal results.
@@ -558,8 +523,7 @@ private:
  * @param node Node to add.
  */
 inline void ObserverGraph::addNode(const NodePtr &node) noexcept {
-    REACTION_REGISTER_THREAD();
-    ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
+
     m_observerList.insert({node, std::ref(node->m_observers)});
     m_dependentList[node] = NodeSet{};
 }
@@ -581,9 +545,8 @@ inline void ObserverGraph::addNodeInternal(const NodePtr &node) noexcept {
  * @param observers container for output observers.
  * @param depth current dependent depth.
  */
-inline void ObserverGraph::collectObservers(const NodePtr &node, NodeSet &observers, uint8_t depth = 1) noexcept {
+inline void ObserverGraph::collectObservers(const NodePtr &node, NodeSet &observers, uint16_t depth = 1) noexcept {
     if (!node) return;
-    REACTION_REGISTER_THREAD();
 
     // Try to get cached immediate observers first
     const NodeSet *cachedObservers = m_graphCache.getCachedImmediateObservers(node);
@@ -600,7 +563,6 @@ inline void ObserverGraph::collectObservers(const NodePtr &node, NodeSet &observ
         }
     } else {
         // Cache miss - collect from graph and cache the result
-        ConditionalSharedLock<ConditionalSharedMutex> lock(m_graphMutex);
         if (m_observerList.contains(node)) {
             for (auto &ob : m_observerList.at(node).get()) {
                 if (auto wp = ob.lock()) [[likely]] {

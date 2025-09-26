@@ -7,10 +7,8 @@
 
 #pragma once
 
-#include "reaction/concurrency/global_state.h"
-#include "reaction/concurrency/thread_safety.h"
+#include "reaction/core/global_state.h"
 #include "reaction/core/observer_node.h"
-#include "reaction/core/raii_guards.h"
 #include "reaction/core/types.h"
 #include "reaction/graph/observer_graph.h"
 #include <atomic>
@@ -67,18 +65,13 @@ public:
      */
     template <InvocableType F>
     Batch(F &&f) : m_fun(std::forward<F>(f)), m_batchId(this) {
-        REACTION_REGISTER_THREAD();
-
-        // Use enhanced graph traversal caching for observer collection
-        auto g = makeBatchFunGuard([this](const NodePtr &node) {
-            ConditionalUniqueLock<ConditionalSharedMutex> lock(m_batchMutex);
+        BatchFunGuard g([this](const NodePtr &node) {
             // collectObservers now uses caching internally
             ObserverGraph::getInstance().collectObservers(node, m_observers);
         });
         std::invoke(f);
 
         {
-            ConditionalSharedLock<ConditionalSharedMutex> lock(m_batchMutex);
             for (auto &node : m_observers) {
                 m_batchNodes.insert(node);
             }
@@ -95,8 +88,9 @@ public:
      * allowing reset operations on previously protected nodes.
      */
     ~Batch() {
-        if (!m_isClosed.exchange(true)) {
+        if (!m_isClosed) {
             // Only unregister if we haven't already closed
+            m_isClosed = true;
             ObserverGraph::getInstance().unregisterActiveBatch(m_batchId);
         }
     }
@@ -115,8 +109,9 @@ public:
      * Calling close() multiple times is safe and has no effect after the first call.
      */
     void close() {
-        if (!m_isClosed.exchange(true)) {
+        if (!m_isClosed) {
             // Only unregister if we haven't already closed
+            m_isClosed = true;
             ObserverGraph::getInstance().unregisterActiveBatch(m_batchId);
         }
     }
@@ -127,7 +122,7 @@ public:
      * @return true if the batch has been closed, false otherwise
      */
     [[nodiscard]] bool isClosed() const noexcept {
-        return m_isClosed.load();
+        return m_isClosed;
     }
 
     /**
@@ -137,11 +132,9 @@ public:
      * 2. Triggers valueChanged() on all collected observer nodes
      */
     void execute() {
-        REACTION_REGISTER_THREAD();
-        auto g = makeBatchExeGuard(true);
+        BatchExeGuard g(true);
         std::invoke(m_fun);
 
-        ConditionalSharedLock<ConditionalSharedMutex> lock(m_batchMutex);
         for (auto &node : m_batchNodes) {
             if (auto wp = node.lock()) [[likely]]
                 wp->changedNoNotify();
@@ -153,8 +146,7 @@ private:
     std::multiset<NodeWeak, BatchCompare> m_batchNodes; ///< Nodes tracked by this batch, ordered by depth
     std::function<void()> m_fun;                        ///< The function to execute for this batch
     const void *m_batchId;                              ///< Unique identifier for this batch instance
-    std::atomic<bool> m_isClosed{false};                ///< Whether the batch has been manually closed
-    mutable ConditionalSharedMutex m_batchMutex;        ///< Mutex for thread-safe batch operations
+    bool m_isClosed{false};                             ///< Whether the batch has been manually closed
 };
 
 } // namespace reaction

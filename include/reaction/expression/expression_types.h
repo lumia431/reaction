@@ -123,29 +123,45 @@ private:
  */
 template <typename Op, typename L, typename R>
 class BinaryOpExpr : public ExpressionBase<BinaryOpExpr<Op, L, R>,
-                         typename std::conditional_t<
+                         std::conditional_t<
                              std::is_same_v<Op, DivOp> &&
                                  std::is_integral_v<typename L::value_type> &&
                                  std::is_integral_v<typename R::value_type>,
                              double,
                              std::remove_cvref_t<std::common_type_t<typename L::value_type, typename R::value_type>>>> {
+private:
+    // Type alias for better readability
+    using base_type = ExpressionBase<BinaryOpExpr<Op, L, R>,
+        std::conditional_t<
+            std::is_same_v<Op, DivOp> &&
+                std::is_integral_v<typename L::value_type> &&
+                std::is_integral_v<typename R::value_type>,
+            double,
+            std::remove_cvref_t<std::common_type_t<typename L::value_type, typename R::value_type>>>>;
+
 public:
-    // Special type deduction for division: promote integral types to double for floating-point division
-    using value_type = typename std::conditional_t<
-        std::is_same_v<Op, DivOp> &&
-            std::is_integral_v<typename L::value_type> &&
-            std::is_integral_v<typename R::value_type>,
-        double,
-        std::remove_cvref_t<std::common_type_t<typename L::value_type, typename R::value_type>>>;
+    using value_type = typename base_type::value_type;
+    using left_type = L;
+    using right_type = R;
+    using operator_type = Op;
 
     template <typename Left, typename Right>
-    constexpr BinaryOpExpr(Left &&l, Right &&r, Op o = Op{})
+        requires Convertable<Left, L> && Convertable<Right, R>
+    constexpr BinaryOpExpr(Left &&l, Right &&r, Op o = Op{}) noexcept(std::is_nothrow_constructible_v<L, Left> &&
+                                                                      std::is_nothrow_constructible_v<R, Right> &&
+                                                                      std::is_nothrow_constructible_v<Op>)
         : m_left(std::forward<Left>(l)), m_right(std::forward<Right>(r)), m_op(o) {}
 
     /// @brief Evaluates the binary expression.
-    constexpr auto evaluate() const noexcept(noexcept(m_op(m_left(), m_right()))) {
+    [[nodiscard]] constexpr auto evaluate() const noexcept(noexcept(m_op(m_left(), m_right()))) {
         return m_op(m_left(), m_right());
     }
+
+    /// @brief Get left operand for introspection.
+    [[nodiscard]] constexpr const L &getLeft() const noexcept { return m_left; }
+
+    /// @brief Get right operand for introspection.
+    [[nodiscard]] constexpr const R &getRight() const noexcept { return m_right; }
 
 private:
     L m_left;

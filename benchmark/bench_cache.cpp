@@ -1,12 +1,12 @@
 #include "reaction/reaction.h"
 #include <chrono>
-#include <iostream>
-#include <vector>
+#include <functional>
 #include <iomanip>
+#include <iostream>
 #include <memory>
 #include <random>
-#include <functional>
 #include <thread>
+#include <vector>
 
 using namespace reaction;
 
@@ -14,7 +14,7 @@ using namespace reaction;
 class BenchmarkObserverGraph {
 public:
     static void forceCacheInvalidation() {
-        auto& graph = ObserverGraph::getInstance();
+        auto &graph = ObserverGraph::getInstance();
         // Force massive cache invalidation by triggering many version increments
         for (int i = 0; i < 1000; ++i) {
             graph.triggerCacheCleanup();
@@ -218,7 +218,7 @@ BenchmarkResult benchmark_observer_collection(size_t iterations = 15000) {
             leaves[leaf_idx].value(new_val);
 
             // Force evaluation of all roots (triggers observer collection)
-            for (auto& root : roots) {
+            for (auto &root : roots) {
                 volatile auto val = root.get();
                 (void)val;
             }
@@ -244,7 +244,7 @@ BenchmarkResult benchmark_observer_collection(size_t iterations = 15000) {
 
             leaves[leaf_idx].value(new_val);
 
-            for (auto& root : roots) {
+            for (auto &root : roots) {
                 volatile auto val = root.get();
                 (void)val;
             }
@@ -318,7 +318,8 @@ BenchmarkResult benchmark_mixed_workload(size_t iterations = 10000) {
                     });
                     volatile auto temp_val = temp.get();
                     (void)temp_val;
-                } catch (...) {}
+                } catch (...) {
+                }
             }
         }
 
@@ -355,7 +356,8 @@ BenchmarkResult benchmark_mixed_workload(size_t iterations = 10000) {
                     });
                     volatile auto temp_val = temp.get();
                     (void)temp_val;
-                } catch (...) {}
+                } catch (...) {
+                }
             }
         }
 
@@ -387,8 +389,9 @@ int main() {
     std::cout << std::string(80, '=') << std::endl;
 
     double avg_speedup = (cycle_result.time_without_cache_ms / cycle_result.time_with_cache_ms +
-                         observer_result.time_without_cache_ms / observer_result.time_with_cache_ms +
-                         mixed_result.time_without_cache_ms / mixed_result.time_with_cache_ms) / 3.0;
+                             observer_result.time_without_cache_ms / observer_result.time_with_cache_ms +
+                             mixed_result.time_without_cache_ms / mixed_result.time_with_cache_ms) /
+                         3.0;
 
     std::cout << std::fixed << std::setprecision(2);
     std::cout << "🎯 Average Speedup: " << avg_speedup << "x faster with caching" << std::endl;

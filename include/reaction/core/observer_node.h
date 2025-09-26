@@ -7,7 +7,6 @@
 
 #pragma once
 
-#include "reaction/concurrency/thread_safety.h"
 #include "reaction/core/types.h"
 #include <memory>
 
@@ -24,7 +23,6 @@ class ObserverGraph;
  */
 class ObserverNode : public std::enable_shared_from_this<ObserverNode> {
 public:
-    mutable ConditionalSharedMutex m_observersMutex; ///< Mutex for thread-safe observer access
     virtual ~ObserverNode() = default;
 
     /**
@@ -57,7 +55,7 @@ public:
      *
      * @param depth The new depth value to consider
      */
-    void updateDepth(uint8_t depth) noexcept {
+    void updateDepth(uint16_t depth) noexcept {
         m_depth = std::max(depth, m_depth);
     }
 
@@ -82,20 +80,14 @@ public:
      * @param changed Whether the node's value has changed.
      */
     void notify(bool changed = true) {
-        // Create a snapshot of observers to avoid holding lock during notifications
-        NodeSet snapshot;
-        {
-            ConditionalSharedLock<ConditionalSharedMutex> lock(m_observersMutex);
-            snapshot = m_observers;
-        }
-        for (auto &observer : snapshot) {
+        for (auto &observer : m_observers) {
             if (auto wp = observer.lock()) [[likely]]
                 wp->valueChanged(changed);
         }
     }
 
 private:
-    uint8_t m_depth = 0; ///< Depth of the node in reactive chain.
+    uint16_t m_depth = 0; ///< Depth of the node in reactive chain.
     NodeSet m_observers; ///< Direct observers of this node.
     friend class ObserverGraph;
     friend struct BatchCompare;
