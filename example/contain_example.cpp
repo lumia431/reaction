@@ -5,13 +5,13 @@
  * See the LICENSE file in the project root for full details.
  */
 
-#include <reaction/reaction.h>
 #include <iomanip>
+#include <iostream>
 #include <list>
 #include <map>
+#include <reaction/reaction.h>
 #include <set>
 #include <vector>
-#include <iostream>
 
 int main() {
     using namespace reaction;

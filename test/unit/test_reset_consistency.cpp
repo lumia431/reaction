@@ -89,7 +89,8 @@ TEST(ResetConsistencyTest, ResetWithExceptionInEvaluationRollback) {
             throw std::runtime_error("Test exception during evaluation");
         }
         return a() * 3;
-    }), std::runtime_error);
+    }),
+        std::runtime_error);
 
     // Verify the node is still in a consistent state
     EXPECT_EQ(calc.get(), 2);

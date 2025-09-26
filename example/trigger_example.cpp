@@ -5,8 +5,8 @@
  * See the LICENSE file in the project root for full details.
  */
 
-#include <reaction/reaction.h>
 #include <iostream>
+#include <reaction/reaction.h>
 
 void triggerExample() {
     // Create primary data source

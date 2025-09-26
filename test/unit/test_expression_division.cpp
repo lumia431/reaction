@@ -175,7 +175,8 @@ TEST(ExpressionDivisionTest, TestDivisionInBatchOperations) {
     auto observer = action([&](double value) {
         triggerCount++;
         EXPECT_DOUBLE_EQ(value, 3.75); // 15/4 = 3.75
-    }, result);
+    },
+        result);
 
     triggerCount = 0;
 

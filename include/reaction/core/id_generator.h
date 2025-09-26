@@ -75,12 +75,11 @@ private:
 
     /**
      * @brief Static function to generate a unique 64-bit ID.
-     * Uses atomic counter for thread-safe ID generation.
      * @return A unique 64-bit unsigned integer.
      */
     static uint64_t generate() noexcept {
-        static std::atomic<uint64_t> counter{0};
-        return counter.fetch_add(1, std::memory_order_relaxed);
+        static uint64_t counter{0};
+        return counter++;
     }
 
     // Grant std::hash access to private members.

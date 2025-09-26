@@ -18,17 +18,18 @@
  * Use case: Safe reactive data processing with comprehensive error handling
  */
 
-#include <reaction/reaction.h>
-#include <iostream>
+#include <chrono>
 #include <iomanip>
+#include <iostream>
+#include <reaction/reaction.h>
 #include <string>
 #include <thread>
-#include <chrono>
 
 using namespace reaction;
 
-void printSection(const std::string& title) {
-    std::cout << "\n" << std::string(60, '=') << "\n";
+void printSection(const std::string &title) {
+    std::cout << "\n"
+              << std::string(60, '=') << "\n";
     std::cout << "🚨 " << title << "\n";
     std::cout << std::string(60, '=') << "\n";
 }
@@ -49,9 +50,9 @@ void demonstrateDependencyCycleException() {
 
         std::cout << "❌ No exception was thrown for self-observation!\n";
 
-    } catch (const SelfObservationException& e) {
+    } catch (const SelfObservationException &e) {
         std::cout << "✅ Caught SelfObservationException: " << e.what() << "\n";
-    } catch (const ReactionException& e) {
+    } catch (const ReactionException &e) {
         std::cout << "✅ Caught ReactionException: " << e.what() << "\n";
     }
 
@@ -81,9 +82,9 @@ void demonstrateDependencyCycleException() {
         a.value(10); // This might trigger cycle detection
         std::cout << "Successfully updated variable A\n";
 
-    } catch (const DependencyCycleException& e) {
+    } catch (const DependencyCycleException &e) {
         std::cout << "✅ Caught DependencyCycleException: " << e.what() << "\n";
-    } catch (const ReactionException& e) {
+    } catch (const ReactionException &e) {
         std::cout << "✅ Caught ReactionException: " << e.what() << "\n";
     }
 }
@@ -107,9 +108,9 @@ void demonstrateNullPointerAccessException() {
         int value = myVar.get();
         std::cout << "❌ No exception was thrown - value: " << value << "\n";
 
-    } catch (const NullPointerAccessException& e) {
+    } catch (const NullPointerAccessException &e) {
         std::cout << "✅ Caught NullPointerAccessException: " << e.what() << "\n";
-    } catch (const ReactionException& e) {
+    } catch (const ReactionException &e) {
         std::cout << "✅ Caught ReactionException: " << e.what() << "\n";
     }
 }
@@ -136,9 +137,9 @@ void demonstrateTypeMismatchException() {
         // Example: This would cause compile error, not runtime exception
         // intCalc.reset([]() { return std::string("hello"); });
 
-    } catch (const TypeMismatchException& e) {
+    } catch (const TypeMismatchException &e) {
         std::cout << "✅ Caught TypeMismatchException: " << e.what() << "\n";
-    } catch (const ReactionException& e) {
+    } catch (const ReactionException &e) {
         std::cout << "✅ Caught ReactionException: " << e.what() << "\n";
     }
 }
@@ -155,10 +156,10 @@ void demonstrateErrorRecovery() {
         try {
             int value = safeVar.get();
             std::cout << "✅ Successfully accessed safe variable: " << value << "\n";
-        } catch (const NullPointerAccessException& e) {
+        } catch (const NullPointerAccessException &e) {
             std::cout << "⚠️  Variable is no longer available: " << e.getContext() << "\n";
             std::cout << "    Continuing with default value...\n";
-        } catch (const ReactionException& e) {
+        } catch (const ReactionException &e) {
             std::cout << "⚠️  Reaction error: " << e.what() << "\n";
         }
     });
@@ -199,9 +200,9 @@ void demonstrateBatchOperationConflicts() {
 
         std::cout << "Batch operation completed\n";
 
-    } catch (const BatchOperationConflictException& e) {
+    } catch (const BatchOperationConflictException &e) {
         std::cout << "✅ Caught BatchOperationConflictException: " << e.what() << "\n";
-    } catch (const ReactionException& e) {
+    } catch (const ReactionException &e) {
         std::cout << "✅ Caught ReactionException: " << e.what() << "\n";
     }
 
@@ -214,7 +215,7 @@ void demonstrateBatchOperationConflicts() {
         });
         std::cout << "Batch operation completed successfully\n";
         std::cout << "Final tempCalc value: " << tempCalc.get() << "\n";
-    } catch (const ReactionException& e) {
+    } catch (const ReactionException &e) {
         std::cout << "⚠️  Unexpected exception in normal batch: " << e.what() << "\n";
     }
 }
@@ -238,7 +239,7 @@ void demonstrateExceptionPropagation() {
         auto logger = action([&]() {
             try {
                 std::cout << "Multiplier result: " << multiplier() << "\n";
-            } catch (const std::runtime_error& e) {
+            } catch (const std::runtime_error &e) {
                 std::cout << "⚠️  Runtime error in action: " << e.what() << "\n";
                 throw; // Re-throw to demonstrate propagation
             }
@@ -252,9 +253,9 @@ void demonstrateExceptionPropagation() {
         std::cout << "\nTesting error propagation:\n";
         source.value(-1);
 
-    } catch (const ReactionException& e) {
+    } catch (const ReactionException &e) {
         std::cout << "✅ Caught ReactionException: " << e.what() << "\n";
-    } catch (const std::runtime_error& e) {
+    } catch (const std::runtime_error &e) {
         std::cout << "✅ Caught runtime_error: " << e.what() << "\n";
     }
 }
@@ -271,7 +272,8 @@ int main() {
     demonstrateBatchOperationConflicts();
     demonstrateExceptionPropagation();
 
-    std::cout << "\n" << std::string(60, '=') << "\n";
+    std::cout << "\n"
+              << std::string(60, '=') << "\n";
     std::cout << "✅ Exception handling examples completed!\n";
     std::cout << "🛡️  Always handle exceptions appropriately in production code.\n";
     std::cout << std::string(60, '=') << "\n";
