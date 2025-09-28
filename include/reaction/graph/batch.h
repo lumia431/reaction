@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "reaction/core/global_state.h"
+#include "reaction/concurrency/global_state.h"
 #include "reaction/core/observer_node.h"
 #include "reaction/core/types.h"
 #include "reaction/graph/observer_graph.h"
@@ -38,7 +38,7 @@ struct BatchCompare {
         if (!left) return true; // null comes first
         if (!right) return false;
 
-        return left->m_depth < right->m_depth;
+        return left->m_depth.load(std::memory_order_relaxed) < right->m_depth.load(std::memory_order_relaxed);
     }
 };
 

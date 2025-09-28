@@ -29,6 +29,10 @@ Reaction is a blazing-fast, modern C++20 header-only reactive framework that bri
 - Safe **value semantics** throughout the framework
 - Framework manages node lifetime internally
 
+## 🔄 Multi-threading Support
+
+Reaction supports multi-threading with automatic thread safety detection and zero-overhead in single-threaded mode.
+
 ---
 
 ## 🔍 Comparison: `QProperty` vs `RxCpp` vs `Reaction`
@@ -56,26 +60,29 @@ Reaction is a blazing-fast, modern C++20 header-only reactive framework that bri
 
 ## 📊 Performance Benchmarks
 
-Comparative performance results against rxcpp (tested on 2025-06-14):
+Comparative performance results against rxcpp and folly (tested on 2025-06-14):
 
 ### Deep Dependency Test (Tree Structure, Depth=13)
 
-| Framework          | Avg. Time (ns) | Iterations   | Relative Speed |
+| Framework          | Avg. Time (μs) | Iterations   | Relative Speed |
 |--------------------|---------------:|-------------:|---------------:|
-| reaction       |          765100  |    901 | **2.17x** faster |
-| rxcpp              |     1664103    |        412 | (baseline)     |
+| reaction       |          765    |    901 | (baseline)     |
+| rxcpp              |     1664       |        412 | **2.17x** slower |
+| folly              |     8760       |        603 | **11.45x** slower |
 
 ### Wide Dependency Test (10,000 Nodes)
 
-| Framework          | Avg. Time (ns) | Iterations   | Relative Speed |
+| Framework          | Avg. Time (μs) | Iterations   | Relative Speed |
 |--------------------|---------------:|-------------:|---------------:|
-| reaction       |     261,448    |        2,626 | **2.76x** faster |
-| rxcpp              |     721,404    |          960 | (baseline)     |
+| reaction       |     261        |        2,626 | (baseline)     |
+| rxcpp              |     721        |          960 | **2.76x** slower |
+| folly              |     3769       |          523 | **14.45x** slower |
 
 ### Key Findings:
-1. **Deep dependency scenarios**: ~2.17x faster than rxcpp
-2. **Wide dependency scenarios**: ~2.76x faster than rxcpp
-3. **Test Environment**:
+1. **Deep dependency scenarios**: ~2.17x faster than rxcpp, ~11.45x faster than folly
+2. **Wide dependency scenarios**: ~2.76x faster than rxcpp, ~14.45x faster than folly
+3. **Outstanding performance**: Reaction demonstrates superior performance across different dependency patterns
+4. **Test Environment**:
    - 8-core CPU @ 2.8GHz
    - 32KB L1 Data Cache
    - 4MB L2 Unified Cache

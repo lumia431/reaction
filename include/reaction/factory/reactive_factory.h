@@ -115,6 +115,7 @@ auto constVar(SrcType &&t) {
  */
 template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, NonReact SrcType>
 auto var(SrcType &&t) {
+    REACTION_REGISTER_THREAD();
     auto ptr = std::make_shared<ReactImpl<VarExpr, std::remove_cvref_t<SrcType>, IV, TR>>(std::forward<SrcType>(t));
     ObserverGraph::getInstance().addNode(ptr);
     if constexpr (HasField<SrcType>) {
@@ -137,6 +138,7 @@ auto var(SrcType &&t) {
  */
 template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, IsOpExpr OpExpr>
 auto expr(OpExpr &&opExpr) {
+    REACTION_REGISTER_THREAD();
     auto ptr = std::make_shared<ReactImpl<CalcExpr, std::remove_cvref_t<OpExpr>, IV, TR>>(std::forward<OpExpr>(opExpr));
     ObserverGraph::getInstance().addNode(ptr);
     ptr->set();
@@ -158,6 +160,7 @@ auto expr(OpExpr &&opExpr) {
  */
 template <IsTrigger TR = ChangeTrig, IsInvalidation IV = KeepHandle, typename Fun, typename... Args>
 auto calc(Fun &&fun, Args &&...args) {
+    REACTION_REGISTER_THREAD();
     auto ptr = std::make_shared<ReactImpl<CalcExpr, ReturnType<Fun, Args...>, IV, TR>>();
     ObserverGraph::getInstance().addNode(ptr);
     ptr->set(std::forward<Fun>(fun), std::forward<Args>(args)...);

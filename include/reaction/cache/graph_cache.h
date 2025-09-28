@@ -24,9 +24,12 @@ class ObserverNode;
  * complete traversal results that require depth updates.
  */
 class GraphTraversalCache : public PtrCacheBase<NodePtr, NodeSet> {
+private:
+    using BaseType = PtrCacheBase<NodePtr, NodeSet>;
+
 public:
     GraphTraversalCache()
-        : PtrCacheBase(MAX_CACHE_SIZE, CACHE_TTL) {}
+        : BaseType(MAX_CACHE_SIZE, CACHE_TTL) {}
 
     /**
      * @brief Try to get cached immediate observers for a node.
@@ -84,9 +87,12 @@ private:
  * reducing the cost of addObserver operations by avoiding repeated DFS traversals.
  */
 class CycleDetectionCache : public PairCacheBase<NodePtr, NodePtr, bool> {
+private:
+    using BaseType = PairCacheBase<NodePtr, NodePtr, bool>;
+
 public:
     CycleDetectionCache()
-        : PairCacheBase(MAX_CYCLE_CACHE_SIZE, CACHE_TTL) {}
+        : BaseType(MAX_CYCLE_CACHE_SIZE, CACHE_TTL) {}
 
     /**
      * @brief Try to get cached cycle detection result for a node pair.
@@ -156,11 +162,12 @@ struct NodeMetrics {
  * and expensive topology calculations.
  */
 class NodeMetricsCache : public PtrCacheBase<NodePtr, NodeMetrics> {
-public:
-    using Base = PtrCacheBase<NodePtr, NodeMetrics>;
+private:
+    using BaseType = PtrCacheBase<NodePtr, NodeMetrics>;
 
+public:
     NodeMetricsCache()
-        : Base(MAX_METRICS_CACHE_SIZE, CACHE_TTL) {}
+        : BaseType(MAX_METRICS_CACHE_SIZE, CACHE_TTL) {}
 
     /**
      * @brief Try to get cached node existence result.
@@ -209,7 +216,7 @@ public:
     /**
      * @brief Get cache statistics.
      */
-    typename Base::Stats getStats() const noexcept {
+    typename BaseType::Stats getStats() const noexcept {
         return this->getStatsInternal();
     }
 

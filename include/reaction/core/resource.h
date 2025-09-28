@@ -7,8 +7,11 @@
 
 #pragma once
 
+#include "reaction/concurrency/thread_manager.h"
 #include "reaction/core/exception.h"
 #include "reaction/core/observer_node.h"
+#include <mutex>
+#include <shared_mutex>
 
 namespace reaction {
 
@@ -47,13 +50,14 @@ public:
     Resource &operator=(const Resource &) = delete;
 
     /**
-     * @brief Get a reference to the managed resource.
+     * @brief Get a copy of the managed resource value in a thread-safe manner.
      *
      * Throws std::runtime_error if the resource is not initialized.
      *
-     * @return Type& Reference to the managed resource.
+     * @return Type Copy of the managed resource.
      */
-    [[nodiscard]] Type &getValue() const {
+    [[nodiscard]] Type getValue() const {
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_resourceMutex);
         if (!m_ptr) {
             REACTION_THROW_RESOURCE_NOT_INITIALIZED("Resource");
         }
@@ -72,6 +76,8 @@ public:
      */
     template <typename T>
     bool updateValue(T &&t) noexcept {
+        REACTION_REGISTER_THREAD();
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_resourceMutex);
         bool changed = true;
         if (!m_ptr) {
             m_ptr = std::make_unique<Type>(std::forward<T>(t));
@@ -80,7 +86,11 @@ public:
                 // Create a local copy to avoid data tearing during comparison
                 Type newValue(std::forward<T>(t));
                 changed = *m_ptr != newValue;
-                *m_ptr = std::move(newValue);
+                if (changed) {
+                    *m_ptr = std::move(newValue);
+                }
+            } else {
+                *m_ptr = std::forward<T>(t);
             }
         }
         return changed;
@@ -94,6 +104,7 @@ public:
      * @return Type* Raw pointer to the resource.
      */
     [[nodiscard]] Type *getRawPtr() const {
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_resourceMutex);
         if (!this->m_ptr) {
             REACTION_THROW_NULL_POINTER("resource pointer access");
         }
@@ -101,7 +112,8 @@ public:
     }
 
 protected:
-    std::unique_ptr<Type> m_ptr; ///< Unique pointer managing the resource.
+    mutable ConditionalSharedMutex m_resourceMutex; ///< Conditional mutex for thread-safe resource access.
+    std::unique_ptr<Type> m_ptr;                    ///< Unique pointer managing the resource.
 };
 
 /**

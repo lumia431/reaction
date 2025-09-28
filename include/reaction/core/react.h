@@ -7,8 +7,9 @@
 
 #pragma once
 
+#include "reaction/concurrency/global_state.h"
+#include "reaction/concurrency/thread_manager.h"
 #include "reaction/core/exception.h"
-#include "reaction/core/global_state.h"
 #include "reaction/expression/atomic_operations.h"
 #include "reaction/expression/expression.h"
 #include "reaction/graph/batch.h"
@@ -124,13 +125,17 @@ public:
      */
     template <typename F>
     void atomicOperation(F &&operation, bool alwaysChanged = false) {
+        REACTION_REGISTER_THREAD();
         bool changed = false;
-        if (this->m_ptr) {
-            changed = operation(*this->m_ptr);
-            if (alwaysChanged) {
-                changed = true;
+        {
+            ConditionalUniqueLock<ConditionalSharedMutex> lock(this->m_resourceMutex);
+            if (this->m_ptr) {
+                changed = operation(*this->m_ptr);
+                if (alwaysChanged) {
+                    changed = true;
+                }
             }
-        }
+        } // Lock is automatically released here
         if (!g_batch_execute && changed) {
             this->notify(true);
         }
@@ -221,6 +226,7 @@ public:
      * If within a dependency registration scope, registers node.
      */
     [[nodiscard]] decltype(auto) operator()() const {
+        REACTION_REGISTER_THREAD();
         if (g_reg_fun) {
             std::invoke(g_reg_fun, getPtr());
         }
@@ -229,19 +235,37 @@ public:
 
     /// @brief Returns the current value.
     [[nodiscard]] decltype(auto) get() const {
+        REACTION_REGISTER_THREAD();
         return getPtr()->get();
     }
 
     /// @brief Reset the expression with new source and dependencies.
     template <typename F, typename... A>
     React &reset(F &&f, A &&...args) {
-        getPtr()->set(std::forward<F>(f), std::forward<A>(args)...);
+        REACTION_REGISTER_THREAD();
+        if (ThreadManager::getInstance().isThreadSafetyEnabled()) {
+            // Use a dedicated mutex for reset operations
+            ConditionalUniqueLock<ConditionalMutex> lock(m_resetMutex);
+            auto ptr = m_weakPtr.lock();
+            if (!ptr) [[unlikely]] {
+                REACTION_THROW_NULL_POINTER("weak pointer expired during reset");
+            }
+            ptr->set(std::forward<F>(f), std::forward<A>(args)...);
+        } else {
+            // Single-threaded: direct access
+            auto ptr = m_weakPtr.lock();
+            if (!ptr) [[unlikely]] {
+                REACTION_THROW_NULL_POINTER("weak pointer expired during reset");
+            }
+            ptr->set(std::forward<F>(f), std::forward<A>(args)...);
+        }
         return *this;
     }
 
     /// @brief Assigns a value (only if valid).
     template <typename T>
     React &value(T &&t) {
+        REACTION_REGISTER_THREAD();
         if (g_batch_fun) {
             std::invoke(g_batch_fun, getPtr());
         } else {
@@ -259,6 +283,7 @@ public:
 
     /// @brief Closes this reactive node.
     React &close() {
+        REACTION_REGISTER_THREAD();
         getPtr()->close();
         return *this;
     }
@@ -395,7 +420,6 @@ private:
         if (!ptr) [[unlikely]] {
             REACTION_THROW_NULL_POINTER("weak pointer lock failed");
         }
-
         return ptr;
     }
 
@@ -420,6 +444,7 @@ private:
     }
 
     std::weak_ptr<react_type> m_weakPtr; ///< Weak reference to the implementation node.
+    mutable ConditionalMutex m_resetMutex; ///< Mutex for thread-safe reset operations.
 
     template <typename T, IsTrigger M>
     friend class CalcExprBase;

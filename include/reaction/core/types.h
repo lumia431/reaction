@@ -45,8 +45,15 @@ namespace std {
  * Used for storing NodeWeak in unordered containers.
  */
 struct WeakPtrHash {
-    size_t operator()(const reaction::NodeWeak &wp) const {
-        return std::hash<reaction::ObserverNode *>()(wp.lock().get());
+    [[nodiscard]] size_t operator()(const reaction::NodeWeak &wp) const noexcept {
+        try {
+            if (auto ptr = wp.lock()) {
+                return std::hash<reaction::ObserverNode *>()(ptr.get());
+            }
+            return 0;
+        } catch (...) {
+            return 0; // Safe exception handling
+        }
     }
 };
 
@@ -57,8 +64,12 @@ struct WeakPtrHash {
  * Used for storing NodeWeak in unordered containers.
  */
 struct WeakPtrEqual {
-    bool operator()(const reaction::NodeWeak &a, const reaction::NodeWeak &b) const {
-        return a.lock() == b.lock();
+    [[nodiscard]] bool operator()(const reaction::NodeWeak &a, const reaction::NodeWeak &b) const noexcept {
+        try {
+            return a.lock() == b.lock();
+        } catch (...) {
+            return false; // Safe exception handling
+        }
     }
 };
 

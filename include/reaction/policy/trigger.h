@@ -51,7 +51,7 @@ public:
      * @return true if the change flag is set, false otherwise.
      */
     [[nodiscard]] bool checkTrigImpl() const noexcept {
-        return m_changed;
+        return m_changed.load();
     }
 
     /**
@@ -59,11 +59,11 @@ public:
      * @param changed New value of the change flag.
      */
     void setChanged(bool changed) noexcept {
-        m_changed = changed;
+        m_changed.store(changed);
     }
 
 private:
-    bool m_changed{true}; ///< Flag indicating whether a change occurred.
+    std::atomic<bool> m_changed{true}; ///< Atomic flag indicating whether a change occurred.
 };
 
 /**

@@ -5,7 +5,7 @@ if(GTest_FOUND)
     # Collect all test sources from unit directory
     file(GLOB TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/unit/*.cpp)
 
-    # Create the test executable
+    # Create the test executable with TSAN enabled
     add_executable(runTests ${TEST_SOURCES})
 
     # Set include directories for tests
@@ -20,6 +20,10 @@ if(GTest_FOUND)
     # Add threading support for thread safety tests
     find_package(Threads REQUIRED)
     target_link_libraries(runTests PRIVATE Threads::Threads)
+
+    # Force enable TSAN for all tests
+    target_compile_options(runTests PRIVATE -fsanitize=thread -g -O1)
+    target_link_options(runTests PRIVATE -fsanitize=thread)
 
     # Discover and register tests
     gtest_discover_tests(runTests

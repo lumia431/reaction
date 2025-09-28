@@ -1,5 +1,5 @@
 # Benchmark CMakeLists.txt for Reaction Framework Cache Performance Tests
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.10)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 20)
@@ -17,10 +17,15 @@ if(benchmark_FOUND)
     target_include_directories(bench_cache PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
     target_link_libraries(bench_cache PRIVATE ${PROJECT_NAME})
 
+    add_executable(bench_multi_thread bench_multi_thread.cpp)
+    target_include_directories(bench_multi_thread PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+    target_link_libraries(bench_multi_thread PRIVATE benchmark::benchmark ${PROJECT_NAME} pthread)
+    message(STATUS "Building multi-thread performance benchmarks")
+
     if(rxcpp_FOUND)
         add_executable(bench_comparison bench_comparison.cpp)
         target_include_directories(bench_comparison PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
-        target_link_libraries(bench_comparison PRIVATE benchmark::benchmark ${PROJECT_NAME})
+        target_link_libraries(bench_comparison PRIVATE benchmark::benchmark ${PROJECT_NAME} pthread)
         message(STATUS "Building framework comparison benchmarks")
     else()
         message(WARNING "RxCpp not found, skipping comparison benchmarks")

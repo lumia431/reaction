@@ -23,6 +23,7 @@
  * This file contains expression specializations and the core reactive computation logic.
  */
 
+#include "reaction/concurrency/thread_manager.h"
 #include "reaction/core/concept.h"
 #include "reaction/core/exception.h"
 #include "reaction/core/resource.h"
@@ -33,7 +34,9 @@
 #include "reaction/graph/observer_graph.h"
 #include "reaction/policy/trigger.h"
 #include <functional>
+#include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <vector>
 
 namespace reaction {
@@ -78,6 +81,8 @@ public:
                 REACTION_THROW_BATCH_CONFLICT("Reset operations must be performed outside of batch contexts");
             }
 
+            ConditionalUniqueLock<ConditionalSharedMutex> lock(m_functionMutex);
+
             auto originalFun = std::move(m_fun);
             auto originalValue = [this]() -> std::optional<Type> {
                 if constexpr (!VoidType<Type>) {
@@ -106,9 +111,9 @@ public:
 
                 // Now evaluate with the new function
                 if constexpr (!VoidType<Type>) {
-                    this->updateValue(evaluate());
+                    this->updateValue(evaluateInternal());
                 } else {
-                    evaluate();
+                    evaluateInternal();
                 }
 
             } catch (const std::exception &) {
@@ -187,9 +192,21 @@ private:
         }
     }
 
-    /// @brief Evaluates the current expression.
+    /// @brief Thread-safe evaluation of the current expression.
     auto evaluate() const {
-        if (!m_fun) {
+        // Fast path: try lock-free read for performance-critical path
+        if (ThreadManager::getInstance().isThreadSafetyEnabled()) {
+            ConditionalSharedLock<ConditionalSharedMutex> lock(m_functionMutex);
+            return evaluateInternal();
+        } else {
+            // Single-threaded optimization: skip locking overhead
+            return evaluateInternal();
+        }
+    }
+
+    /// @brief Internal evaluation method (assumes mutex is held).
+    auto evaluateInternal() const {
+        if (!m_fun) [[unlikely]] {
             if constexpr (VoidType<Type>) {
                 return Void{};
             } else {
@@ -201,11 +218,11 @@ private:
             std::invoke(m_fun);
             return Void{};
         } else {
-            auto result = std::invoke(m_fun);
-            return result;
+            return std::invoke(m_fun);  // Direct return, avoid copy
         }
     }
 
+    mutable ConditionalSharedMutex m_functionMutex; ///< Conditional mutex for thread-safe function access.
     std::function<Type()> m_fun;
 };
 

@@ -10,9 +10,34 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <functional>
 #include <unordered_map>
+#include <vector>
+#include <shared_mutex>
 
 namespace reaction {
+
+// constexpr utility functions for cache configuration validation
+/**
+ * @brief Validates cache size at compile time when possible.
+ *
+ * @param size The cache size to validate
+ * @return true if size is valid, false otherwise
+ */
+constexpr bool isValidCacheSize(size_t size) noexcept {
+    return size > 0 && size <= 10000; // Reasonable upper limit
+}
+
+/**
+ * @brief Calculates optimal cache size based on expected load.
+ *
+ * @param expectedItems Expected number of items
+ * @param loadFactor Desired load factor (0.0 - 1.0)
+ * @return Optimal cache size
+ */
+constexpr size_t calculateOptimalCacheSize(size_t expectedItems, double loadFactor = 0.75) noexcept {
+    return static_cast<size_t>(expectedItems / loadFactor);
+}
 
 /**
  * @brief Unified base class for cache implementations with common functionality.
@@ -103,17 +128,18 @@ protected:
      * @return Pointer to cached value if valid, nullptr otherwise
      */
     const Value *getCachedValue(const Key &key) const noexcept {
+        std::shared_lock<std::shared_mutex> lock(m_cacheMutex);
         auto it = m_cacheEntries.find(key);
 
         if (it != m_cacheEntries.end() &&
-            it->second.version == m_currentVersion) {
+            it->second.version == m_currentVersion.load(std::memory_order_acquire)) {
             // Update last access time (mutable)
             it->second.lastAccess = std::chrono::steady_clock::now();
-            ++m_hitCount;
+            m_hitCount.fetch_add(1, std::memory_order_relaxed);
             return &it->second.value;
         }
 
-        ++m_missCount;
+        m_missCount.fetch_add(1, std::memory_order_relaxed);
         return nullptr;
     }
 
@@ -125,8 +151,8 @@ protected:
      */
     template <typename V>
     void cacheValue(const Key &key, V &&value) noexcept {
-
-        uint64_t currentVersion = m_currentVersion;
+        std::unique_lock<std::shared_mutex> lock(m_cacheMutex);
+        uint64_t currentVersion = m_currentVersion.load(std::memory_order_acquire);
         m_cacheEntries.insert_or_assign(key, CacheEntry{std::forward<V>(value), currentVersion});
 
         // Cleanup if cache is getting too large
@@ -139,8 +165,9 @@ protected:
      * @brief Invalidate all cache entries due to structural change.
      */
     void invalidateAllEntries() noexcept {
+        std::unique_lock<std::shared_mutex> lock(m_cacheMutex);
         // Simply increment version - old entries will be automatically ignored
-        ++m_currentVersion;
+        m_currentVersion.fetch_add(1, std::memory_order_release);
 
         // Optionally clear cache entries to free memory immediately
         m_cacheEntries.clear();
@@ -150,24 +177,26 @@ protected:
      * @brief Get current cache version.
      */
     uint64_t getCurrentVersion() const noexcept {
-        return m_currentVersion;
+        return m_currentVersion.load(std::memory_order_acquire);
     }
 
     /**
      * @brief Get cache statistics.
      */
     Stats getStatsInternal() const noexcept {
+        std::shared_lock<std::shared_mutex> lock(m_cacheMutex);
         return Stats{
             m_cacheEntries.size(),
-            m_currentVersion,
-            m_hitCount,
-            m_missCount};
+            m_currentVersion.load(std::memory_order_acquire),
+            m_hitCount.load(std::memory_order_relaxed),
+            m_missCount.load(std::memory_order_relaxed)};
     }
 
     /**
      * @brief Trigger cleanup of expired cache entries.
      */
     void triggerCleanupInternal() noexcept {
+        std::unique_lock<std::shared_mutex> lock(m_cacheMutex);
         cleanupOldEntriesInternal();
     }
 
@@ -205,44 +234,42 @@ private:
     const size_t m_maxCacheSize;
     const std::chrono::minutes m_cacheTTL;
 
+    mutable std::shared_mutex m_cacheMutex;
     mutable std::unordered_map<Key, CacheEntry, Hash, KeyEqual> m_cacheEntries;
-    uint64_t m_currentVersion{1};
+    std::atomic<uint64_t> m_currentVersion{1};
 
     // Statistics tracking
-    mutable size_t m_hitCount{0};
-    mutable size_t m_missCount{0};
+    mutable std::atomic<size_t> m_hitCount{0};
+    mutable std::atomic<size_t> m_missCount{0};
 };
 
+// Use alias templates to simplify specialized cache types
 /**
- * @brief Specialized cache base for pointer key types with custom hash.
+ * @brief Specialized cache base for pointer key types.
+ *
+ * Uses alias template for cleaner and more efficient implementation.
+ *
+ * @tparam PtrType The pointer type to use as key
+ * @tparam Value The value type to cache
  */
 template <typename PtrType, typename Value>
-class PtrCacheBase : public CacheBase<PtrType, Value, std::hash<PtrType>, std::equal_to<PtrType>> {
-public:
-    using Base = CacheBase<PtrType, Value, std::hash<PtrType>, std::equal_to<PtrType>>;
-
-protected:
-    explicit PtrCacheBase(size_t maxSize, std::chrono::minutes ttl)
-        : Base(maxSize, ttl) {}
-};
+using PtrCacheBase = CacheBase<PtrType, Value, std::hash<PtrType>, std::equal_to<PtrType>>;
 
 /**
- * @brief Specialized cache base for pair key types with custom hash.
+ * @brief Specialized cache base for pair key types.
+ *
+ * Uses alias template for cleaner and more efficient implementation.
+ *
+ * @tparam First The first type in the pair
+ * @tparam Second The second type in the pair
+ * @tparam Value The value type to cache
  */
 template <typename First, typename Second, typename Value>
-class PairCacheBase : public CacheBase<
-                          std::pair<First, Second>,
-                          Value,
-                          std::hash<std::pair<First, Second>>,
-                          std::equal_to<std::pair<First, Second>>> {
-public:
-    using KeyType = std::pair<First, Second>;
-    using Base = CacheBase<KeyType, Value, std::hash<KeyType>, std::equal_to<KeyType>>;
-
-protected:
-    explicit PairCacheBase(size_t maxSize, std::chrono::minutes ttl)
-        : Base(maxSize, ttl) {}
-};
+using PairCacheBase = CacheBase<
+    std::pair<First, Second>,
+    Value,
+    std::hash<std::pair<First, Second>>,
+    std::equal_to<std::pair<First, Second>>>;
 
 } // namespace reaction
 

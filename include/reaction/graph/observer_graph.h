@@ -8,11 +8,14 @@
 #pragma once
 
 #include "reaction/cache/graph_cache.h"
+#include "reaction/concurrency/thread_manager.h"
 #include "reaction/core/exception.h"
 #include "reaction/core/types.h"
 #include <functional>
 #include <iostream>
+#include <mutex>
 #include <set>
+#include <shared_mutex>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
@@ -56,6 +59,9 @@ public:
      * @throws std::runtime_error if a cycle or self-observation is detected.
      */
     void addObserver(const NodePtr &source, const NodePtr &target) {
+        REACTION_REGISTER_THREAD();
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
+
         if (source == target) {
             REACTION_THROW_SELF_OBSERVATION(getNameInternal(source));
         }
@@ -76,7 +82,10 @@ public:
         }
 
         m_dependentList.at(source).insert(target);
-        m_observerList.at(target).get().insert({source});
+        {
+            ConditionalUniqueLock<ConditionalSharedMutex> targetLock(target->m_observersMutex);
+            target->m_observers.insert(source);
+        }
 
         // Invalidate all caches due to graph structure change
         m_graphCache.invalidateAll();
@@ -94,6 +103,7 @@ public:
      * @param nodes Set of nodes affected by this batch
      */
     void registerActiveBatch(const void *batchId, const NodeSet &nodes) {
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
         for (const auto &nodeWeak : nodes) {
             if (auto node = nodeWeak.lock()) {
                 m_activeBatchNodes[node].insert(batchId);
@@ -111,6 +121,7 @@ public:
      * @param batchId Unique identifier for the batch operation
      */
     void unregisterActiveBatch(const void *batchId) {
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
         m_activeBatchIds.erase(batchId);
 
         // Remove this batch from all node tracking
@@ -131,6 +142,7 @@ public:
      * @return true if the node is in an active batch, false otherwise
      */
     bool isNodeInActiveBatch(const NodePtr &node) const {
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_graphMutex);
         auto it = m_activeBatchNodes.find(node);
         return it != m_activeBatchNodes.end() && !it->second.empty();
     }
@@ -143,11 +155,13 @@ public:
      * @throws std::runtime_error if the node is currently involved in an active batch operation
      */
     void resetNode(const NodePtr &node) {
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
         // Check if node exists in dependent list first
         if (m_dependentList.contains(node)) {
             for (auto dep : m_dependentList[node]) {
                 if (auto locked_dep = dep.lock()) {
                     if (m_observerList.contains(locked_dep)) {
+                        ConditionalUniqueLock<ConditionalSharedMutex> observerLock(locked_dep->m_observersMutex);
                         m_observerList.at(locked_dep).get().erase(node);
                     }
                 }
@@ -174,6 +188,8 @@ public:
     template <typename... Args>
     void updateObserversTransactional(const NodePtr &node, Args &&...args) {
         if (!node) return;
+
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
 
         // Step 1: Save current state for rollback
         NodeSet originalDependents;
@@ -216,14 +232,17 @@ public:
     std::function<void()> saveNodeStateForRollback(const NodePtr &node) {
         if (!node) return []() {};
 
+        ConditionalSharedLock<ConditionalSharedMutex> readLock(m_graphMutex);
         // Save current state
         NodeSet originalDependents;
         if (m_dependentList.contains(node)) {
             originalDependents = m_dependentList[node];
         }
+        // readLock will be automatically unlocked when it goes out of scope
 
         // Return rollback function
         return [this, node, originalDependents = std::move(originalDependents)]() mutable {
+            ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
             // Reset current dependencies
             resetNodeInternal(node);
 
@@ -245,6 +264,7 @@ public:
     void closeNode(const NodePtr &node) {
         if (!node) return;
 
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
         NodeSet closedNodes;
         cascadeCloseDependents(node, closedNodes);
     }
@@ -259,7 +279,7 @@ public:
      * @param name Assigned name.
      */
     void setName(const NodePtr &node, const std::string &name) noexcept {
-
+        ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
         m_nameList.insert({node, name});
     }
 
@@ -269,7 +289,7 @@ public:
      * @return Human-readable name or empty string if not found.
      */
     [[nodiscard]] std::string getName(const NodePtr &node) noexcept {
-
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_graphMutex);
         return getNameInternal(node);
     }
 
@@ -308,6 +328,8 @@ public:
 
 private:
     ObserverGraph() {}
+
+    mutable ConditionalSharedMutex m_graphMutex; ///< Conditional mutex for thread-safe graph operations.
 
     /**
      * @brief Internal get name operation without locking.
@@ -365,6 +387,7 @@ private:
             for (auto dep : m_dependentList[node]) {
                 if (auto locked_dep = dep.lock()) {
                     if (m_observerList.contains(locked_dep)) {
+                        ConditionalUniqueLock<ConditionalSharedMutex> observerLock(locked_dep->m_observersMutex);
                         m_observerList.at(locked_dep).get().erase(node);
                     }
                 }
@@ -410,14 +433,20 @@ private:
 
         // Cache miss - perform DFS and cache the result
         m_dependentList.at(source).insert(target);
-        m_observerList.at(target).get().insert(source);
+        {
+            ConditionalUniqueLock<ConditionalSharedMutex> targetLock(target->m_observersMutex);
+            target->m_observers.insert(source);
+        }
 
         NodeSet visited;
         NodeSet recursionStack;
         bool hasCycleResult = dfs(source, visited, recursionStack);
 
         m_dependentList.at(source).erase(target);
-        m_observerList.at(target).get().erase(source);
+        {
+            ConditionalUniqueLock<ConditionalSharedMutex> targetLock(target->m_observersMutex);
+            target->m_observers.erase(source);
+        }
 
         // Cache the result for future use
         m_cycleCache.cacheCycleResult(source, target, hasCycleResult);
@@ -467,6 +496,7 @@ private:
                 if (auto locked_dep = dep.lock()) {
                     if (m_observerList.contains(locked_dep)) {
                         // Take the node's observer mutex before modifying its observer set
+                        ConditionalUniqueLock<ConditionalSharedMutex> observerLock(locked_dep->m_observersMutex);
                         m_observerList.at(locked_dep).get().erase(node);
                     }
                 }
@@ -500,6 +530,7 @@ private:
 
         m_dependentList.at(source).insert(target);
         {
+            ConditionalUniqueLock<ConditionalSharedMutex> targetLock(target->m_observersMutex);
             target->m_observers.insert(source);
         }
     }
@@ -523,7 +554,8 @@ private:
  * @param node Node to add.
  */
 inline void ObserverGraph::addNode(const NodePtr &node) noexcept {
-
+    REACTION_REGISTER_THREAD();
+    ConditionalUniqueLock<ConditionalSharedMutex> lock(m_graphMutex);
     m_observerList.insert({node, std::ref(node->m_observers)});
     m_dependentList[node] = NodeSet{};
 }
@@ -548,31 +580,34 @@ inline void ObserverGraph::addNodeInternal(const NodePtr &node) noexcept {
 inline void ObserverGraph::collectObservers(const NodePtr &node, NodeSet &observers, uint16_t depth = 1) noexcept {
     if (!node) return;
 
-    // Try to get cached immediate observers first
-    const NodeSet *cachedObservers = m_graphCache.getCachedImmediateObservers(node);
     NodeSet currentObservers;
+    {
+        ConditionalSharedLock<ConditionalSharedMutex> lock(m_graphMutex);
+        // Try to get cached immediate observers first
+        const NodeSet *cachedObservers = m_graphCache.getCachedImmediateObservers(node);
 
-    if (cachedObservers) {
-        // Use cached data - still need to update depth and collect recursively
-        currentObservers = *cachedObservers;
-        for (auto &ob : currentObservers) {
-            if (auto wp = ob.lock()) [[likely]] {
-                wp->updateDepth(depth);
-                observers.insert(ob);
-            }
-        }
-    } else {
-        // Cache miss - collect from graph and cache the result
-        if (m_observerList.contains(node)) {
-            for (auto &ob : m_observerList.at(node).get()) {
+        if (cachedObservers) {
+            // Use cached data - still need to update depth and collect recursively
+            currentObservers = *cachedObservers;
+            for (auto &ob : currentObservers) {
                 if (auto wp = ob.lock()) [[likely]] {
                     wp->updateDepth(depth);
                     observers.insert(ob);
-                    currentObservers.insert(ob);
                 }
             }
-            // Cache the immediate observers for future use
-            m_graphCache.cacheImmediateObservers(node, currentObservers);
+        } else {
+            // Cache miss - collect from graph and cache the result
+            if (m_observerList.contains(node)) {
+                for (auto &ob : m_observerList.at(node).get()) {
+                    if (auto wp = ob.lock()) [[likely]] {
+                        wp->updateDepth(depth);
+                        observers.insert(ob);
+                        currentObservers.insert(ob);
+                    }
+                }
+                // Cache the immediate observers for future use
+                m_graphCache.cacheImmediateObservers(node, currentObservers);
+            }
         }
     }
 

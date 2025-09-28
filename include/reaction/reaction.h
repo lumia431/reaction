@@ -27,6 +27,9 @@
 // Core concepts and type traits
 #include "reaction/core/concept.h"
 
+// Thread safety management
+#include "reaction/concurrency/thread_manager.h"
+
 // Core reactive node and resource management
 #include "reaction/core/observer_node.h"
 #include "reaction/core/react.h"

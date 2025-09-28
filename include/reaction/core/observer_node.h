@@ -7,8 +7,13 @@
 
 #pragma once
 
+#include "reaction/concurrency/thread_manager.h"
 #include "reaction/core/types.h"
+#include <atomic>
 #include <memory>
+#include <mutex>
+#include <shared_mutex>
+#include <vector>
 
 namespace reaction {
 
@@ -56,7 +61,19 @@ public:
      * @param depth The new depth value to consider
      */
     void updateDepth(uint16_t depth) noexcept {
-        m_depth = std::max(depth, m_depth);
+        REACTION_REGISTER_THREAD();
+        if (ThreadManager::getInstance().isThreadSafetyEnabled()) {
+            // Use atomic compare-and-swap for thread-safe depth updates
+            uint16_t currentDepth = m_depth.load(std::memory_order_relaxed);
+            uint16_t newDepth = std::max(depth, currentDepth);
+            while (newDepth > currentDepth && 
+                   !m_depth.compare_exchange_weak(currentDepth, newDepth, std::memory_order_relaxed)) {
+                newDepth = std::max(depth, currentDepth);
+            }
+        } else {
+            // Single-threaded: direct assignment
+            m_depth.store(std::max(depth, m_depth.load(std::memory_order_relaxed)), std::memory_order_relaxed);
+        }
     }
 
     /**
@@ -80,15 +97,36 @@ public:
      * @param changed Whether the node's value has changed.
      */
     void notify(bool changed = true) {
-        for (auto &observer : m_observers) {
-            if (auto wp = observer.lock()) [[likely]]
-                wp->valueChanged(changed);
+        if (ThreadManager::getInstance().isThreadSafetyEnabled()) {
+            // Copy observers under lock to avoid holding lock during callbacks
+            std::vector<std::shared_ptr<ObserverNode>> observersCopy;
+            {
+                ConditionalSharedLock<ConditionalSharedMutex> lock(m_observersMutex);
+                observersCopy.reserve(m_observers.size());
+                for (auto &observer : m_observers) {
+                    if (auto wp = observer.lock()) [[likely]] {
+                        observersCopy.push_back(wp);
+                    }
+                }
+            }
+
+            // Notify observers outside of lock to avoid deadlocks
+            for (auto &observer : observersCopy) {
+                observer->valueChanged(changed);
+            }
+        } else {
+            // Single-threaded mode: no need to copy, direct iteration
+            for (auto &observer : m_observers) {
+                if (auto wp = observer.lock()) [[likely]]
+                    wp->valueChanged(changed);
+            }
         }
     }
 
 private:
-    uint16_t m_depth = 0; ///< Depth of the node in reactive chain.
-    NodeSet m_observers; ///< Direct observers of this node.
+    std::atomic<uint16_t> m_depth{0};               ///< Depth of the node in reactive chain.
+    mutable ConditionalSharedMutex m_observersMutex; ///< Conditional mutex for thread-safe observers access.
+    NodeSet m_observers;                             ///< Direct observers of this node.
     friend class ObserverGraph;
     friend struct BatchCompare;
 };
