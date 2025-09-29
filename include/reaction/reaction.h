@@ -33,7 +33,7 @@
 // Core reactive node and resource management
 #include "reaction/core/observer_node.h"
 #include "reaction/core/react.h"
-#include "reaction/core/resource.h"
+#include "reaction/core/resource_selector.h"
 
 // === Graph Management ===
 

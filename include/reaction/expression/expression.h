@@ -26,7 +26,7 @@
 #include "reaction/concurrency/thread_manager.h"
 #include "reaction/core/concept.h"
 #include "reaction/core/exception.h"
-#include "reaction/core/resource.h"
+#include "reaction/core/resource_selector.h"
 #include "reaction/expression/expression_builders.h"
 #include "reaction/expression/expression_types.h"
 #include "reaction/expression/operators.h"
@@ -64,7 +64,7 @@ class Expression;
  * @tparam TR   Triggering mode.
  */
 template <typename Type, IsTrigger TR>
-class CalcExprBase : public Resource<Type>, public TR {
+class CalcExprBase : public ResourceImpl<Type>, public TR {
 public:
     /**
      * @brief Sets the function source and its dependencies transactionally.
@@ -241,9 +241,9 @@ class Expression : public CalcExprBase<Type, TR> {
  * Allows manual setting and change detection.
  */
 template <typename Type, IsTrigger TR>
-class Expression<VarExpr, Type, TR> : public Resource<Type> {
+class Expression<VarExpr, Type, TR> : public ResourceImpl<Type> {
 public:
-    using Resource<Type>::Resource;
+    using ResourceImpl<Type>::ResourceImpl;
 
     template <typename T>
     void setValue(T &&t) {

@@ -22,6 +22,11 @@ if(benchmark_FOUND)
     target_link_libraries(bench_multi_thread PRIVATE benchmark::benchmark ${PROJECT_NAME} pthread)
     message(STATUS "Building multi-thread performance benchmarks")
 
+    add_executable(bench_sbo bench_sbo.cpp)
+    target_include_directories(bench_sbo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+    target_link_libraries(bench_sbo PRIVATE benchmark::benchmark ${PROJECT_NAME} pthread)
+    message(STATUS "Building SBO optimization benchmarks")
+
     if(rxcpp_FOUND)
         add_executable(bench_comparison bench_comparison.cpp)
         target_include_directories(bench_comparison PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../include)
