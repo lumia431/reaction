@@ -111,6 +111,24 @@ public:
         return this->m_ptr.get();
     }
 
+    /**
+     * @brief Check if Small Buffer Optimization is being used for this type.
+     * 
+     * @return false for the standard Resource implementation.
+     */
+    [[nodiscard]] static constexpr bool isUsingSBO() noexcept {
+        return false;
+    }
+
+    /**
+     * @brief Get the size of the storage being used.
+     * 
+     * @return Size in bytes (size of unique_ptr for standard implementation).
+     */
+    [[nodiscard]] static constexpr size_t getStorageSize() noexcept {
+        return sizeof(std::unique_ptr<Type>);
+    }
+
 protected:
     mutable ConditionalSharedMutex m_resourceMutex; ///< Conditional mutex for thread-safe resource access.
     std::unique_ptr<Type> m_ptr;                    ///< Unique pointer managing the resource.
@@ -136,6 +154,20 @@ public:
      */
     Void getValue() const noexcept {
         return Void{};
+    }
+
+    /**
+     * @brief Void specialization always uses "SBO" (no storage needed).
+     */
+    [[nodiscard]] static constexpr bool isUsingSBO() noexcept {
+        return true;
+    }
+
+    /**
+     * @brief Void has zero storage size.
+     */
+    [[nodiscard]] static constexpr size_t getStorageSize() noexcept {
+        return 0;
     }
 };
 
