@@ -95,7 +95,11 @@ Reaction 支持多线程，具有自动线程安全检测和单线程模式零�
 
 ## 🛠 安装
 
-构建并安装 `reaction` 响应式框架:
+---
+
+## 1. 从源码构建（手动安装）
+
+要手动构建并安装 **reaction** 响应式框架：
 
 ```bash
 git clone https://github.com/lumia431/reaction.git && cd reaction
@@ -103,10 +107,44 @@ cmake -S . -B build
 cmake --install build/ --prefix /your/install/path
 ```
 
-安装后，您可以在自己的 CMake 项目中包含并链接 reaction:
+安装完成后，你可以在自己的基于 CMake 的项目中这样使用 reaction：
 
 ```cmake
 find_package(reaction REQUIRED)
+target_link_libraries(your_target PRIVATE reaction)
+```
+
+---
+
+## 2. 使用 vcpkg（推荐方式）
+
+你也可以通过 **vcpkg** 安装 reaction，vcpkg 会自动处理依赖和 CMake 集成。
+
+### 安装 reaction
+
+```bash
+cd /path/to/vcpkg
+./vcpkg install reaction
+```
+
+### 将 vcpkg 集成到你的 CMake 项目
+
+在配置项目时指定 vcpkg 提供的 toolchain 文件：
+
+```bash
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake --build build
+```
+
+### 在 CMakeLists.txt 中使用 reaction
+
+```cmake
+find_package(reaction CONFIG REQUIRED)
+
+add_executable(my_app main.cpp)
+
+# 链接 vcpkg 提供的目标
+target_link_libraries(my_app PRIVATE reaction::reaction)
 ```
 
 ### 卸载
