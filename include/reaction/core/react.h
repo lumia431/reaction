@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <iostream>
 #include "reaction/concurrency/global_state.h"
 #include "reaction/concurrency/thread_manager.h"
 #include "reaction/core/exception.h"
@@ -123,23 +124,6 @@ public:
      * @param operation The operation to perform on the value.
      * @param alwaysChanged If true, always consider the operation as changing the value.
      */
-    template <typename F>
-    void atomicOperation(F &&operation, bool alwaysChanged = false) {
-        REACTION_REGISTER_THREAD();
-        bool changed = false;
-        {
-            ConditionalUniqueLock<ConditionalSharedMutex> lock(this->m_resourceMutex);
-            if (this->m_ptr) {
-                changed = operation(*this->m_ptr);
-                if (alwaysChanged) {
-                    changed = true;
-                }
-            }
-        } // Lock is automatically released here
-        if (!g_batch_execute && changed) {
-            this->notify(true);
-        }
-    }
 
 private:
     std::atomic<int> m_weakRefCount{0}; ///< Reference counter for weak lifetime tracking.

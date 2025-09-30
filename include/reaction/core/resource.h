@@ -10,26 +10,64 @@
 #include "reaction/concurrency/thread_manager.h"
 #include "reaction/core/exception.h"
 #include "reaction/core/observer_node.h"
+#include "reaction/memory/sbo_resource.h"
 #include <mutex>
 #include <shared_mutex>
 
 namespace reaction {
 
 /**
+ * @brief An empty struct to represent void type in Resource specialization.
+ */
+struct Void {};
+
+// Forward declaration of ResourceImpl
+template <typename Type>
+class ResourceImpl;
+
+/**
  * @brief A reactive resource wrapper managing a value of type Type.
  *
  * Inherits from ObserverNode, so it can participate in the reactive graph.
- * Wraps the resource in a std::unique_ptr to manage its lifetime.
+ * Automatically uses Small Buffer Optimization (SBO) when beneficial.
  *
  * @tparam Type The type of the resource to manage.
  */
 template <typename Type>
-class Resource : public ObserverNode {
+class Resource : public std::conditional_t<memory::SBOTraits<Type>::is_sbo_eligible,
+                                           memory::SBOResource<Type>,
+                                           ResourceImpl<Type>>
+{
+private:
+    using BaseType = std::conditional_t<memory::SBOTraits<Type>::is_sbo_eligible,
+                                        memory::SBOResource<Type>,
+                                        ResourceImpl<Type>>;
+
+public:
+    using BaseType::BaseType; // Inherit constructors
+
+    // Expose whether this instance is using SBO
+    [[nodiscard]] bool isUsingSBO() const noexcept {
+        if constexpr (memory::SBOTraits<Type>::is_sbo_eligible) {
+            return static_cast<const memory::SBOResource<Type> *>(this)->isUsingSBO();
+        } else {
+            return false;
+        }
+    }
+};
+
+/**
+ * @brief Traditional heap-based resource implementation.
+ *
+ * This is the fallback implementation when SBO is not beneficial or disabled.
+ */
+template <typename Type>
+class ResourceImpl : public ObserverNode {
 public:
     /**
      * @brief Default constructor initializes with nullptr.
      */
-    Resource() : m_ptr(nullptr) {
+    ResourceImpl() : m_ptr(nullptr) {
     }
 
     /**
@@ -39,15 +77,15 @@ public:
      * @param t The initialization value for the resource.
      */
     template <typename T>
-        requires(!std::is_same_v<std::remove_cvref_t<T>, Resource<Type>>)
-    Resource(T &&t) : m_ptr(std::make_unique<Type>(std::forward<T>(t))) {
+        requires(!std::is_same_v<std::remove_cvref_t<T>, ResourceImpl<Type>>)
+    ResourceImpl(T &&t) : m_ptr(std::make_unique<Type>(std::forward<T>(t))) {
     }
 
     // Delete copy constructor to avoid copying unique_ptr
-    Resource(const Resource &) = delete;
+    ResourceImpl(const ResourceImpl &) = delete;
 
     // Delete copy assignment operator to avoid copying unique_ptr
-    Resource &operator=(const Resource &) = delete;
+    ResourceImpl &operator=(const ResourceImpl &) = delete;
 
     /**
      * @brief Get a copy of the managed resource value in a thread-safe manner.
@@ -111,20 +149,59 @@ public:
         return this->m_ptr.get();
     }
 
+    /**
+     * @brief Generic atomic operation helper.
+     *
+     * @tparam F Operation function type (should take Type& and return bool indicating if changed).
+     * @param operation The operation to perform on the value.
+     * @param alwaysChanged If true, always consider the operation as changing the value.
+     */
+    template <typename F>
+    void atomicOperation(F &&operation, bool alwaysChanged = false) {
+        REACTION_REGISTER_THREAD();
+        bool changed = false;
+        {
+            ConditionalUniqueLock<ConditionalSharedMutex> lock(m_resourceMutex);
+            try {
+                // Direct access to avoid lock recursion
+                if (!m_ptr) {
+                    REACTION_THROW_RESOURCE_NOT_INITIALIZED("ResourceImpl");
+                }
+
+                changed = operation(*m_ptr);
+
+                if (alwaysChanged) {
+                    changed = true;
+                }
+            } catch (const std::runtime_error&) {
+                // Resource not initialized, treat as no change
+                changed = false;
+            }
+        } // Lock is automatically released here
+
+        // Trigger notifications like ReactImpl does
+        if (!g_batch_execute && changed) {
+            this->notify(true);
+        }
+    }
+
+    /**
+     * @brief Always returns false for heap-based ResourceImpl.
+     */
+    [[nodiscard]] bool isUsingSBO() const noexcept {
+        return false;
+    }
+
 protected:
     mutable ConditionalSharedMutex m_resourceMutex; ///< Conditional mutex for thread-safe resource access.
-    std::unique_ptr<Type> m_ptr;                    ///< Unique pointer managing the resource.
+    std::unique_ptr<Type> m_ptr;                    ///< Unique pointer managing the resource
 };
-
-/**
- * @brief An empty struct to represent void type in Resource specialization.
- */
-struct Void {};
 
 /**
  * @brief Specialization of Resource for Void type.
  *
  * Since Void contains no data, getValue simply returns a default constructed Void.
+ * Always uses SBO since no actual storage is needed.
  */
 template <>
 class Resource<Void> : public ObserverNode {
@@ -137,6 +214,39 @@ public:
     Void getValue() const noexcept {
         return Void{};
     }
+
+    /**
+     * @brief Always returns true for Void (no storage needed).
+     */
+    [[nodiscard]] bool isUsingSBO() const noexcept {
+        return true;
+    }
 };
 
 } // namespace reaction
+
+// Void specialization for SBOResource (placed here to avoid circular dependency)
+namespace reaction::memory {
+
+/**
+ * @brief Specialization for Void type (maintains original behavior).
+ */
+template <>
+class SBOResource<reaction::Void> : public ObserverNode {
+public:
+    /**
+     * @brief Return default Void value.
+     */
+    reaction::Void getValue() const noexcept {
+        return reaction::Void{};
+    }
+
+    /**
+     * @brief Always reports using SBO (no actual storage needed).
+     */
+    [[nodiscard]] bool isUsingSBO() const noexcept {
+        return true;
+    }
+};
+
+} // namespace reaction::memory
