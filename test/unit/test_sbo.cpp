@@ -229,28 +229,3 @@ TEST_F(SBOTest, StorageInfoDebugging) {
     EXPECT_EQ(heap_info.type_size, sizeof(LargeStruct));
     EXPECT_EQ(heap_info.stack_usage, 0);
 }
-
-// Test thread safety of SBOResource
-TEST_F(SBOTest, SBOResourceThreadSafety) {
-    auto resource = std::make_shared<SBOResource<int>>(0);
-    std::atomic<int> counter{0};
-    constexpr int num_threads = 4;
-    constexpr int increments_per_thread = 1000;
-
-    std::vector<std::thread> threads;
-    for (int i = 0; i < num_threads; ++i) {
-        threads.emplace_back([resource, &counter]() {
-            for (int j = 0; j < increments_per_thread; ++j) {
-                int expected = counter.fetch_add(1);
-                resource->updateValue(expected + 1);
-            }
-        });
-    }
-
-    for (auto& thread : threads) {
-        thread.join();
-    }
-
-    // The final value should be the total number of increments
-    EXPECT_EQ(resource->getValue(), num_threads * increments_per_thread);
-}

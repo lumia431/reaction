@@ -93,9 +93,13 @@ Comparative performance results against rxcpp and folly (tested on 2025-06-14):
 - **Compiler**: C++20 compatible (GCC 10+, Clang 12+, MSVC 19.30+)
 - **Build System**: CMake 3.15+
 
+---
+
 ## 🛠 Installation
 
-To build and install the `reaction` reactive framework, follow the steps below:
+### 1. From source (manual installation)
+
+To build and install the `reaction` reactive framework manually:
 
 ```bash
 git clone https://github.com/lumia431/reaction.git && cd reaction
@@ -107,6 +111,40 @@ After installation, you can include and link against reaction in your own CMake-
 
 ```cmake
 find_package(reaction REQUIRED)
+target_link_libraries(your_target PRIVATE reaction)
+```
+
+---
+
+### 2. Using vcpkg (recommended)
+
+You can also install `reaction` via **vcpkg**, which handles dependencies and CMake integration automatically.
+
+1. **Install reaction via vcpkg**:
+
+```bash
+cd /path/to/vcpkg
+./vcpkg install reaction
+```
+
+2. **Integrate vcpkg with your CMake project**:
+
+When configuring your project, specify the vcpkg toolchain file:
+
+```bash
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake --build build
+```
+
+3. **Use reaction in your CMakeLists.txt**:
+
+```cmake
+find_package(reaction CONFIG REQUIRED)
+
+add_executable(my_app main.cpp)
+
+# Link against the vcpkg-provided target
+target_link_libraries(my_app PRIVATE reaction::reaction)
 ```
 
 ### Uninstall
